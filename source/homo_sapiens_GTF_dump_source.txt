@@ -1,0 +1,16 @@
+ensembl_gtf_dump_dir=/mnt/Helium_8TB_1/2020_isoform_nomenclature/ensembl_GTF_dump/
+
+cd $ensembl_gtf_dump_dir
+
+# download GTF files from ensembl
+#for ensembl_release in $(ncftpls ftp://ftp.ensembl.org/pub | grep release\- | sed 's/pub\/release\-//g' | sed 's/\///g') ; \
+do wget -c "ftp://ftp.ensembl.org/pub/release-"$ensembl_release"/gtf/homo_sapiens/"$(ncftpls "ftp://ftp.ensembl.org/pub/release-"$ensembl_release"/gtf/homo_sapiens/" | grep $ensembl_release".gtf"*) & \
+done
+
+## use GNU parallel
+parallel --link --delay 1 --round-robin -N 1 'cd {1}; wget -c "ftp://ftp.ensembl.org/pub/release-"{2}"/gtf/homo_sapiens/"$(ncftpls "ftp://ftp.ensembl.org/pub/release-"{2}"/gtf/homo_sapiens/" | grep {2}".gtf"*)' \
+::: $ensembl_gtf_dump_dir \
+::: $(ncftpls ftp://ftp.ensembl.org/pub | grep release\- | sed 's/pub\/release\-//g' | sed 's/\///g')
+
+# unzip all files
+for file in $(ls *.gz); do gunzip $file & done
