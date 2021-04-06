@@ -27,7 +27,7 @@ options(future.globals.maxSize = 30000000000, future.fork.enable = TRUE)
 
 options(shiny.maxRequestSize = 1500*1024^2)
 
-setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 # tibble_ref_gtf <- rtracklayer::import(con = "data/latest_ensembl_GTF.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
 
@@ -2360,36 +2360,18 @@ server <- function(input, output) {
     observeEvent(input$import_GTF, {
 
         showModal(modalDialog(paste("Importing release ", input$genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-
-        observeEvent(reactive_tibble_ref_gtf(), {
-            
-            output$nomenclature_output <- renderPrint( { cat("Importing done.\n") })
-            
-            removeModal()
-            
-        } )
         
-    } )
-    
-    reactive_tibble_ref_gtf <- eventReactive(input$import_GTF, {
-
         # tibble_ref_gtf_hg18 <- vroom::vroom(file = "data/annotated_ensembl_gtf_release_54.txt", delim = "\t") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
-        import_tibble_ref_gtf <- read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        import_tibble_ref_gtf <- read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% return
         
-        # output$nomenclature_output <- renderPrint( { cat("Importing done.\n") })
-        # 
-        # removeModal()
+        reactive_tibble_ref_gtf <- reactive({import_tibble_ref_gtf %>% return})
         
-        return(import_tibble_ref_gtf)
+        output$nomenclature_output <- renderPrint( { cat("Importing done.\n") })
+        
+        removeModal()
         
     } )
-    
-    # observeEvent(input$import_GTF, {
-    #     
-    #     showModal(modalDialog(paste("Importing release ", input$genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-    #     
-    # } )
     
     observeEvent(input$button_execute, {
         
