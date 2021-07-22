@@ -2091,7 +2091,7 @@ ui <- fluidPage(
     
     fluidRow(
         
-        column(5,
+        column(3,
                
                # Application title
                titlePanel("EDN workshop"),
@@ -2113,10 +2113,10 @@ ui <- fluidPage(
                            choices = list("NCBI36 (hg18)" = "54",
                                           "GRCh37 (hg19)" = "75",
                                           "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character)
-                           ),
+               ),
                
                actionButton("import_GTF", "Import genome assembly", icon = icon("file-import"),
-                            class = "btn btn-primary", width = "300px"),
+                            class = "btn btn-primary", width = "200px"),
                
                # magnetisation options required
                radioButtons("set_tolerances", label = "Tweak match tolerances",
@@ -2124,19 +2124,19 @@ ui <- fluidPage(
                             selected = 1),
                conditionalPanel(
                    condition = "input.set_tolerances == 'yes'",
-                   textInput("left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0")
+                   textInput("left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "0")
                ),
                conditionalPanel(
                    condition = "input.set_tolerances == 'yes'",
-                   textInput("right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0")
+                   textInput("right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "0")
                ),
                conditionalPanel(
                    condition = "input.set_tolerances == 'yes'",
-                   textInput("left_match_tolerance", label = "Left (5') match tolerance (default = 0)", value = 1, placeholder = "e.g. 0")
+                   textInput("left_match_tolerance", label = "Left (5') match tolerance (default = 0)", value = 1, placeholder = "1")
                ),
                conditionalPanel(
                    condition = "input.set_tolerances == 'yes'",
-                   textInput("right_match_tolerance", label = "Right (3') match tolerance (default = 0)", value = 1, placeholder = "e.g. 0")
+                   textInput("right_match_tolerance", label = "Right (3') match tolerance (default = 0)", value = 1, placeholder = "1")
                ),
                
                # STRATEGY: 
@@ -2146,14 +2146,17 @@ ui <- fluidPage(
                
                textInput("input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+"),
                
+               textInput("xscale", label = "x-scale", placeholder = "1.5"),
+               
                mainPanel(
-                   uiOutput('reactive_UI_1'),
-                   uiOutput('reactive_UI_2'),
+                   uiOutput('reactive_UI_1')
+                   # ,
+                   # uiOutput('reactive_UI_2')
                ),
                
         ),
         
-        column(7,
+        column(9,
                
                div(style = "display:inline-block;
         box-shadow: 0px 0px 0px #888888;
@@ -2187,6 +2190,12 @@ ui <- fluidPage(
                
                br(),
                
+               plotOutput("plot1", height = 300,
+                          dblclick = "plot1_dblclick",
+                          brush = brushOpts(
+                              id = "plot1_brush",
+                              resetOnNew = TRUE
+                          ))
                
         )
         
@@ -2226,152 +2235,55 @@ server <- function(input, output) {
         
     } ) # renderUI
     
-    output$reactive_UI_2 <- renderUI( {
-        
-        
-        
-        
-        
-        
-        # TEST ###
-        input_chr <- 16
-        input_start <- 2756607
-        input_end <- 2757471
-        input_strand <- "+"
-        
-        magnification <- 0.25
-        
-        view_range_start <- input_start - magnification*(input_end - input_start)
-        view_range_end <- input_end + magnification*(input_end - input_start)
-        
-        tibble_captured_in_range <- import_tibble_ref_gtf[which(import_tibble_ref_gtf$seqnames == input_chr & import_tibble_ref_gtf$start <= view_range_end & import_tibble_ref_gtf$end >= view_range_start & import_tibble_ref_gtf$strand == input_strand), ]
-        
-        tibble_captured_in_range$panel <- "transcripts"
-        
-        # create tibble that has the user input ranges
-        tibble_user_ranges <- tibble(
-            "id" = 1,
-            "chr" = input_chr,
-            "start" = input_start,
-            "end" = input_end,
-            "strand" = input_strand,
-            "type" = input$range_type
-        ) %>%
-            dplyr::add_row("id" = 2,
-                           "chr" = input_chr,
-                           "start" = input_start,
-                           "end" = input_end,
-                           "strand" = input_strand,
-                           "type" = input$range_type)
-        
-        tibble_user_ranges$panel <- "user_ranges"
-        
-        # list_tibble_transcripts_in_range <- tibble_captured_in_range %>% dplyr::filter(type == "transcript") %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id) %>% unlist)
-        
-        # list_tibble_exons_in_range <- purrr::map(.x = list_tibble_transcripts_in_range, .f = ~tibble_captured_in_range[which(tibble_captured_in_range$transcript_id == .x)], )
-        ##########
-        
-        ggplot() +
-            facet_grid(panel ~ ., scales = "free_y") +
-            
-            # transcripts
-            geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
-            geom_text(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(view_range_start, view_range_end)), y = transcript_id, label = hgnc_stable_variant_ID)) +
-            geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
-            geom_text(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.25, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
-            
-            # user ranges
-            geom_curve(data = tibble_user_ranges[tibble_user_ranges$type == "junction", ], colour = "black", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-            geom_segment(data = tibble_user_ranges[tibble_user_ranges$type == "exon", ], colour = "black", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-            
-            coord_cartesian(xlim = c(view_range_start, view_range_end)) +
-            scale_y_discrete(limits = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
-                      
-                      
-                      
-                      +
-            ggtitle(paste("Volcano Plot for PSI-Sigma/DEXSeq", sep = "\n")) +
-            guides(size = FALSE) + 
-            xlab(expression(log[2](Fold~Change))) +
-            # (P[BH])
-            ylab(expression(-log[10](P[BH]))) +
-            geom_hline(yintercept = -log10(0.01), col = "red", lty = 2) + 
-            geom_vline(xintercept = -log2(1), col = "red", lty = 2) + 
-            geom_vline(xintercept = log2(1), col = "red", lty = 2) +
-            theme_bw() +
-            theme(text = element_text(family = "Helvetica")) +
-            ggsave(filename = paste(DEXSeq_dir, "DEXSeq_volcanoplot_", a2, ".pdf", sep = ""), device = "pdf", dpi = 600, width = 12, height = 15, units = "cm") +
-            ggsave(filename = paste(DEXSeq_dir, "DEXSeq_volcanoplot_", a2, ".svg", sep = ""), device = "svg", dpi = 600, width = 12, height = 15, units = "cm")
-        
-        
-        
-        
-        
-        
-        if (input$range_type == "Variable Splice Region (VSR)") {
-            
-            reactive_VSR_number_of_exons_for_each_LIV <- reactive({
-                
-                purrr::map(
-                    .x = 1:input$alternative_region_number_of_independent_events,
-                    .f = ~input[[paste("VSR_number_of_exons_for_LIV_", .x, sep = "")]])
-                
-            })
-            
-            # finishing off the VSR options...
-            # after use has entered the number of exons for each LIV,
-            # then map across each LIV, creating textbox options for co-ordinates of exons
-            
-            purrr::imap(
-                .x = reactive_VSR_number_of_exons_for_each_LIV(),
-                .f = function(a1, a2) {
-                    
-                    number_of_exons <- a1 %>% paste %>% type.convert
-                    
-                    purrr::imap(
-                        .x = 1:number_of_exons,
-                        .f = function(b1, b2) {
-                            
-                            textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIV_number_", a2, sep = ""),
-                                      label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in LIV #", a2, sep = ""),
-                                      placeholder = "16:2756334-2756606")
-                            
-                            # print(b1)
-                            # print(b2)
-                            
-                            # print(a1)
-                            # print(a2)
-                            
-                        } )
-                    
-                } )
-            
-        }
-        
-    } )
-    
-    # set GTF according to genome assembly version
-    
-    # observeEvent(input$import_GTF, { 
+    # output$reactive_UI_2 <- renderUI( {
     #     
-    #     output$nomenclature_output <- renderPrint( { cat(paste("Importing release", input$genome_assembly, ". Please wait...\n", sep = "")) })
+    #     
+    #     if (input$structure_type == "Variable Splice Region (VSR)") {
+    #         
+    #         reactive_VSR_number_of_exons_for_each_LIV <- reactive({
+    #             
+    #             purrr::map(
+    #                 .x = 1:input$alternative_region_number_of_independent_events,
+    #                 .f = ~input[[paste("VSR_number_of_exons_for_LIV_", .x, sep = "")]])
+    #             
+    #         })
+    #         
+    #         # finishing off the VSR options...
+    #         # after use has entered the number of exons for each LIV,
+    #         # then map across each LIV, creating textbox options for co-ordinates of exons
+    #         
+    #         purrr::imap(
+    #             .x = reactive_VSR_number_of_exons_for_each_LIV(),
+    #             .f = function(a1, a2) {
+    #                 
+    #                 number_of_exons <- a1 %>% paste %>% type.convert
+    #                 
+    #                 purrr::imap(
+    #                     .x = 1:number_of_exons,
+    #                     .f = function(b1, b2) {
+    #                         
+    #                         textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIV_number_", a2, sep = ""),
+    #                                   label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in LIV #", a2, sep = ""),
+    #                                   placeholder = "16:2756334-2756606")
+    #                         
+    #                         # print(b1)
+    #                         # print(b2)
+    #                         
+    #                         # print(a1)
+    #                         # print(a2)
+    #                         
+    #                     } )
+    #                 
+    #             } )
+    #         
+    #     }
     #     
     # } )
     
-    # tibble_ref_gtf <- read.delim(file = paste("/mnt/Helium_8TB_1/2020_isoform_nomenclature/nomenclature_app/app_native/extended_delta_generator/data/annotated_ensembl_gtf_release_102.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
-    
-    # output$nomenclature_output <- renderPrint( {
-    
-    # reactive_tibble_ref_gtf <- reactive( {
-    #     read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% return
-    #     } )
-    # 
-    # } )
-
     observeEvent(input$import_GTF, {
-
+        
         showModal(modalDialog(paste("Importing release ", input$genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-
+        
         observeEvent(reactive_tibble_ref_gtf(), {
             
             output$nomenclature_output <- renderPrint( { cat("Importing done.\n") })
@@ -2383,10 +2295,12 @@ server <- function(input, output) {
     } )
     
     reactive_tibble_ref_gtf <- eventReactive(input$import_GTF, {
-
-        # import_tibble_ref_gtf <- read.delim(file = paste("/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_assembler/data/annotated_ensembl_gtf_release_102.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
-        import_tibble_ref_gtf <- read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        # tibble_ref_gtf_hg18 <- vroom::vroom(file = "data/annotated_ensembl_gtf_release_54.txt", delim = "\t") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        
+        # import_tibble_ref_gtf <- read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        
+        import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
         # output$nomenclature_output <- renderPrint( { cat("Importing done.\n") })
         # 
@@ -2396,414 +2310,206 @@ server <- function(input, output) {
         
     } )
     
-    # observeEvent(input$import_GTF, {
-    #     
-    #     showModal(modalDialog(paste("Importing release ", input$genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-    #     
-    # } )
+    reactive_base_magnification <- reactive({input$xscale})
     
-    observeEvent(input$button_execute, {
+    # observeEvent(input$button_execute, {
+    
+    output$plot1 <- renderPlot( {
         
-        showModal(modalDialog(paste("Calculating nomenclature... \n", sep = ""), footer = NULL))
+        # TEST ###
+        # vector_input_range <- "3:11807833-11809682:*"
+        # input_chr <- "3"
+        # input_start <- 11807833
+        # input_end <- 11809682
+        # input_strand <- "*"
         
         tibble_ref_gtf <- reactive_tibble_ref_gtf()
         
-        # PROCESS INPUTS ####
-        input_left_query_end_shift <- input$left_query_end_shift %>% type.convert
-        input_right_query_end_shift <- input$right_query_end_shift %>% type.convert
-        input_left_match_tolerance <- input$left_match_tolerance %>% type.convert
-        input_right_match_tolerance <- input$right_match_tolerance %>% type.convert
+        triage_input_coordinates(vector_input_coordinates = input$input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
         
-        input_full_length_recon_gtf <- input$full_length_recon_gtf
-        input_range_type <- input$range_type
-        input_alternative_exon_coords <- input$alternative_exon_coords
-        input_alternative_junc_coords <- input$alternative_junc_coords
+        input_chr <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
+        input_start <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
+        input_end <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
+        input_strand <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
         
-        input_alternative_event_region <- input$alternative_event_region
         
-        input_range_type <- input$range_type
         
-        # invoke FLI/GTF pipeline
-        if (input_range_type == "Upload assembled transcriptome (GTF)") {
-            
-            # DEBUG ###
-            # path_recon_GTF <- "/mnt/Tertiary/sharedfolder/PGNEXUS_kassem_MSC/Kassem_OB/analysis_strawberry/results_assemblyonly/BM_MSC_to_OB_12d_r1_denovo_reconstructed_transcriptome.gtf"
-            
-            # tibble_FLI_chr_start_end_strand <- rtracklayer::import(con = "/mnt/Tertiary/sharedfolder/PGNEXUS_kassem_MSC/Kassem_OB/analysis_strawberry/results_assemblyonly/BM_MSC_to_OB_12d_r1_denovo_reconstructed_transcriptome.gtf", format = "gtf") %>% as_tibble %>% .[.$transcript_id == "BM_MSC_to_OB_12d_r1_Aligned.2.1" & .$type == "exon", ] %>% dplyr::rename("chr" = "seqnames") %>% dplyr::mutate_if(is.factor, as.character)
-            #
-            # input_left_query_end_shift <- 0
-            # input_right_query_end_shift <- 0
-            # input_left_match_tolerance <- 1
-            # input_right_match_tolerance <- 1
-            # ncores <- "2x32"
-            ###########
-            
-                path_recon_GTF <- input$path_full_length_recon_gtf$datapath
-                
-                
-                output$nomenclature_output <- renderPrint( {
-                # manage parrallellisation
-                ncores <- input$ncores
-                
-                if (ncores != 1) {
-                    
-                    if (grepl(x = ncores, pattern = "x") == FALSE) {
-                        
-                        if (ncores != 0) {
-                            number_of_workers <- ncores
-                            cat(future::availableCores(), "cores will be used\n")
-                        } else {
-                            number_of_workers <- future::availableCores()
-                            cat(future::availableCores(), "cores will be used\n")
-                        }
-                        
-                    } else if (grepl(x = ncores, pattern = "x") == TRUE) {
-                        
-                        plan(list(tweak(multiprocess, workers = min(ncores %>% strsplit(split = "x") %>% unlist %>% .[1] %>% type.convert, Inf), gc = TRUE),
-                                  tweak(multiprocess, workers = min(ncores %>% strsplit(split = "x") %>% unlist %>% .[2] %>% type.convert, Inf), gc = TRUE))
-                        )
-                        
-                        cat((ncores %>% strsplit(split = "x") %>% unlist %>% .[1] %>% type.convert) * (ncores %>% strsplit(split = "x") %>% unlist %>% .[2] %>% type.convert), "cores will be used in total\n")
-                        cat("first layer:", ncores %>% strsplit(split = "x") %>% unlist %>% .[1] %>% type.convert, "cores\n")
-                        cat("second layer:", ncores %>% strsplit(split = "x") %>% unlist %>% .[2] %>% type.convert, "cores\n")
-                        
-                    }
-                    
-                }
-                
-                } )
-                
-                tibble_FLI_chr_start_end_strand <- rtracklayer::import(con = path_recon_GTF, format = "gtf") %>% .[.$type == "exon", ] %>% as_tibble %>% dplyr::rename("chr" = "seqnames") %>% dplyr::mutate_if(is.factor, as.character) %>% head(n = 50000)
-                # remove chrX... etc if required
-                tibble_FLI_chr_start_end_strand$chr <- gsub(x = tibble_FLI_chr_start_end_strand$chr, pattern = "chr(.*)", replacement = "\\1")
-                # change chromosome M to MT.
-                tibble_FLI_chr_start_end_strand[tibble_FLI_chr_start_end_strand$chr == "M", "chr"] <- "MT"
-                
-                # list-ify reference GTF by choromosome
-                list_tibble_ref_gtf_by_chr <- tibble_ref_gtf %>%
-                    dplyr::group_split(seqnames) %>%
-                    set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$seqnames %>% unique) %>% unlist)
-                # list-ify FLI table by chromosome
-                list_FLI_table_by_chr <- tibble_FLI_chr_start_end_strand %>%
-                    dplyr::group_split(chr) %>%
-                    set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$chr %>% unique) %>% unlist)
-                # list-ify again by transcript_id
-                list_FLI_table_by_chr_by_transcript_id <- purrr::map(
-                    .x = list_FLI_table_by_chr,
-                    .f = function(a1) {
-                        
-                        return(a1 %>%
-                                   dplyr::group_split(transcript_id) %>%
-                                   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist))
-                        
-                    } )
-                
-                output$nomenclature_output <- renderPrint( { cat("naming each transcript in the GTF...\n") })
-                
-                reactive_tibble_nomenclature <- reactive({
-                    
-                    suppressMessages(suppressWarnings(    # execute naming in parallel
-                        list_nomenclature <- furrr::future_map2(
-                            .x = list_FLI_table_by_chr_by_transcript_id,
-                            .y = list_tibble_ref_gtf_by_chr[names(list_FLI_table_by_chr_by_transcript_id)],
-                            .f = function(a1, a2){
-                                
-                                list_nomenclature_by_chr <- furrr::future_map2(
-                                    .x = a1,
-                                    .y = names(a1),
-                                    .f = function(b1, b2) {
-                                        
-                                        # cat(b2, "\n")
-                                        
-                                        FLI_organise_matching(b1, tibble_gtf_table = a2, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance) %>%
-                                            return
-                                        
-                                    } )
-                                
-                            } )
-                        
-                    ))
-                    
-                    tibble_nomenclature <- list_nomenclature %>% flatten %>% flatten %>% as_tibble(.name_repair = "unique") %>% t %>% as_tibble(rownames = "transcript_id") %>% setNames(c("transcript_id", "shorthand"))
-                    
-                    return(tibble_nomenclature)
-                    
-                }) 
-                
-                # percolate and tibblise
-                output$named_GTF_entries <- renderTable(reactive_tibble_nomenclature())
-                
-                output$nomenclature_output <- renderPrint( { cat("Naming done. Click below to download results.\n") } )
-                
-                # make tibble available for download
-                output$download_GTF_naming <- downloadHandler(
-                    filename = function() {
-                        paste(Sys.time() %>% as.numeric, ".tab", sep = "")
-                    },
-                    content = function(file) {
-                        write.table(reactive_tibble_nomenclature(), file, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
-                    } )
-            
-            # invoke FLI/manual pipeline
-        } else if (input_range_type == "Manually enter exon co-ordinates") {
-            
-            reactive_FLI_exon_genome_relative_coordinates <- reactive({
-                
-                purrr::map(.x = 1:input$full_length_number_of_exons, .f = ~input[[paste("full_length_exon_genome_relative_coordinate_", .x, sep = "")]])
-                
-            })
-            
-            vector_FLI_exon_genome_relative_coordinates <- reactive_FLI_exon_genome_relative_coordinates() %>% unlist
-            
-            # cat(vector_FLI_exon_genome_relative_coordinates)
-            
-            # DEBUG ###
-            # SRRM2-v1 as is
-            # vector_FLI_exon_genome_relative_coordinates <- c("16:2752638-2752846:+", "16:2756334-2756606:+", "16:2757472-2757579:+", "16:2757781-2757945:+", "16:2758470-2758547:+", "16:2758985-2759047:+", "16:2759140-2759172:+", "16:2759352-2759402:+", "16:2759569-2759661:+", "16:2760301-2760499:+", "16:2761561-2768261:+", "16:2768997-2769284:+", "16:2770352-2770465:+", "16:2770604-2770717:+", "16:2770858-2771412:+")
-            # with stuff changed
-            # vector_FLI_exon_genome_relative_coordinates <- c("16:2752638-2752846:+", "16:2756304-2756606:+", "16:2757472-2757584:+", "16:2757801-2757850:+", "16:2758470-2758547:+", "16:2758985-2759047:+", "16:2759140-2759172:+", "16:2759352-2759402:+", "16:2760301-2760499:+", "16:2761561-2768261:+", "16:2768997-2770465:+", "16:2770604-2770717:+", "16:2770858-2771412:+")
-            # vector_FLI_exon_genome_relative_coordinates <- "1:39340502-39340717"
-            #
-            # input_left_query_end_shift <- 0
-            # input_right_query_end_shift <- 0
-            # input_left_match_tolerance <- 0
-            # input_right_match_tolerance <- 0
-            ###########
-            
-            output$nomenclature_output <- renderText( {
-                
-                triage_input_coordinates(vector_input_coordinates = vector_FLI_exon_genome_relative_coordinates %>% unlist, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-                
-                # create tibble of chr start end strand
-                vector_isoform_chr <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                vector_isoform_start <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                vector_isoform_end <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                vector_isoform_strand <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-                
-                tibble_FLI_chr_start_end_strand <- tibble("chr" = vector_isoform_chr,
-                                                          "start" = vector_isoform_start,
-                                                          "end" = vector_isoform_end,
-                                                          "strand" = vector_isoform_strand) %>% type_convert
-                
-                # observeEvent(input$button_execute, {
-                
-                
-                paste("Suggested shorthand notation: \n", FLI_organise_matching(tibble_FLI_chr_start_end_strand, tibble_gtf_table = tibble_ref_gtf, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance), "\n", sep = "") 
-                
-            } )
-            
-            # })
-            
-            # invoke VSR pipeline
-        } else if (input_range_type == "Variable Splice Region (VSR)") {
-            
-            reactive_VSR_number_of_exons_for_each_LIV <- reactive({
-                
-                purrr::map(
-                    .x = 1:input$alternative_region_number_of_independent_events,
-                    .f = ~input[[paste("VSR_number_of_exons_for_LIV_", .x, sep = "")]])
-                
-            } )
-            
-            reactive_VSR_exon_genome_relative_coordinates <- reactive({
-                
-                purrr::imap(
-                    .x = reactive_VSR_number_of_exons_for_each_LIV(),
-                    .f = function(a1, a2) {
-                        number_of_exons <- a1 %>% paste %>% type.convert
-                        
-                        purrr::imap(
-                            .x = 1:number_of_exons,
-                            .f = function(b1, b2) {
-                                
-                                input[[paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIV_number_", a2, sep = "")]]
-                                
-                            } )
-                        
-                    } )
-                
-            } )
-            
-            list_of_VSR_exon_genome_relative_coordinates <- reactive_VSR_exon_genome_relative_coordinates()
-            
-            # DEBUG ###
-            # input_alternative_event_region <- "4:82425668-82426036:*"
-            # list_of_VSR_exon_genome_relative_coordinates <- list("4:82425668-82426036:*", "4:82424884-82426036:*", "4:82424884-82425562:*")
-            # 
-            # input_left_query_end_shift <- 0
-            # input_right_query_end_shift <- 0
-            # input_left_match_tolerance <- 1
-            # input_right_match_tolerance <- 1
-            ###########
-            
-            triage_input_coordinates(vector_input_coordinates = input_alternative_event_region, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE) 
-            triage_input_coordinates(vector_input_coordinates = list_of_VSR_exon_genome_relative_coordinates %>% unlist, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-            
-            output$nomenclature_output <- renderText( {
-                
-                # create list of tibble of exon start/ends
-                list_of_exon_start_end_tibbles <- purrr::map(
-                    .x = list_of_VSR_exon_genome_relative_coordinates,
-                    .f = function(a1) {
-                        
-                        vector_exon_coords <- a1 %>% unlist
-                        
-                        # vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                        # vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                        # vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                        # vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-                        return(tibble("start" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2"),
-                                      "end" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")) %>% type_convert)
-                        
-                    } )
-                
-                paste("Suggested shorthand notation: \n", VSR_LIV_organise_exon_rematching(VSR_coordinates = input_alternative_event_region, list_tibble_exon_start_end_per_LIV = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance), "\n", sep = "") 
-                
-            })
-            
-            # invoke VSR pipeline
-        } else if (input$range_type == "Local Isoform Variant (LIV)") {
-            
-            reactive_LIV_exon_genome_relative_coordinates <- reactive({
-                
-                purrr::map(.x = 1:input$LIV_number_of_exons, .f = ~input[[paste("LIV_exon_genome_relative_coordinate_", .x, sep = "")]])
-                
-            })
-            
-            vector_LIV_exon_genome_relative_coordinates <- reactive_LIV_exon_genome_relative_coordinates() %>% unlist
-            
-            # DEBUG ###
-            # input_alternative_event_region <- "9:137613615-137614211:*"
-            # list_of_LIV_exon_genome_relative_coordinates <- list(c("9:137613770-137614031:*", "9:137613770-137614139:*", "9:137613770-137613980:*"))
-            #
-            # input_left_query_end_shift <- 0
-            # input_right_query_end_shift <- 0
-            # input_left_match_tolerance <- 0
-            # input_right_match_tolerance <- 0
-            ###########
-            
-            output$nomenclature_output <- renderText( { 
-                
-                triage_input_coordinates(vector_input_coordinates = input_alternative_event_region, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-                triage_input_coordinates(vector_input_coordinates = vector_LIV_exon_genome_relative_coordinates, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE) 
-                
-                # observeEvent(input$button_execute, {
-                
-                # create list of tibble of exon start/ends
-                list_of_exon_start_end_tibbles <- purrr::map(
-                    .x = list(vector_LIV_exon_genome_relative_coordinates),
-                    .f = function(a1) {
-                        
-                        # vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                        # vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                        # vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                        # vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-                        return(tibble("start" = gsub(x = a1, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2"),
-                                      "end" = gsub(x = a1, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")) %>% type_convert)
-                        
-                    } )
-                
-                paste("Suggested shorthand notation: \n", VSR_LIV_organise_exon_rematching(VSR_coordinates = input_alternative_event_region, list_tibble_exon_start_end_per_LIV = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance), "\n", sep = "")
-                
-            })
-            
-            # invoke single exon pipeline
-        } else if (input_range_type == "Alternative exon") {
-            
-            # DEBUG ###
-            # input_alternative_exon_coords <- "1:155309077-155309788:*"
-            #
-            # input_left_query_end_shift <- 0
-            # input_right_query_end_shift <- 0
-            # input_left_match_tolerance <- 1
-            # input_right_match_tolerance <- 1
-            ###########
-            
-            output$nomenclature_output <- renderText( {
-                
-                triage_input_coordinates(vector_input_coordinates = input_alternative_exon_coords, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-                
-                AE_query_chr <- gsub(x = input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                AE_query_start <- gsub(x = input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                AE_query_end <- gsub(x = input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                AE_query_strand <- gsub(x = input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-                
-                match_result <- name_a_single_exon(query_chr = AE_query_chr, query_start = AE_query_start %>% type.convert, query_end = AE_query_end %>% type.convert, query_strand = AE_query_strand, tibble_gtf_table = tibble_ref_gtf, variant_ID_override = NULL, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance)
-                
-                paste("Suggested shorthand notation: \n", match_result$variant_ID_slot, " ", match_result$exon_slot, "\n", sep = "") 
-                
-            })
-            
-        } else if (input_range_type == "Local Splice Variation (LSV) (junctions only)") {
-            
-            reactive_LSV_junction_genome_relative_coordinates <- reactive({
-                
-                purrr::map(.x = 1:input$alternative_region_number_of_independent_events, .f = ~input[[paste("LSV_junction_genome_relative_coordinate_", .x, sep = "")]])
-                
-            })
-            
-            vector_LSV_junction_genome_relative_coordinates <- reactive_LSV_junction_genome_relative_coordinates() %>% unlist
-            
-            # DEBUG ###
-            # tibble_LSV_chr_start_end_strand <- tibble(chr = c("1", "1", "1", "1", "1", "1"), start = c(150267478, 150267789, 150267991, 150268127, 150267478, 150267789), end = c(150268696, 150268696, 150268696, 150268696, 150267714, 150267955), strand = c("-", "-", "-", "-", "-", "-"))
-            # left_query_shift <- 0
-            # right_query_shift <- 0
-            # left_tolerance <- 1
-            # right_tolerance <- 1
-            ###########
-            
-            output$nomenclature_output <- renderText( {
-                
-                triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-                
-                LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-                
-                # create list of tibble of junction start/ends
-                tibble_LSV_chr_start_end_strand <- tibble("chr" = LSV_query_chr, "start" = LSV_query_start, "end" = LSV_query_end, "strand" = LSV_query_strand) %>% type_convert
-                
-                paste("Suggested shorthand notation: \n", LSV_AJ_organise_junction_matching(tibble_LSV_coords = tibble_LSV_chr_start_end_strand, tibble_gtf_table = tibble_ref_gtf, single_junction = FALSE, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance), "\n", sep = "")
-                
-            })
-            
-        } else if (input_range_type == "Alternative junction") {
-            
-            vector_LSV_junction_genome_relative_coordinates <- input_alternative_junc_coords
-            
-            output$nomenclature_output <- renderText( {
-                
-                triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
+        base_magnification <- reactive_base_magnification() %>% as.numeric
+        
+        output$nomenclature_output <- renderText(base_magnification)
+        
+        # view_range_start <- input_start - base_magnification*(input_end - input_start)
+        # view_range_end <- input_end + base_magnification*(input_end - input_start)
+        # 
+        # tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= view_range_end & tibble_ref_gtf$end >= view_range_start & tibble_ref_gtf$strand %in% input_strand), ]
+        # 
+        # tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
+        # 
+        # tibble_captured_in_range$panel <- "transcripts"
+        
+        tibble_user_ranges <- tibble(
+            "id" = integer(0),
+            "chr" = character(0),
+            "start" = integer(0),
+            "end" = integer(0),
+            "strand" = character(0),
+            "range_type" = character(0)
+        )
+        
+        
+        tibble_user_ranges <- tibble_user_ranges %>%
+            dplyr::add_row("id" = nrow(.) + 1,
+                           "chr" = input_chr,
+                           "start" = input_start,
+                           "end" = input_end,
+                           "strand" = input_strand,
+                           "range_type" = input$range_type)
+        
+        tibble_user_ranges$panel <- "user_ranges"
+        
+        # create tibble that draws vertical lines matching user range to reference features ###
+        tibble_selected_range <- tibble_user_ranges[tibble_user_ranges$id == nrow(tibble_user_ranges), ]
+        
+        selected_chr <- tibble_selected_range$chr
+        selected_start <- tibble_selected_range$start
+        selected_end <- tibble_selected_range$end
+        selected_strand <- tibble_selected_range$strand
+        
+        if (selected_strand == "*") {
+            selected_strand <- c("+", "-")
+        }
+        
+        # snap range to the selected item
+        view_range_start <- selected_start - base_magnification*(selected_end - selected_start)
+        view_range_end <- selected_end + base_magnification*(selected_end - selected_start)
+        
+        # plot shenanigans
+        tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= view_range_end & tibble_ref_gtf$end >= view_range_start & tibble_ref_gtf$strand %in% selected_strand), ]
+        
+        tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
+        
+        tibble_captured_in_range$panel <- "transcripts"
+        
+        tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_chr, query_start = selected_start, query_end = selected_end, query_strand = tibble_selected_range$strand, tibble_gtf_table = tibble_ref_gtf, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, return_type = "transcript")
+        
+        tibble_all_exons_of_overlapped_parent_transcript <- tibble_ref_gtf[which(tibble_ref_gtf$type == "exon" & tibble_ref_gtf$transcript_id %in% (tibble_ref_transcripts_overlapped_by_user_query$transcript_id %>% unique)), ]
+        
+        tibble_distance_annotations_based_on_user_query <- purrr::map2(
+            # overlapping transcript entries
+            .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id),
+            # exons belonging to the transcript
+            .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist],
+            .f = function(a1, a2) {
                 
                 # DEBUG ###
-                # vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
-                # input_left_query_end_shift <- 0
-                # input_right_query_end_shift <- 0
-                # input_left_match_tolerance <- 1
-                # input_right_match_tolerance <- 1
+                # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% .[[2]]
+                # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist] %>% .[[2]]
                 ###########
                 
-                LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-                LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-                LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-                LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+                vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
                 
-                # create list of tibble of junction start/ends
-                tibble_LSV_chr_start_end_strand <- tibble("chr" = LSV_query_chr, "start" = LSV_query_start, "end" = LSV_query_end, "strand" = LSV_query_strand) %>% type_convert
+                # strategy: grow left and right ends of the user vertices until it touches a vertex. 
+                left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices < selected_start] %>% max
+                right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices > selected_start] %>% min
+                left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices < selected_end] %>% max
+                right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices > selected_end] %>% min
                 
-                paste("Suggested shorthand notation: \n", LSV_AJ_organise_junction_matching(tibble_LSV_coords = tibble_LSV_chr_start_end_strand, tibble_gtf_table = tibble_ref_gtf, single_junction = TRUE, left_query_shift = input_left_query_end_shift, right_query_shift = input_right_query_end_shift, left_tolerance = input_left_match_tolerance, right_tolerance = input_right_match_tolerance), "\n", sep = "") 
+                tibble_vertices_with_distances <- tibble(
+                    "transcript_id" = a1$transcript_id %>% unique,
+                    "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
+                    "query_vertex" = c(selected_start, selected_start, selected_end, selected_end)
+                ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
                 
-            })
+                # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
+                if (left_ref_vertex_grown_from_user_query_end < selected_start) {
+                    tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == left_ref_vertex_grown_from_user_query_end & tibble_vertices_with_distances$query_vertex == selected_end), ]
+                }
+                
+                if (right_ref_vertex_grown_from_user_query_start > selected_end) {
+                    tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == right_ref_vertex_grown_from_user_query_start & tibble_vertices_with_distances$query_vertex == selected_start), ]
+                }
+                
+                return(tibble_vertices_with_distances)
+                
+            } ) %>% dplyr::bind_rows()
+        
+        # make the distances directional
+        tibble_distance_annotations_based_on_user_query <- tibble_distance_annotations_based_on_user_query %>% 
+            dplyr::mutate("ref_vertex_minus_query_vertex" = purrr::map(.x = `ref_vertex_minus_query_vertex`, .f = function(x) {
+                
+                if (x < 0) {
+                    return(paste(abs(x), ">", sep = ""))
+                } else if (x > 0) {
+                    return(paste("<", abs(x), sep = ""))
+                }
+                
+            } ) %>% unlist  )
+        
+        tibble_distance_annotations_based_on_user_query$panel <- "transcripts"
+        
+        # make the distance table common with the reference plotting table
+        tibble_distance_annotations_based_on_user_query <- tibble_distance_annotations_based_on_user_query[tibble_distance_annotations_based_on_user_query$transcript_id %in% tibble_captured_in_range$transcript_id, ]
+        
+        # invoke tolerances
+        # tibble_selected_range_measurement_against_reference[abs(tibble_selected_range_measurement_against_reference$distance_to_ref) <= 1, "distance_to_ref"] <- 0
+        
+        ##########
+        
+        # # Single zoomable plot (on left)
+        # ranges <- reactiveValues(x = NULL, y = NULL)
+        # 
+        # # When a double-click happens, check if there's a brush on the plot.
+        # # If so, zoom to the brush bounds; if not, reset the zoom.
+        # observeEvent(input$plot1_dblclick, {
+        #     reactive_brush <- reactive({input$plot1_brush})
+        #     brush <- reactive_brush()
+        #     if (!is.null(brush)) {
+        #         ranges$x <- c(brush$xmin, brush$xmax)
+        #         ranges$y <- c(brush$ymin, brush$ymax)
+        #     } else {
+        #         ranges$x <- NULL
+        #         ranges$y <- NULL
+        #     }
+        # } )
+        
+        
             
-        }
+            ggplot() +
+                facet_grid(panel ~ ., scales = "free_y") +
+                
+                # transcripts
+                geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), colour = "slateblue1", arrow = arrow(angle = 30), mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
+                geom_text(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(view_range_start, view_range_end)), y = transcript_id, label = purrr::map2(.x = strand, .y = hgnc_stable_variant_ID, .f = function(.x, .y) {if (.x == "+") {paste("> > > > > > ", .y, " > > > > > >", sep = "")} else if (.x == "-") {paste("< < < < < < ", .y, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
+                geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
+                geom_label(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.25, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
+
+                # user ranges
+                geom_curve(data = tibble_user_ranges[tibble_user_ranges$range_type == "Junction", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+                geom_segment(data = tibble_user_ranges[tibble_user_ranges$range_type == "Exon", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+                geom_text(data = tibble_user_ranges, colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id)) +
+                geom_vline(colour = "red", lty = 2, xintercept = selected_start) +
+                geom_vline(colour = "red", lty = 2, xintercept = selected_end) +
+                geom_segment(data = tibble_distance_annotations_based_on_user_query, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)) +
+                geom_label(data = tibble_distance_annotations_based_on_user_query, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex)) +
+
+                coord_cartesian(xlim = c(view_range_start, view_range_end)) +
+                ggh4x::force_panelsizes(rows = c(1, 0.3)) +
+                theme_bw() +
+                theme(text = element_text(family = "Helvetica"))
+            
+        }, height = 1500, width = 800 )
         
         removeModal()
         
-    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    # } )
+        
+    # }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    
+    
     
     outputOptions(output, "reactive_UI_1", suspendWhenHidden = FALSE)
-    outputOptions(output, "reactive_UI_2", suspendWhenHidden = FALSE)
+    # outputOptions(output, "reactive_UI_2", suspendWhenHidden = FALSE)
+    # outputOptions(output, "plot1", suspendWhenHidden = FALSE)
     # outputOptions(output, "nomenclature_output", suspendWhenHidden = FALSE)
     
 } # server
