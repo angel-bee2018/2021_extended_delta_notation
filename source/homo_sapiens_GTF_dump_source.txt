@@ -1,4 +1,4 @@
-ensembl_gtf_dump_dir=/mnt/Helium_8TB_1/2020_isoform_nomenclature/ensembl_GTF_dump/
+ensembl_gtf_dump_dir=/mnt/LTS/projects/2020_isoform_nomenclature/ensembl_GTF_dump/
 
 cd $ensembl_gtf_dump_dir
 
