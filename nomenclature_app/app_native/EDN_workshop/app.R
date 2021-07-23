@@ -2050,7 +2050,8 @@ triage_input_coordinates <- function(vector_input_coordinates, tibble_gtf_table,
         
         # check for basic format
         if (grep(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)") %>% length != vector_input_coordinates %>% length) {
-            stop("Please check the format of your co-ordinates and make sure you have specified the strand.")
+            warning("Error: Please check the format of your co-ordinates and make sure you have specified the strand.")
+            return("triage fail")
         }
         
         vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
@@ -2062,7 +2063,8 @@ triage_input_coordinates <- function(vector_input_coordinates, tibble_gtf_table,
         
         # check for basic format
         if (grep(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)") %>% length != vector_input_coordinates %>% length) {
-            stop("Please check the format of your co-ordinates and make sure you have specified the strand.")
+            warning("Error: Please check the format of your co-ordinates and make sure you have specified the strand.")
+            return("triage fail")
         }
         
         vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
@@ -2073,18 +2075,25 @@ triage_input_coordinates <- function(vector_input_coordinates, tibble_gtf_table,
     
     # check chromosomes
     if (vector_query_chr %in% (tibble_gtf_table$seqnames %>% unique) %>% all == FALSE) {
-        stop("Please check the format of your chromosomes")
+        warning("Error: Please check the format of your chromosomes")
+        return("triage fail")
     }
     
     # check start/end for numeric
     if (vector_query_VSR_start %>% type.convert %>% is.numeric == FALSE | vector_query_VSR_end %>% type.convert %>% is.numeric == FALSE) {
-        stop("Please check the format of your start/end co-ordinates")
+        warning("Error: Please check the format of your start/end co-ordinates")
+        return("triage fail")
     }
     
     # check start/end for order. end must be > start
     if (any((vector_query_VSR_start %>% type.convert) > (vector_query_VSR_end %>% type.convert))) {
-        stop("Please ensure that all the start co-ordinates are not greater than your end co-ordinates")
+        warning("Error: Please ensure that all the start co-ordinates are not greater than your end co-ordinates")
+        return("triage fail")
     }
+    
+    message("triage successful")
+    
+    return("triage successful")
     
 }
 
@@ -2103,8 +2112,8 @@ ui <- fluidPage(
                
                selectInput("range_type", 
                            label = "Select the type of range to describe", 
-                           choices = list("Junction", 
-                                          "Exon"), 
+                           choices = list("Exon", 
+                                          "Junction"), 
                ),
                
                # selectInput("genome_assembly", 
@@ -2121,7 +2130,7 @@ ui <- fluidPage(
                ),
                
                actionButton("import_GTF", "Import genome assembly", icon = icon("file-import"),
-                            class = "btn btn-primary", width = "200px"),
+                            class = "btn btn-primary"),
                
                # magnetisation options required
                radioButtons("set_tolerances", label = "Tweak match tolerances",
@@ -2151,26 +2160,9 @@ ui <- fluidPage(
                
                textInput("input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+"),
                
-               sliderInput("slider_plot_width", "Plot width:",
-                           min = 100, max = 4000, step = 100,
-                           value = 800),
-               sliderInput("slider_plot_height", "Plot height:",
-                           min = 100, max = 4000, step = 100,
-                           value = 1500),
                
-               sliderInput("slider_plot_x_scale", "Base zoom x-axis:",
-                           min = -5, max = 5, step = 0.01,
-                           value = 1),
-               sliderInput("slider_plot_y_scale", "Base zoom y-axis:",
-                           min = -5, max = 5, step = 0.01,
-                           value = 1.3),
-               
-               sliderInput("slider_plot_x_offset", "Base offset left/right:",
-                           min = -5, max = 5, step = 0.01,
-                           value = 0),
-               sliderInput("slider_plot_y_offset", "Base offset up/down:",
-                           min = -5, max = 5, step = 0.01,
-                           value = 0),
+               actionButton("add_user_range", "Add range", icon = icon("plus"),
+                            class = "btn btn-primary"),
                
                mainPanel(
                    uiOutput('reactive_UI_1')
@@ -2178,13 +2170,7 @@ ui <- fluidPage(
                    # uiOutput('reactive_UI_2')
                ),
                
-               shinyWidgets::materialSwitch(inputId = "plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
-              
-               actionButton("reset_user_table", "Reset history",
-                            class = "btn btn-primary", width = "200px"),
-                
-               actionButton("add_user_range", "Add range", icon = icon("searchengin"),
-                            class = "btn btn-primary", width = "200px"),
+               
                
                br(),
                br(),
@@ -2193,14 +2179,49 @@ ui <- fluidPage(
                
                br(),
                
-               # generate an upload box for users to upload full-length reconstructed isoforms
-               downloadButton("download_plot", "Download Results"),
+               
                
         ),
         
         column(9,
                
                h5("Click and drag + double-click to zoom. Double-click to reset."),
+               
+               shinyWidgets::materialSwitch(inputId = "plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
+               
+               shinyWidgets::dropdownButton(
+                   
+                   sliderInput("slider_plot_width", "Plot width:",
+                               min = 100, max = 4000, step = 100,
+                               value = 800),
+                   sliderInput("slider_plot_height", "Plot height:",
+                               min = 100, max = 4000, step = 100,
+                               value = 1500),
+                   
+                   sliderInput("slider_plot_x_scale", "Base zoom x-axis:",
+                               min = -5, max = 5, step = 0.01,
+                               value = 1),
+                   sliderInput("slider_plot_y_scale", "Base zoom y-axis:",
+                               min = -5, max = 5, step = 0.01,
+                               value = 1.3),
+                   
+                   sliderInput("slider_plot_x_offset", "Base offset left/right:",
+                               min = -5, max = 5, step = 0.01,
+                               value = 0),
+                   sliderInput("slider_plot_y_offset", "Base offset up/down:",
+                               min = -5, max = 5, step = 0.01,
+                               value = 0),
+                   
+                   actionButton("reset_sliders", "Reset sliders",
+                                class = "btn btn-primary", width = "200px"),
+                   
+                   circle = FALSE, status = "info", icon = icon("gear"), width = "300px",
+                   tooltip = tooltipOptions(title = "Plot settings"),
+                   inline = TRUE
+               ),
+               
+               # generate an upload box for users to upload full-length reconstructed isoforms
+               downloadButton("download_plot", "Save Plot"),
                
                plotOutput("plot1", height = 300,
                           dblclick = "plot1_dblclick",
@@ -2218,34 +2239,35 @@ ui <- fluidPage(
 )
 
 # Define server logic required to generate the nomenclature
-server <- function(input, output) {
+server <- function(input, output, session) {
     
     # REACTIVE UI ####
     
     # if the user wants to manualy enter exon co-ordinates for full-length isoform or LIVs, then open up multiple text boxes for entering individual co-ords.
     output$reactive_UI_1 <- renderUI( {
         
-        if (input$range_type == "Manually enter exon co-ordinates") {
+        shinyWidgets::dropdownButton(
             
-            purrr::map(.x = 1:input$full_length_number_of_exons, .f = ~textInput(paste("full_length_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606"))
+            label = "Manage ranges",
             
-        } else if (input$range_type == "Local Isoform Variant (LIV)") {
+            actionButton("reset_user_table", "Clear all ranges", icon = icon("eraser"),
+                         class = "btn btn-primary"),
             
-            purrr::map(.x = 1:input$LIV_number_of_exons, .f = ~textInput(paste("LIV_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of alternative exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606"))
+            actionButton("select_user_range", "Select range", icon = icon("searchengin"),
+                         class = "btn btn-primary"),
             
-        } else if (input$range_type == "Variable Splice Region (VSR)") {
+            actionButton("delete_user_range", "Delete", icon = icon("searchengin"),
+                         class = "btn btn-primary"),
             
-            # VSRs
-            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LIVs. we're basically asking for multiple LIVs.
-            purrr::map(.x = 1:input$alternative_region_number_of_independent_events, .f = ~textInput(paste("VSR_number_of_exons_for_LIV_", .x, sep = ""), label = paste("Enter the number of exons for LIV #", .x, sep = ""), value = 1))
+            if (length(reactiveValues_user_ranges$id) > 1) {
+                
+                radioButtons(inputId = "user_range_id_selection", label = h3("Radio buttons"), choices = purrr::map(.x = reactiveValues_user_ranges$id %>% .[2:length(reactiveValues_user_ranges$id)], .f = ~.x) %>% set_names(nm = reactiveValues_user_ranges$id %>% .[2:length(reactiveValues_user_ranges$id)]),  selected = 1)
+                
+            },
             
-        } else if (input$range_type == "Local Splice Variation (LSV) (junctions only)") {
-            
-            # VSRs
-            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LIVs. we're basically asking for multiple LIVs.
-            purrr::map(.x = 1:input$alternative_region_number_of_independent_events, .f = ~textInput(paste("LSV_junction_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of constitutent junction #", .x, sep = ""), placeholder = "e.g. 16:2756607-2757471"))
-            
-        } # else if
+            circle = FALSE, status = "info", icon = icon("file-alt"),
+            inline = TRUE
+        )
         
     } ) # renderUI
     
@@ -2310,9 +2332,7 @@ server <- function(input, output) {
     
     reactive_tibble_ref_gtf <- eventReactive(input$import_GTF, {
         
-        # tibble_ref_gtf_hg18 <- vroom::vroom(file = "data/annotated_ensembl_gtf_release_54.txt", delim = "\t") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
-        
-        # import_tibble_ref_gtf <- read.delim(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, row.names = NULL, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
         import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
@@ -2338,42 +2358,201 @@ server <- function(input, output) {
     reactive_plot_y_offset <- reactive({input$slider_plot_y_offset})
     
     observeEvent(input$reset_sliders,{
-        updateSliderInput('Var1',value = 0)
-        updateSliderInput('Var2',value = 0)
-        updateSliderInput('Var3',value = 0)
+        updateSliderInput(session, "slider_plot_width" ,value = 800)
+        updateSliderInput(session, "slider_plot_height" ,value = 1500)
+        updateSliderInput(session, "slider_plot_x_scale" ,value = 1)
+        updateSliderInput(session, "slider_plot_y_scale" ,value = 1.3)
+        updateSliderInput(session, "slider_plot_x_offset" ,value = 0)
+        updateSliderInput(session, "slider_plot_y_offset" ,value = 0)
     })
     
+    # handle user selection
+    reactive_user_range_id_selection <- reactive({input$user_range_id_selection})
+    
+    # observe( {
+    
     # initialise user table
-    reactive_tibble_user_ranges <- reactive({
+    reactiveValues_user_ranges <- reactiveValues( 
+        id = 0,
+        chr = "3",
+        start = 11807833,
+        end = 11809682,
+        strand = "*",
+        range_type = "exon",
+        panel = "user_ranges"
+    )
+    
+        reactiveValues_selected_user_range <- reactiveValues( 
+            id = integer(0),
+            chr = character(0),
+            start = integer(0),
+            end = integer(0),
+            strand = character(0),
+            range_type = character(0),
+            panel = character(0)
+        )
         
-        tibble(
-            "id" = integer(0),
-            "chr" = character(0),
-            "start" = integer(0),
-            "end" = integer(0),
-            "strand" = character(0),
-            "range_type" = character(0)
-        ) %>% return
+        # deal with user adding range values
+        observeEvent(input$add_user_range, {
+            
+            tibble_ref_gtf <- reactive_tibble_ref_gtf()
+            
+            triage_result <- triage_input_coordinates(vector_input_coordinates = input$input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
+            
+            output$nomenclature_output <- renderText({triage_input_coordinates(vector_input_coordinates = input$input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)})
+            
+            if (triage_result == "triage successful") {
+                
+                input_chr <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
+                input_start <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
+                input_end <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
+                input_strand <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+                
+                reactiveValues_user_ranges$id <- c(reactiveValues_user_ranges$id, if (length(reactiveValues_user_ranges$id) == 0) {1} else {max(reactiveValues_user_ranges$id) + 1} )
+                reactiveValues_user_ranges$chr <- c(reactiveValues_user_ranges$chr, input_chr)
+                reactiveValues_user_ranges$start <- c(reactiveValues_user_ranges$start, input_start)
+                reactiveValues_user_ranges$end <- c(reactiveValues_user_ranges$end, input_end)
+                reactiveValues_user_ranges$strand <- c(reactiveValues_user_ranges$strand, input_strand)
+                reactiveValues_user_ranges$range_type <- c(reactiveValues_user_ranges$range_type, input$range_type)
+                reactiveValues_user_ranges$panel <- c(reactiveValues_user_ranges$panel, "user_ranges")
+                
+            }
+            
+            # automatically select the one that was added
+            reactiveValues_selected_user_range$id <- reactiveValues_user_ranges$id %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$chr <- reactiveValues_user_ranges$chr %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$start <- reactiveValues_user_ranges$start %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$end <- reactiveValues_user_ranges$end %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$strand <- reactiveValues_user_ranges$strand %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$range_type <- reactiveValues_user_ranges$range_type %>% .[length(reactiveValues_user_ranges$id)]
+            reactiveValues_selected_user_range$panel <- reactiveValues_user_ranges$panel %>% .[length(reactiveValues_user_ranges$id)]
+            
+            print("reactiveValues_selected_user_range$id outside")
+            print(reactiveValues_selected_user_range$id)
+            
+        } )
         
-    } ) 
+        # deal with user selecting range from the list
+        
+        observeEvent(input$select_user_range, {
+            
+            user_range_id_selection <- reactive_user_range_id_selection() %>% type.convert
+            
+            vector_subsetting_condition <- reactiveValues_user_ranges$id == user_range_id_selection
+            
+            # automatically select the one that was added
+            reactiveValues_selected_user_range$id <- reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$chr <- reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$start <- reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$end <- reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$strand <- reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$range_type <- reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+            reactiveValues_selected_user_range$panel <- reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
+            
+            print("reactiveValues_selected_user_range$id outside")
+            print(reactiveValues_selected_user_range$id)
+            
+        } )
+        
+        # deal with user deleting range from the list
+        
+        observeEvent(input$delete_user_range, {
+            
+            user_range_id_selection <- reactive_user_range_id_selection() %>% type.convert
+            
+            vector_subsetting_condition <- (reactiveValues_user_ranges$id != user_range_id_selection)
+            
+            reactiveValues_user_ranges$id <- reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$chr <- reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$start <- reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$end <- reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$strand <- reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$range_type <- reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+            reactiveValues_user_ranges$panel <- reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
+            
+            print("logical")
+            print(reactiveValues_user_ranges$id)
+            print(user_range_id_selection)
+            print(reactiveValues_user_ranges$id != user_range_id_selection)
+            
+            print("reactiveValues_selected_user_range$id outside")
+            print(reactiveValues_selected_user_range$id)
+            
+            # check for out of bounds after delete
+            
+            if (!user_range_id_selection %in% reactiveValues_user_ranges$id) {
+                
+                vector_subsetting_condition <- length(reactiveValues_user_ranges$id)
+                
+                reactiveValues_selected_user_range$id <- reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$chr <- reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$start <- reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$end <- reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$strand <- reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$range_type <- reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+                reactiveValues_selected_user_range$panel <- reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
+                
+            }
+            
+            if (vector_subsetting_condition > 1) {
+                
+                updateRadioButtons(session, inputId = "user_range_id_selection", selected = reactiveValues_user_ranges$id %>% .[vector_subsetting_condition])
+                
+            }
+            
+        } )
+        
+        # deal with user resetting user ranges
+        
+        observeEvent(input$reset_user_table, {
+            
+            reactiveValues_user_ranges$id <- reactiveValues_user_ranges$id %>% .[1]
+            reactiveValues_user_ranges$chr <- reactiveValues_user_ranges$chr %>% .[1]
+            reactiveValues_user_ranges$start <- reactiveValues_user_ranges$start %>% .[1]
+            reactiveValues_user_ranges$end <- reactiveValues_user_ranges$end %>% .[1]
+            reactiveValues_user_ranges$strand <- reactiveValues_user_ranges$strand %>% .[1]
+            reactiveValues_user_ranges$range_type <- reactiveValues_user_ranges$range_type %>% .[1]
+            reactiveValues_user_ranges$panel <- reactiveValues_user_ranges$panel %>% .[1]
+            
+        } )
+        
+    # } )
     
     reactive_final_plot <- reactive( {
         
         # TEST ###
-        # vector_input_range <- "3:11807833-11809682:*"
-        # input_chr <- "3"
-        # input_start <- 11807833
-        # input_end <- 11809682
-        # input_strand <- "*"
+        vector_input_range <- "7:7157427-7234302:*"
+        selected_chr <- "7"
+        selected_start <- 7157427
+        selected_end <- 7234302
+        selected_strand <- "*"
         
+        plot_x_scale <- 0
+        plot_y_scale <- 0
+        
+        plot_x_offset <- 0
+        plot_y_offset <- 0
+        
+        print("tibble_user_ranges")
+        print(reactiveValues_user_ranges$id)
+        print(reactiveValues_user_ranges$chr)
+        print(reactiveValues_user_ranges$start)
+        print(reactiveValues_user_ranges$end)
+        
+        tibble_user_ranges <- tibble(
+            id = reactiveValues_user_ranges$id,
+            chr = reactiveValues_user_ranges$chr,
+            start = reactiveValues_user_ranges$start,
+            end = reactiveValues_user_ranges$end,
+            strand = reactiveValues_user_ranges$strand,
+            range_type = reactiveValues_user_ranges$range_type,
+            panel = "user_ranges"
+        )
+        
+        print("tibble_user_ranges inside")
+        print(tibble_user_ranges)
+
         tibble_ref_gtf <- reactive_tibble_ref_gtf()
-        
-        triage_input_coordinates(vector_input_coordinates = input$input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-        
-        input_chr <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        input_start <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
-        input_end <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
-        input_strand <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
         
         plot_x_scale <- reactive_plot_x_scale() %>% as.numeric
         plot_y_scale <- reactive_plot_y_scale() %>% as.numeric
@@ -2381,34 +2560,21 @@ server <- function(input, output) {
         plot_x_offset <- reactive_plot_x_offset() %>% as.numeric
         plot_y_offset <- reactive_plot_y_offset() %>% as.numeric
         
-        # plot_view_initial_x_start <- input_start - plot_x_scale*(input_end - input_start)
-        # plot_view_initial_x_end <- input_end + plot_x_scale*(input_end - input_start)
-        # 
-        # tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% input_strand), ]
-        # 
-        # tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
-        # 
-        # tibble_captured_in_range$panel <- "transcripts"
+        print("reactiveValues_selected_user_range$id inside")
+        print(reactiveValues_selected_user_range$id)
         
-        tibble_user_ranges <- reactive_tibble_user_ranges()
+        selected_chr <- reactiveValues_selected_user_range$chr
+        selected_start <- reactiveValues_selected_user_range$start
+        selected_end <- reactiveValues_selected_user_range$end
+        selected_strand <- reactiveValues_selected_user_range$strand
         
-        tibble_user_ranges <- tibble_user_ranges %>%
-            dplyr::add_row("id" = nrow(.) + 1,
-                           "chr" = input_chr,
-                           "start" = input_start,
-                           "end" = input_end,
-                           "strand" = input_strand,
-                           "range_type" = input$range_type)
-        
-        tibble_user_ranges$panel <- "user_ranges"
-        
-        # create tibble that draws vertical lines matching user range to reference features ###
-        tibble_selected_range <- tibble_user_ranges[tibble_user_ranges$id == nrow(tibble_user_ranges), ]
-        
-        selected_chr <- tibble_selected_range$chr
-        selected_start <- tibble_selected_range$start
-        selected_end <- tibble_selected_range$end
-        selected_strand <- tibble_selected_range$strand
+        print("selected_tibble")
+        print(tibble(
+            "selected_chr" = selected_chr,
+            "selected_start" = selected_start,
+            "selected_end" = selected_end,
+            "selected_strand" = selected_strand
+        ) )
         
         if (selected_strand == "*") {
             selected_strand <- c("+", "-")
@@ -2423,13 +2589,13 @@ server <- function(input, output) {
         plot_view_initial_x_end <- plot_view_initial_x_end + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
         
         # plot shenanigans
-        tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% selected_strand), ]
+        tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == selected_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% selected_strand), ]
         
         tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
         
         tibble_captured_in_range$panel <- "transcripts"
         
-        tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_chr, query_start = selected_start, query_end = selected_end, query_strand = tibble_selected_range$strand, tibble_gtf_table = tibble_ref_gtf, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, return_type = "transcript")
+        tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_chr, query_start = selected_start, query_end = selected_end, query_strand = reactiveValues_selected_user_range$strand, tibble_gtf_table = tibble_ref_gtf, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, return_type = "transcript")
         
         tibble_all_exons_of_overlapped_parent_transcript <- tibble_ref_gtf[which(tibble_ref_gtf$type == "exon" & tibble_ref_gtf$transcript_id %in% (tibble_ref_transcripts_overlapped_by_user_query$transcript_id %>% unique)), ]
         
@@ -2516,19 +2682,23 @@ server <- function(input, output) {
         
         tibble_combined <- dplyr::full_join(tibble_captured_in_range, tibble_distance_annotations_based_on_user_query)
         
+        print(tibble_combined, width = Inf, n = Inf)
+        
+        print(data.class(tibble_combined))
+        
         final_plot <- ggplot() +
             facet_grid(panel ~ ., scales = "free_y") +
             
             # transcripts
-            geom_segment(data = tibble_combined %>% dplyr::filter(type == "transcript"), colour = "slateblue1", arrow = arrow(angle = 30), mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
+            geom_segment(data = tibble_combined %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
             geom_text(data = tibble_combined %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::map2(.x = strand, .y = hgnc_stable_variant_ID, .f = function(.x, .y) {if (.x == "+") {paste("> > > > > > ", .y, " > > > > > >", sep = "")} else if (.x == "-") {paste("< < < < < < ", .y, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
             geom_segment(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
             geom_label(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
             
             # user ranges
-            geom_curve(data = tibble_user_ranges[tibble_user_ranges$range_type == "Junction", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-            geom_segment(data = tibble_user_ranges[tibble_user_ranges$range_type == "Exon", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-            geom_text(data = tibble_user_ranges, colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id)) +
+            geom_curve(data = tibble_user_ranges[tibble_user_ranges$range_type == "Junction" & tibble_user_ranges$id > 0, ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+            geom_segment(data = tibble_user_ranges[tibble_user_ranges$range_type == "Exon" & tibble_user_ranges$id > 0, ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+            geom_text(data = tibble_user_ranges[tibble_user_ranges$id > 0, ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id)) +
             geom_vline(colour = "red", lty = 2, xintercept = selected_start) +
             geom_vline(colour = "red", lty = 2, xintercept = selected_end) +
             geom_segment(data = tibble_combined, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)) +
@@ -2537,9 +2707,7 @@ server <- function(input, output) {
             ggh4x::force_panelsizes(rows = c(1, 0.3)) +
             theme_bw() +
             theme(text = element_text(family = "Helvetica"))
-        
-        # svgPanZoom(p, controlIconsEnabled = T, width = 800, height = 1500)
-        
+
         return(list(
             "final_plot" = final_plot,
             "plot_view_initial_x_start" = plot_view_initial_x_start,
@@ -2592,6 +2760,20 @@ server <- function(input, output) {
                 
             } )
             
+            # Create the button to download the scatterplot as PDF
+            output$download_plot <- downloadHandler(
+                filename = function() {
+                    paste('EDN_workshop_', Sys.Date(), '.pdf', sep = "")
+                },
+                content = function(file) {
+                    
+                    ggplot_final_plot <- final_plot +
+                        coord_cartesian(xlim = plot_brush_ranges$x, ylim = plot_brush_ranges$y)
+                    
+                    ggsave(file, ggplot_final_plot, width = 20, height = 20*(plot_height/plot_width), dpi = 600, units = "cm")
+                }
+            )
+            
         } else {
             
         } 
@@ -2603,15 +2785,7 @@ server <- function(input, output) {
     
     removeModal()
     
-    # Create the button to download the scatterplot as PDF
-    # output$download_plot <- downloadHandler(
-    #     filename = function() {
-    #         paste('scatterPlot_', Sys.Date(), '.pdf', sep='')
-    #     },
-    #     content = function(file) {
-    #         ggsave(file, makeScatPlot(), width = 11, height = 4, dpi = 300, units = "in")
-    #     }
-    # )
+    
     
     
     # }, ignoreNULL = FALSE, ignoreInit = TRUE)
