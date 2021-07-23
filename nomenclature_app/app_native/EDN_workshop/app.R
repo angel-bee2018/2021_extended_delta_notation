@@ -15,6 +15,8 @@ user_instructions <- c("
 
 # DEFINE ENVIRONMENT
 library(shiny)
+library(shinyWidgets)
+
 library(vroom)
 library(tidyverse)
 library(rtracklayer)
@@ -22,6 +24,9 @@ library(gtools)
 library(data.table)
 
 library(furrr)
+
+library(svgPanZoom)
+library(gridSVG)
 
 options(future.globals.maxSize = 30000000000, future.fork.enable = TRUE)
 
@@ -2146,7 +2151,26 @@ ui <- fluidPage(
                
                textInput("input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+"),
                
-               textInput("xscale", label = "x-scale", placeholder = "1.5"),
+               sliderInput("slider_plot_width", "Plot width:",
+                           min = 100, max = 4000, step = 100,
+                           value = 800),
+               sliderInput("slider_plot_height", "Plot height:",
+                           min = 100, max = 4000, step = 100,
+                           value = 1500),
+               
+               sliderInput("slider_plot_x_scale", "Base zoom x-axis:",
+                           min = -5, max = 5, step = 0.01,
+                           value = 1),
+               sliderInput("slider_plot_y_scale", "Base zoom y-axis:",
+                           min = -5, max = 5, step = 0.01,
+                           value = 1.3),
+               
+               sliderInput("slider_plot_x_offset", "Base offset left/right:",
+                           min = -5, max = 5, step = 0.01,
+                           value = 0),
+               sliderInput("slider_plot_y_offset", "Base offset up/down:",
+                           min = -5, max = 5, step = 0.01,
+                           value = 0),
                
                mainPanel(
                    uiOutput('reactive_UI_1')
@@ -2154,48 +2178,38 @@ ui <- fluidPage(
                    # uiOutput('reactive_UI_2')
                ),
                
+               shinyWidgets::materialSwitch(inputId = "plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
+              
+               actionButton("reset_user_table", "Reset history",
+                            class = "btn btn-primary", width = "200px"),
+                
+               actionButton("add_user_range", "Add range", icon = icon("searchengin"),
+                            class = "btn btn-primary", width = "200px"),
+               
+               br(),
+               br(),
+               
+               verbatimTextOutput("nomenclature_output", placeholder = TRUE),
+               
+               br(),
+               
+               # generate an upload box for users to upload full-length reconstructed isoforms
+               downloadButton("download_plot", "Download Results"),
+               
         ),
         
         column(9,
                
-               div(style = "display:inline-block;
-        box-shadow: 0px 0px 0px #888888;
-        width:400px;
-        height:0px;
-        padding-top:50px;
-        position:relative;",
-                   actionButton("button_execute", "Go", icon = icon("searchengin"),
-                                class = "btn btn-primary", width = "300px")
-               ),
-               
-               br(),
-               
-               tags$style("#nomenclature_output {
-    font-family:'Helvetica';
-    font-size:15px;
-               color:blue;
-               display:block;
-               width: 300px; 
-               max-width: 200%;
-               white-space: pre-wrap; }"),
-               
-               div(style = "text-align:center;
-        box-shadow: 0px 0px 0px #888888;
-        width:400px;
-        height:200px;
-        padding-top:40px;
-        position:relative;",
-                   verbatimTextOutput("nomenclature_output", placeholder = TRUE)
-               ),
-               
-               br(),
+               h5("Click and drag + double-click to zoom. Double-click to reset."),
                
                plotOutput("plot1", height = 300,
                           dblclick = "plot1_dblclick",
                           brush = brushOpts(
                               id = "plot1_brush",
                               resetOnNew = TRUE
-                          ))
+                          )),
+               
+               # svgPanZoomOutput(outputId = "plot1", width = "100%", height = "400px")
                
         )
         
@@ -2310,11 +2324,40 @@ server <- function(input, output) {
         
     } )
     
-    reactive_base_magnification <- reactive({input$xscale})
+    # handle plot
     
-    # observeEvent(input$button_execute, {
+    # reactive_active_plot <- reactive({input$plot_is_active})
     
-    output$plot1 <- renderPlot( {
+    reactive_plot_width <- reactive({input$slider_plot_width})
+    reactive_plot_height <- reactive({input$slider_plot_height})
+    
+    reactive_plot_x_scale <- reactive({input$slider_plot_x_scale})
+    reactive_plot_y_scale <- reactive({input$slider_plot_y_scale})
+    
+    reactive_plot_x_offset <- reactive({input$slider_plot_x_offset})
+    reactive_plot_y_offset <- reactive({input$slider_plot_y_offset})
+    
+    observeEvent(input$reset_sliders,{
+        updateSliderInput('Var1',value = 0)
+        updateSliderInput('Var2',value = 0)
+        updateSliderInput('Var3',value = 0)
+    })
+    
+    # initialise user table
+    reactive_tibble_user_ranges <- reactive({
+        
+        tibble(
+            "id" = integer(0),
+            "chr" = character(0),
+            "start" = integer(0),
+            "end" = integer(0),
+            "strand" = character(0),
+            "range_type" = character(0)
+        ) %>% return
+        
+    } ) 
+    
+    reactive_final_plot <- reactive( {
         
         # TEST ###
         # vector_input_range <- "3:11807833-11809682:*"
@@ -2332,30 +2375,22 @@ server <- function(input, output) {
         input_end <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
         input_strand <- gsub(x = input$input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
         
+        plot_x_scale <- reactive_plot_x_scale() %>% as.numeric
+        plot_y_scale <- reactive_plot_y_scale() %>% as.numeric
         
+        plot_x_offset <- reactive_plot_x_offset() %>% as.numeric
+        plot_y_offset <- reactive_plot_y_offset() %>% as.numeric
         
-        base_magnification <- reactive_base_magnification() %>% as.numeric
-        
-        output$nomenclature_output <- renderText(base_magnification)
-        
-        # view_range_start <- input_start - base_magnification*(input_end - input_start)
-        # view_range_end <- input_end + base_magnification*(input_end - input_start)
+        # plot_view_initial_x_start <- input_start - plot_x_scale*(input_end - input_start)
+        # plot_view_initial_x_end <- input_end + plot_x_scale*(input_end - input_start)
         # 
-        # tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= view_range_end & tibble_ref_gtf$end >= view_range_start & tibble_ref_gtf$strand %in% input_strand), ]
+        # tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% input_strand), ]
         # 
         # tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
         # 
         # tibble_captured_in_range$panel <- "transcripts"
         
-        tibble_user_ranges <- tibble(
-            "id" = integer(0),
-            "chr" = character(0),
-            "start" = integer(0),
-            "end" = integer(0),
-            "strand" = character(0),
-            "range_type" = character(0)
-        )
-        
+        tibble_user_ranges <- reactive_tibble_user_ranges()
         
         tibble_user_ranges <- tibble_user_ranges %>%
             dplyr::add_row("id" = nrow(.) + 1,
@@ -2380,11 +2415,15 @@ server <- function(input, output) {
         }
         
         # snap range to the selected item
-        view_range_start <- selected_start - base_magnification*(selected_end - selected_start)
-        view_range_end <- selected_end + base_magnification*(selected_end - selected_start)
+        plot_view_initial_x_start <- selected_start - 1.5*(selected_end - selected_start) + plot_x_scale*(selected_end - selected_start)
+        plot_view_initial_x_end <- selected_end + 1.5*(selected_end - selected_start) - plot_x_scale*(selected_end - selected_start)
+        
+        # apply offset
+        plot_view_initial_x_start <- plot_view_initial_x_start + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
+        plot_view_initial_x_end <- plot_view_initial_x_end + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
         
         # plot shenanigans
-        tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= view_range_end & tibble_ref_gtf$end >= view_range_start & tibble_ref_gtf$strand %in% selected_strand), ]
+        tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == input_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% selected_strand), ]
         
         tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
         
@@ -2455,54 +2494,126 @@ server <- function(input, output) {
         
         ##########
         
-        # # Single zoomable plot (on left)
-        # ranges <- reactiveValues(x = NULL, y = NULL)
-        # 
-        # # When a double-click happens, check if there's a brush on the plot.
-        # # If so, zoom to the brush bounds; if not, reset the zoom.
-        # observeEvent(input$plot1_dblclick, {
-        #     reactive_brush <- reactive({input$plot1_brush})
-        #     brush <- reactive_brush()
-        #     if (!is.null(brush)) {
-        #         ranges$x <- c(brush$xmin, brush$xmax)
-        #         ranges$y <- c(brush$ymin, brush$ymax)
-        #     } else {
-        #         ranges$x <- NULL
-        #         ranges$y <- NULL
-        #     }
-        # } )
+        number_of_transcripts_captured <- tibble_captured_in_range$transcript_id %>% unique %>% length
         
+        plot_view_initial_y_start <- 1 - 1.5*(number_of_transcripts_captured - 1) + plot_y_scale*(number_of_transcripts_captured - 1)
+        plot_view_initial_y_end <- number_of_transcripts_captured + 1.5*(number_of_transcripts_captured - 1) - plot_y_scale*(number_of_transcripts_captured - 1)
         
+        # apply offset
+        ## minuses because the y axis is in reversed order.
+        plot_view_initial_y_start <- plot_view_initial_y_start - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
+        plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
+        
+        # # # Zoomable plot
+        # plot_brush_ranges <- reactiveValues(
+        #     x = c(plot_view_initial_x_start,
+        #           plot_view_initial_x_end),
+        #     y = c(plot_view_initial_y_start,
+        #           plot_view_initial_y_end)
+        # )
+        
+        # plot_brush_ranges <- reactiveValues(x = NULL, y = NULL)
+        
+        tibble_combined <- dplyr::full_join(tibble_captured_in_range, tibble_distance_annotations_based_on_user_query)
+        
+        final_plot <- ggplot() +
+            facet_grid(panel ~ ., scales = "free_y") +
             
-            ggplot() +
-                facet_grid(panel ~ ., scales = "free_y") +
+            # transcripts
+            geom_segment(data = tibble_combined %>% dplyr::filter(type == "transcript"), colour = "slateblue1", arrow = arrow(angle = 30), mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
+            geom_text(data = tibble_combined %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::map2(.x = strand, .y = hgnc_stable_variant_ID, .f = function(.x, .y) {if (.x == "+") {paste("> > > > > > ", .y, " > > > > > >", sep = "")} else if (.x == "-") {paste("< < < < < < ", .y, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
+            geom_segment(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
+            geom_label(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
+            
+            # user ranges
+            geom_curve(data = tibble_user_ranges[tibble_user_ranges$range_type == "Junction", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+            geom_segment(data = tibble_user_ranges[tibble_user_ranges$range_type == "Exon", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
+            geom_text(data = tibble_user_ranges, colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id)) +
+            geom_vline(colour = "red", lty = 2, xintercept = selected_start) +
+            geom_vline(colour = "red", lty = 2, xintercept = selected_end) +
+            geom_segment(data = tibble_combined, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)) +
+            geom_label(data = tibble_combined, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex)) +
+            
+            ggh4x::force_panelsizes(rows = c(1, 0.3)) +
+            theme_bw() +
+            theme(text = element_text(family = "Helvetica"))
+        
+        # svgPanZoom(p, controlIconsEnabled = T, width = 800, height = 1500)
+        
+        return(list(
+            "final_plot" = final_plot,
+            "plot_view_initial_x_start" = plot_view_initial_x_start,
+            "plot_view_initial_x_end" = plot_view_initial_x_end,
+            "plot_view_initial_y_start" = plot_view_initial_y_start,
+            "plot_view_initial_y_end" = plot_view_initial_y_end
+        ) )
+        
+    } )
+    
+    # Zoomable plot
+    observe( {
+        
+        if (input$plot_is_active == TRUE) {
+            
+            # smuggle in variables
+            plot_height <- reactive_plot_height()
+            plot_width <- reactive_plot_width()
+            
+            plot_brush_ranges <- reactiveValues(
+                x = c(reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                      reactive_final_plot() %>% .$plot_view_initial_x_end), 
+                y = c(reactive_final_plot() %>% .$plot_view_initial_y_start, 
+                      reactive_final_plot() %>% .$plot_view_initial_y_end)
+            )
+            
+            final_plot <- reactive_final_plot() %>% .$final_plot
+            
+            output$plot1 <- renderPlot( {
                 
-                # transcripts
-                geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), colour = "slateblue1", arrow = arrow(angle = 30), mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
-                geom_text(data = tibble_captured_in_range %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(view_range_start, view_range_end)), y = transcript_id, label = purrr::map2(.x = strand, .y = hgnc_stable_variant_ID, .f = function(.x, .y) {if (.x == "+") {paste("> > > > > > ", .y, " > > > > > >", sep = "")} else if (.x == "-") {paste("< < < < < < ", .y, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
-                geom_segment(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
-                geom_label(data = tibble_captured_in_range %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.25, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
-
-                # user ranges
-                geom_curve(data = tibble_user_ranges[tibble_user_ranges$range_type == "Junction", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-                geom_segment(data = tibble_user_ranges[tibble_user_ranges$range_type == "Exon", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id)) +
-                geom_text(data = tibble_user_ranges, colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id)) +
-                geom_vline(colour = "red", lty = 2, xintercept = selected_start) +
-                geom_vline(colour = "red", lty = 2, xintercept = selected_end) +
-                geom_segment(data = tibble_distance_annotations_based_on_user_query, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)) +
-                geom_label(data = tibble_distance_annotations_based_on_user_query, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex)) +
-
-                coord_cartesian(xlim = c(view_range_start, view_range_end)) +
-                ggh4x::force_panelsizes(rows = c(1, 0.3)) +
-                theme_bw() +
-                theme(text = element_text(family = "Helvetica"))
+                final_plot +
+                    coord_cartesian(xlim = plot_brush_ranges$x, ylim = plot_brush_ranges$y)
+                
+            }, height = plot_height, width = plot_width )
             
-        }, height = 1500, width = 800 )
+            # When a double-click happens, check if there's a brush on the plot.
+            # If so, zoom to the brush bounds; if not, reset the zoom.
+            observeEvent(input$plot1_dblclick, {
+                
+                brush <- input$plot1_brush
+                if (!is.null(brush)) {
+                    plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
+                    plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
+                } else {
+                    plot_brush_ranges$x <- c(reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                                             reactive_final_plot() %>% .$plot_view_initial_x_end)
+                    plot_brush_ranges$y <- c(reactive_final_plot() %>% .$plot_view_initial_y_start, 
+                                             reactive_final_plot() %>% .$plot_view_initial_y_end)
+                }
+                
+            } )
+            
+        } else {
+            
+        } 
         
-        removeModal()
-        
-    # } )
-        
+    } )
+    
+    
+    
+    
+    removeModal()
+    
+    # Create the button to download the scatterplot as PDF
+    # output$download_plot <- downloadHandler(
+    #     filename = function() {
+    #         paste('scatterPlot_', Sys.Date(), '.pdf', sep='')
+    #     },
+    #     content = function(file) {
+    #         ggsave(file, makeScatPlot(), width = 11, height = 4, dpi = 300, units = "in")
+    #     }
+    # )
+    
+    
     # }, ignoreNULL = FALSE, ignoreInit = TRUE)
     
     
