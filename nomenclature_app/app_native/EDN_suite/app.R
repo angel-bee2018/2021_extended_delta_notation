@@ -224,7 +224,7 @@ extract_overlapping_features <- function(query_chr, query_start, query_end, quer
 
 ## END extract_overlapping_features() ###
 
-## VSRs/LIVs: FUNCTION TO FIND THE STABLE VARIANT NUMBER ###
+## VSRs/LISs: FUNCTION TO FIND THE STABLE VARIANT NUMBER ###
 ### Behaviour: accepts the start/end coords of the VSR and a tibble of alternative exon start/ends
 ### find the transcript with the greatest number of vertices in common.
 ### as PSI-Sigma says the VSR region is the full intron for IR events, we will not use the VSR for IR matching.
@@ -261,7 +261,7 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
     # )
     
     # VSR_coordinates <- VSR_coordinates
-    # tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_LIV[[1]]
+    # tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_LIS[[1]]
     # left_query_shift <- 0
     # right_query_shift <- 0
     # left_tolerance <- 1
@@ -597,11 +597,11 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
 
 # END VSR_select_reference_transcript_variant() ###
 
-## VSRs/LIVs: FUNCTION TO NAME THE BODY EXONS ###
+## VSRs/LISs: FUNCTION TO NAME THE BODY EXONS ###
 
 ### takes the list input from VSR_select_reference_transcript_variant()
-### we write this as a separate modular function because multiple LIVs can be called, and we have to reconcile the selected variant names.
-### so that means, we'll be doing a first-pass naming scheme for each individual LIV, then determining which one we want to roll with, then we refresh each LIV with the final choice.
+### we write this as a separate modular function because multiple LISs can be called, and we have to reconcile the selected variant names.
+### so that means, we'll be doing a first-pass naming scheme for each individual LIS, then determining which one we want to roll with, then we refresh each LIS with the final choice.
 
 ### there can only be 5 scenarios: 
 ### 1. the exon matches exactly
@@ -1295,7 +1295,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
     if (flag_is_intergenic == FALSE) {
         
         # RETURN NOMENCLATURE
-        ## collapse by spaces between exons of the same LIV
+        ## collapse by spaces between exons of the same LIS
         ## NOTE: ONLY RETURN THE EXONS WHICH ARE DIFFERENT AND DIDN'T MATCH TO THE SELECTED TRANSCRIPT.
         ## ALSO PUT A DELTA ON THE EXONS WHICH 
         list_isoform_only_nomenclature_event_raw <- list_first_pass_naming$list_body_exon_nomenclature %>% unlist
@@ -1358,9 +1358,9 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
 ## after the VSR is named, it is set. Nothing changes. 
 ## but because some body exons missing from the select variant may in fact have an equivalent in another splice variant, we will have to systematically match every body exon according to their lowest overlapped variant, and repeatedly re-call the VSR_select_reference_transcript_variant() function.
 ## NOTE: we are only re-matching body exons which were apparently intronic in the selected transcript.
-## Behaviour: Select lowest variant for all LIVs -> rename using the common lowest variant -> for the remaining un-named intronic exons, rename if they overlapped with a separate variant.
-## inputs: VSR coords (pre-checked) and a list of start/end info for each LIV. 
-VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_start_end_per_LIV, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
+## Behaviour: Select lowest variant for all LISs -> rename using the common lowest variant -> for the remaining un-named intronic exons, rename if they overlapped with a separate variant.
+## inputs: VSR coords (pre-checked) and a list of start/end info for each LIS. 
+VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_start_end_per_LIS, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
     
     # DEBUG ###
     
@@ -1375,24 +1375,24 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     # no match
     # VSR_coordinates <- "16:89700400-89740923:+"
     
-    # list_tibble_exon_start_end_per_LIV <- list(
-    #     "LIV_1" = tribble(
+    # list_tibble_exon_start_end_per_LIS <- list(
+    #     "LIS_1" = tribble(
     #         ~start, ~end,
     #         89740100, 89740803
     #     ),
-    #     "LIV_2" = tribble(
+    #     "LIS_2" = tribble(
     #         ~start, ~end,
     #         89739554, 89739993,
     #         89738975, 89739477,
     #         89738709, 89738881
     #     ),
-    #     "LIV_3" = tribble(
+    #     "LIS_3" = tribble(
     #         ~start, ~end,
     #         89720400, 89720582,
     #         89737976, 89738589,
     #         89739267, 89739993
     #     ),
-    #     "LIV_4" = tribble(
+    #     "LIS_4" = tribble(
     #         ~start, ~end,
     #         89739290, 89739477,
     #         89740100, 89740803
@@ -1400,7 +1400,7 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     # ) 
     
     # VSR_coordinates <- automator_input_alternative_event_region
-    # list_tibble_exon_start_end_per_LIV <- list_of_exon_start_end_tibbles
+    # list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
     # tibble_gtf_table <- tibble_ref_gtf
     # 
     # left_query_shift <- 0
@@ -1420,12 +1420,12 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     # print(left_tolerance)
     # print(right_tolerance)
     
-    # DETECT VSR OR LIV
+    # DETECT VSR OR LIS
     ## if the list has more than one element, then it's a VSR.
-    flag_is_LIV <- list_tibble_exon_start_end_per_LIV %>% length == 1
+    flag_is_LIS <- list_tibble_exon_start_end_per_LIS %>% length == 1
     
-    # LOWEST VARIANT DETECTION FOR EACH LIV
-    list_initial_lowest_variant_detection <- list_tibble_exon_start_end_per_LIV %>% 
+    # LOWEST VARIANT DETECTION FOR EACH LIS
+    list_initial_lowest_variant_detection <- list_tibble_exon_start_end_per_LIS %>% 
         purrr::map(
             .f = ~VSR_select_reference_transcript_variant(VSR_coordinates = VSR_coordinates,
                                                           tibble_VSR_exon_start_end = .x,
@@ -1502,8 +1502,8 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     }
     
     # RETURN NOMENCLATURE
-    ## collapse by spaces between exons of the same LIV
-    list_final_LIV_nomenclature <- purrr::map(
+    ## collapse by spaces between exons of the same LIS
+    list_final_LIS_nomenclature <- purrr::map(
         .x = list_second_pass_naming,
         .f = function(a1) {
             
@@ -1511,17 +1511,17 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
             # a1 <- list_second_pass_naming[[1]]
             ###########
             
-            collapsed_nomenclature_for_one_LIV <- a1$list_body_exon_nomenclature %>% unlist %>% na.omit %>% paste(collapse = " ")
+            collapsed_nomenclature_for_one_LIS <- a1$list_body_exon_nomenclature %>% unlist %>% na.omit %>% paste(collapse = " ")
             
-            return(collapsed_nomenclature_for_one_LIV)
+            return(collapsed_nomenclature_for_one_LIS)
             
         } )
     
     # finally, extract the transcript version
     variant_slot <- paste(lowest_common_variant_ID, ".", tibble_gtf_table[tibble_gtf_table$hgnc_stable_variant_ID == lowest_common_variant_ID, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
     
-    ## collapse by "/" between different LIVs and sandwich between the VSR upstream and downstream slots
-    final_VSR_nomenclature <- paste(variant_slot, " ", list_first_pass_naming[[1]]$upstream_VSR_slot, " (", list_final_LIV_nomenclature %>% paste(collapse = " / "), ") ", list_first_pass_naming[[1]]$downstream_VSR_slot, sep = "") %>% 
+    ## collapse by "/" between different LISs and sandwich between the VSR upstream and downstream slots
+    final_VSR_nomenclature <- paste(variant_slot, " ", list_first_pass_naming[[1]]$upstream_VSR_slot, " (", list_final_LIS_nomenclature %>% paste(collapse = " / "), ") ", list_first_pass_naming[[1]]$downstream_VSR_slot, sep = "") %>% 
         trimws %>%
         gsub(pattern = "\\(\\((.*)\\)\\)", replacement = "(\\1)") %>% 
         gsub(pattern = "\\(\\)", replacement = "") 
@@ -1530,7 +1530,7 @@ VSR_LIV_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     
 }
 
-# END VSR_LIV_organise_exon_rematching() ###
+# END VSR_LIS_organise_exon_rematching() ###
 
 # LSVs, AJ: FUNCTION TO GENERALLY MATCH AN UNLIMITED NUMBER OF JUNCTIONS IN A REGION OF VARIABLE SPLICING
 ## accepts a tibble of chr/start/end/strand of junctions, assumed from the same LSV.
@@ -2149,43 +2149,49 @@ ui <- fluidPage(
                                    selectInput("automator_structure_type", 
                                                label = "Select the type of splice structure to describe", 
                                                choices = list("Full-length isoform" = c("Upload assembled transcriptome (GTF)", "Manually enter exon co-ordinates"), 
-                                                              "Alternative splicing" = c("Alternative exon", "Alternative junction", "Local Isoform Variant (LIV)"), 
-                                                              "Alternatively spliced regions" = c("Variable Splice Region (VSR)", "Local Splice Variation (LSV) (junctions only)"))),
+                                                              "Alternative splicing" = c("Alternative exon", "Alternative junction", "Local Isoform Segment (LIS)"), 
+                                                              "Alternatively spliced regions" = c("Variable Splice Region (VSR)", "Local Splice Variation (LSV) (junctions only)")),
+                                               width = "300px"),
                                    
                                    
                                    selectInput("automator_genome_assembly", 
                                                label = "Select the genome assembly to use (Ensembl release)", 
                                                choices = list("NCBI36 (hg18)" = "54",
                                                               "GRCh37 (hg19)" = "75",
-                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character)
+                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character),
+                                               width = "300px"
                                    ),
                                    
                                    actionButton("automator_import_GTF", "Import genome assembly", icon = icon("file-import"),
                                                 class = "btn btn-primary", width = "300px"),
                                    
+                                   br(),
+                                   br(),
+                                   
                                    # magnetisation options required
-                                   radioButtons("automator_set_tolerances", label = "Tweak match tolerances",
-                                                choices = list("no" = "no", "yes" = "yes"), 
-                                                selected = 1),
-                                   conditionalPanel(
-                                       condition = "input.automator_set_tolerances == 'yes'",
-                                       textInput("automator_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.automator_set_tolerances == 'yes'",
-                                       textInput("automator_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.automator_set_tolerances == 'yes'",
-                                       textInput("automator_left_match_tolerance", label = "Left (5') match tolerance (default = 0)", value = 1, placeholder = "e.g. 0")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.automator_set_tolerances == 'yes'",
-                                       textInput("automator_right_match_tolerance", label = "Right (3') match tolerance (default = 0)", value = 1, placeholder = "e.g. 0")
+                                   div(style = "align: left; text-align: center; width: 300px;",  
+                                       
+                                       shinyWidgets::dropdownButton(
+                                           
+                                           textInput("automator_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                           
+                                           textInput("automator_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                           
+                                           textInput("automator_left_match_tolerance", label = "Left (5') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                           
+                                           textInput("automator_right_match_tolerance", label = "Right (3') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                           
+                                           circle = FALSE, status = "info", icon = icon("wrench"),
+                                           label = "Tweak match tolerances",
+                                           inline = FALSE
+                                       )
+                                       
                                    ),
                                    
+                                   br(),
+                                   
                                    # STRATEGY: 
-                                   # FLI & LIV: vertex matching
+                                   # FLI & LIS: vertex matching
                                    # VSRs and AEs: VSR and exon coord matching, splicemode autodetect
                                    # LSVs and AJs: Junction matching. Forward-slashes everywhere.
                                    
@@ -2193,54 +2199,58 @@ ui <- fluidPage(
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Upload assembled transcriptome (GTF)'",
                                        fileInput("automator_path_full_length_recon_gtf", "Choose GTF file",
-                                                 accept = c(".gtf"))
+                                                 accept = c(".gtf"), 
+                                                 width = "300px")
                                    ),
                                    
                                    # generate a text box for users to state the number of furrr multilayer cores
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Upload assembled transcriptome (GTF)'",
-                                       textInput("automator_ncores", label = "Specify the number of parallel processing cores (default: 1 (serial)) (example: 8x4, 4)", value = 1)
+                                       textInput("automator_ncores", label = "Specify the number of parallel processing cores (default: 1 (serial)) (example: 8x4, 4)", value = 1, width = "300px")
                                    ),
                                    
                                    # generate a text box for users to state the number of exons in the full length isoform
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Manually enter exon co-ordinates'",
-                                       textInput("automator_full_length_number_of_exons", label = "Enter the number of exons in the transcript", value = 1)
+                                       textInput("automator_full_length_number_of_exons", label = "Enter the number of exons in the transcript", value = 1, width = "300px"),
                                    ),
                                    
                                    # generate a text box for users to enter the genome-relative coords of alternative exon
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Alternative exon'",
-                                       textInput("automator_alternative_exon_coords", label = "Enter the genome-relative co-ordinates of the exon", placeholder = "e.g. 16:2756334-2756606")
+                                       textInput("automator_alternative_exon_coords", label = "Enter the genome-relative co-ordinates of the exon", placeholder = "e.g. 16:2756334-2756606", width = "300px")
                                    ),
                                    
                                    # generate a text box for users to state the number of exons in the full length isoform
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Alternative junction'",
-                                       textInput("automator_alternative_junc_coords", label = "Enter the genome-relative co-ordinates of the junction", placeholder = "e.g. 16:2756607-2757471")
+                                       textInput("automator_alternative_junc_coords", label = "Enter the genome-relative co-ordinates of the junction", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                    ),
                                    
-                                   # generate a text box for users to state the number of exons in the LIV
+                                   # generate a text box for users to state the number of exons in the LIS
                                    conditionalPanel(
-                                       condition = "input.automator_structure_type == 'Local Isoform Variant (LIV)'",
-                                       textInput("automator_LIV_number_of_exons", label = "Enter the number of exons inside the LIV (not including the constitutive exons at the ends)", value = 1)
+                                       condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)'",
+                                       textInput("automator_LIS_number_of_exons", label = "Enter the number of exons inside the LIS (not including the constitutive exons at the ends)", value = 1, width = "300px")
                                    ),
                                    
-                                   # generate a text box for users to state the number of exons in the LIV
+                                   # generate a text box for users to state the number of exons in the LIS
                                    conditionalPanel(
-                                       condition = "input.automator_structure_type == 'Local Isoform Variant (LIV)' || input.automator_structure_type == 'Variable Splice Region (VSR)'",
-                                       textInput("automator_alternative_event_region", label = "Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471")
+                                       condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)' || input.automator_structure_type == 'Variable Splice Region (VSR)'",
+                                       textInput("automator_alternative_event_region", label = "Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                    ),
                                    
                                    # generate a text box for users to state the number of independent splicing events to be included in the VSR
                                    conditionalPanel(
                                        condition = "input.automator_structure_type == 'Variable Splice Region (VSR)' || input.automator_structure_type == 'Local Splice Variation (LSV) (junctions only)'",
-                                       textInput("automator_alternative_region_number_of_independent_events", label = "State the number of independent events in this region (an independent region is an exon or LIV or one junction only)", value = 1)
+                                       textInput("automator_alternative_region_number_of_independent_events", label = "State the number of independent events in this region (an independent region is an exon or LIS or one junction only)", value = 1, width = "300px")
                                    ),
                                    
-                                   mainPanel(
-                                       uiOutput('automator_reactive_UI_1'),
-                                       uiOutput('automator_reactive_UI_2'),
+                                   div(style = "padding-left: 50px; width: 300px;", 
+                                       uiOutput('automator_reactive_UI_1')
+                                   ),
+                                   
+                                   div(style = "padding-left: 50px; width: 300px;",
+                                       uiOutput('automator_reactive_UI_2')
                                    ),
                                    
                             ),
@@ -2270,7 +2280,7 @@ ui <- fluidPage(
                                    
                                    div(style = "text-align:center;
         box-shadow: 0px 0px 0px #888888;
-        width:400px;
+        width:300px;
         height:200px;
         padding-top:40px;
         position:relative;",
@@ -2316,47 +2326,54 @@ ui <- fluidPage(
                                    # Application title
                                    titlePanel("EDN Workshop"),
                                    
-                                   selectInput("workshop_range_type", 
-                                               label = "Select the type of range to describe", 
-                                               choices = list("Exon", 
-                                                              "Junction"), 
-                                   ),
-                                   
                                    selectInput("workshop_genome_assembly", 
                                                label = "Select the genome assembly to use (Ensembl release)", 
                                                choices = list("NCBI36 (hg18)" = "54",
                                                               "GRCh37 (hg19)" = "75",
-                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character)
-                                   ),
+                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character), 
+                                               width = "200px"),
                                    
                                    actionButton("workshop_import_GTF", "Import genome assembly", icon = icon("file-import"),
-                                                class = "btn btn-primary"),
+                                                class = "btn btn-primary", width = "200px"),
+                                   
+                                   br(),
+                                   br(),
                                    
                                    # magnetisation options required
-                                   radioButtons("workshop_set_tolerances", label = "Tweak match tolerances",
-                                                choices = list("no" = "no", "yes" = "yes"), 
-                                                selected = 1),
-                                   conditionalPanel(
-                                       condition = "input.workshop_set_tolerances == 'yes'",
-                                       textInput("workshop_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "0")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.workshop_set_tolerances == 'yes'",
-                                       textInput("workshop_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "0")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.workshop_set_tolerances == 'yes'",
-                                       textInput("workshop_left_match_tolerance", label = "Left (5') match tolerance (default = 0)", value = 1, placeholder = "1")
-                                   ),
-                                   conditionalPanel(
-                                       condition = "input.workshop_set_tolerances == 'yes'",
-                                       textInput("workshop_right_match_tolerance", label = "Right (3') match tolerance (default = 0)", value = 1, placeholder = "1")
+                                   div(style = "align: left; text-align: center; width: 200px;", 
+                                       
+                                       shinyWidgets::dropdownButton(
+                                           
+                                           textInput("workshop_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                           
+                                           textInput("workshop_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                           
+                                           textInput("workshop_left_match_tolerance", label = "Left (5') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                           
+                                           textInput("workshop_right_match_tolerance", label = "Right (3') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                           
+                                           circle = FALSE, status = "info", icon = icon("wrench"),
+                                           label = "Tweak match tolerances",
+                                           inline = FALSE
+                                       )
+                                       
                                    ),
                                    
-                                   textInput("workshop_input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+"),
+                                   tags$div(style = "width: 200px;"),
+                                   
+                                   br(),
+                                   
+                                   selectInput("workshop_range_type", 
+                                               label = "Select the type of range to describe", 
+                                               choices = list("Exon", 
+                                                              "Junction"), 
+                                               width = "200px", 
+                                   ),
+                                   
+                                   textInput("workshop_input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+", width = "200px"),
                                    
                                    actionButton("workshop_add_user_range", "Add range", icon = icon("plus"),
-                                                class = "btn btn-primary"),
+                                                class = "btn btn-primary", width = "200px"),
                                    
                                    #        div(style = "text-align:center;
                                    # box-shadow: 0px 0px 0px #888888;
@@ -2365,19 +2382,13 @@ ui <- fluidPage(
                                    #            verbatimTextOutput("console_output", placeholder = TRUE)
                                    #        ),
                                    
-                                   div(style = "text-align:center;
+                                   div(style = "text-align: center;
         box-shadow: 0px 0px 0px #888888;
-        padding-top:40px;
-        position:relative;",
+        width: 200px;
+        padding-top: 40px;
+        position: relative;",
                                        verbatimTextOutput("workshop_nomenclature_output", placeholder = TRUE)
                                    )
-                                   
-                                   # mainPanel(
-                                   # uiOutput('automator_reactive_UI_1')
-                                   # ,
-                                   # uiOutput('automator_reactive_UI_2')
-                                   # )
-                                   
                                    
                             ),
                             
@@ -2385,48 +2396,62 @@ ui <- fluidPage(
                                    
                                    h5("Click and drag + double-click to zoom. Double-click to reset."),
                                    
-                                   shinyWidgets::materialSwitch(inputId = "workshop_plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
+                                   br(),
+
+                                       shinyWidgets::materialSwitch(inputId = "workshop_plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
                                    
-                                   shinyWidgets::dropdownButton(
-                                       
-                                       sliderInput("workshop_slider_plot_width", "Plot width:",
-                                                   min = 100, max = 4000, step = 100,
-                                                   value = 800),
-                                       sliderInput("workshop_slider_plot_height", "Plot height:",
-                                                   min = 100, max = 4000, step = 100,
-                                                   value = 1500),
-                                       
-                                       sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
-                                                   min = -5, max = 5, step = 0.01,
-                                                   value = 1),
-                                       sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
-                                                   min = -5, max = 5, step = 0.01,
-                                                   value = 1.3),
-                                       
-                                       sliderInput("workshop_slider_plot_x_offset", "Base offset left/right:",
-                                                   min = -5, max = 5, step = 0.01,
-                                                   value = 0),
-                                       sliderInput("workshop_slider_plot_y_offset", "Base offset up/down:",
-                                                   min = -5, max = 5, step = 0.01,
-                                                   value = 0),
-                                       
-                                       actionButton("workshop_reset_sliders", "Reset sliders",
-                                                    class = "btn btn-primary", width = "200px"),
-                                       
-                                       circle = FALSE, status = "info", icon = icon("gear"), width = "300px",
-                                       tooltip = tooltipOptions(title = "Plot settings"),
-                                       inline = TRUE
+                                       shinyWidgets::dropdownButton(
+                                           
+                                           sliderInput("workshop_slider_plot_width", "Plot width:",
+                                                       min = 100, max = 4000, step = 100,
+                                                       value = 800),
+                                           sliderInput("workshop_slider_plot_height", "Plot height:",
+                                                       min = 100, max = 4000, step = 100,
+                                                       value = 1500),
+                                           
+                                           sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
+                                                       min = -5, max = 5, step = 0.01,
+                                                       value = 1),
+                                           sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
+                                                       min = -5, max = 5, step = 0.01,
+                                                       value = 1.3),
+                                           
+                                           sliderInput("workshop_slider_plot_x_offset", "Base offset left/right:",
+                                                       min = -5, max = 5, step = 0.01,
+                                                       value = 0),
+                                           sliderInput("workshop_slider_plot_y_offset", "Base offset up/down:",
+                                                       min = -5, max = 5, step = 0.01,
+                                                       value = 0),
+                                           
+                                           actionButton("workshop_reset_sliders", "Reset sliders",
+                                                        class = "btn btn-primary", width = "200px"),
+                                           
+                                           circle = FALSE, status = "info", icon = icon("gear"),
+                                           label = "Plot settings",
+                                           inline = TRUE
+                                       ),
+
+                                   div(style = "display: inline-block; vertical-align: middle; align: left",
+                                       br()
+                                   ),
+                                   
+                                   div(style = "display: inline-block; vertical-align: middle; align: left",
+                                       uiOutput("workshop_reactive_UI_1")
                                    ),
                                    
                                    # generate an upload box for users to upload full-length reconstructed isoforms
-                                   downloadButton("workshop_download_plot", "Save Plot"),
+                                   div(style = "display: inline-block; vertical-align: middle; float: right",
+                                       downloadButton("workshop_download_plot", "Save Plot")
+                                   ),
                                    
-                                   uiOutput("workshop_reactive_UI_1"),
+                                   br(),
+                                   br(),
                                    
                                    h3("Reference exon table"),
                                    
-                                   div(style = "height:300px; overflow-y: scroll; overflow-x: scroll; font-size: 80%", 
-                                       dataTableOutput("workshop_ref_table_output")),
+                                   div(style = "height: 200px; overflow-y: scroll; overflow-x: scroll; font-size: 80%", 
+                                       dataTableOutput("workshop_ref_table_output")
+                                       ),
                                    
                                    h3("Schematic"),
                                    
@@ -2463,14 +2488,24 @@ server <- function(input, output, session) {
     # AUTOMATOR ###
     
     ## import GTF
+    automator_reactive_tibble_ref_gtf <- eventReactive(input$automator_import_GTF, {
+        
+        # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        
+        import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$automator_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        
+        
+        return(import_tibble_ref_gtf)
+        
+    } )
+    
     observeEvent(input$automator_import_GTF, {
         
         showModal(modalDialog(paste("Importing release ", input$automator_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
         
-        observeEvent(reactive_tibble_ref_gtf(), {
+        observeEvent(automator_reactive_tibble_ref_gtf(), {
             
             output$automator_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
-            output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
             
             removeModal()
             
@@ -2478,39 +2513,29 @@ server <- function(input, output, session) {
         
     } )
     
-    reactive_tibble_ref_gtf <- eventReactive(input$automator_import_GTF, {
-        
-        # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
-        
-        import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$automator_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
-        
-        return(import_tibble_ref_gtf)
-        
-    } )
-    
     # reactive ui
-    # if the user wants to manualy enter exon co-ordinates for full-length isoform or LIVs, then open up multiple text boxes for entering individual co-ords.
+    # if the user wants to manualy enter exon co-ordinates for full-length isoform or LISs, then open up multiple text boxes for entering individual co-ords.
     output$automator_reactive_UI_1 <- renderUI( {
         
         if (input$automator_structure_type == "Manually enter exon co-ordinates") {
             
-            purrr::map(.x = 1:input$automator_full_length_number_of_exons, .f = ~textInput(paste("full_length_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606"))
+            purrr::map(.x = 1:input$automator_full_length_number_of_exons, .f = ~textInput(paste("full_length_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606", width = "300px"))
             
-        } else if (input$automator_structure_type == "Local Isoform Variant (LIV)") {
+        } else if (input$automator_structure_type == "Local Isoform Segment (LIS)") {
             
-            purrr::map(.x = 1:input$automator_LIV_number_of_exons, .f = ~textInput(paste("LIV_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of alternative exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606"))
+            purrr::map(.x = 1:input$automator_LIS_number_of_exons, .f = ~textInput(paste("LIS_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of alternative exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606", width = "300px"))
             
         } else if (input$automator_structure_type == "Variable Splice Region (VSR)") {
             
             # VSRs
-            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LIVs. we're basically asking for multiple LIVs.
-            purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("VSR_number_of_exons_for_LIV_", .x, sep = ""), label = paste("Enter the number of exons for LIV #", .x, sep = ""), value = 1))
+            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LISs. we're basically asking for multiple LISs.
+            purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("VSR_number_of_exons_for_LIS_", .x, sep = ""), label = paste("Enter the number of exons for LIS #", .x, sep = ""), value = 1, width = "300px"))
             
         } else if (input$automator_structure_type == "Local Splice Variation (LSV) (junctions only)") {
             
             # VSRs
-            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LIVs. we're basically asking for multiple LIVs.
-            purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("LSV_junction_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of constitutent junction #", .x, sep = ""), placeholder = "e.g. 16:2756607-2757471"))
+            # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LISs. we're basically asking for multiple LISs.
+            purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("LSV_junction_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of constitutent junction #", .x, sep = ""), placeholder = "e.g. 16:2756607-2757471", width = "300px"))
             
         } # else if
         
@@ -2521,20 +2546,20 @@ server <- function(input, output, session) {
         
         if (input$automator_structure_type == "Variable Splice Region (VSR)") {
             
-            reactive_automator_VSR_number_of_exons_for_each_LIV <- reactive({
+            reactive_automator_VSR_number_of_exons_for_each_LIS <- reactive({
                 
                 purrr::map(
                     .x = 1:input$automator_alternative_region_number_of_independent_events,
-                    .f = ~input[[paste("VSR_number_of_exons_for_LIV_", .x, sep = "")]])
+                    .f = ~input[[paste("VSR_number_of_exons_for_LIS_", .x, sep = "")]])
                 
             })
             
             # finishing off the VSR options...
-            # after use has entered the number of exons for each LIV,
-            # then map across each LIV, creating textbox options for co-ordinates of exons
+            # after use has entered the number of exons for each LIS,
+            # then map across each LIS, creating textbox options for co-ordinates of exons
             
             purrr::imap(
-                .x = reactive_automator_VSR_number_of_exons_for_each_LIV(),
+                .x = reactive_automator_VSR_number_of_exons_for_each_LIS(),
                 .f = function(a1, a2) {
                     
                     number_of_exons <- a1 %>% paste %>% type.convert
@@ -2543,9 +2568,10 @@ server <- function(input, output, session) {
                         .x = 1:number_of_exons,
                         .f = function(b1, b2) {
                             
-                            textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIV_number_", a2, sep = ""),
-                                      label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in LIV #", a2, sep = ""),
-                                      placeholder = "16:2756334-2756606")
+                            textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIS_number_", a2, sep = ""),
+                                      label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in LIS #", a2, sep = ""),
+                                      placeholder = "16:2756334-2756606", 
+                                      width = "300px")
                             
                             # print(b1)
                             # print(b2)
@@ -2565,7 +2591,7 @@ server <- function(input, output, session) {
         
         showModal(modalDialog(paste("Calculating nomenclature... \n", sep = ""), footer = NULL))
         
-        tibble_ref_gtf <- reactive_tibble_ref_gtf()
+        tibble_ref_gtf <- automator_reactive_tibble_ref_gtf()
         
         # PROCESS INPUTS ####
         automator_input_left_query_end_shift <- input$automator_left_query_end_shift %>% type.convert
@@ -2756,18 +2782,18 @@ server <- function(input, output, session) {
             # invoke VSR pipeline
         } else if (automator_input_structure_type == "Variable Splice Region (VSR)") {
             
-            reactive_VSR_number_of_exons_for_each_LIV <- reactive({
+            reactive_VSR_number_of_exons_for_each_LIS <- reactive({
                 
                 purrr::map(
                     .x = 1:input$automator_alternative_region_number_of_independent_events,
-                    .f = ~input[[paste("VSR_number_of_exons_for_LIV_", .x, sep = "")]])
+                    .f = ~input[[paste("VSR_number_of_exons_for_LIS_", .x, sep = "")]])
                 
             } )
             
             reactive_VSR_exon_genome_relative_coordinates <- reactive({
                 
                 purrr::imap(
-                    .x = reactive_VSR_number_of_exons_for_each_LIV(),
+                    .x = reactive_VSR_number_of_exons_for_each_LIS(),
                     .f = function(a1, a2) {
                         number_of_exons <- a1 %>% paste %>% type.convert
                         
@@ -2775,7 +2801,7 @@ server <- function(input, output, session) {
                             .x = 1:number_of_exons,
                             .f = function(b1, b2) {
                                 
-                                input[[paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIV_number_", a2, sep = "")]]
+                                input[[paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIS_number_", a2, sep = "")]]
                                 
                             } )
                         
@@ -2816,24 +2842,24 @@ server <- function(input, output, session) {
                         
                     } )
                 
-                paste("Suggested shorthand notation: \n", VSR_LIV_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIV = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
+                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
                 
             })
             
             # invoke VSR pipeline
-        } else if (input$automator_structure_type == "Local Isoform Variant (LIV)") {
+        } else if (input$automator_structure_type == "Local Isoform Segment (LIS)") {
             
-            reactive_LIV_exon_genome_relative_coordinates <- reactive({
+            reactive_LIS_exon_genome_relative_coordinates <- reactive({
                 
-                purrr::map(.x = 1:input$automator_LIV_number_of_exons, .f = ~input[[paste("LIV_exon_genome_relative_coordinate_", .x, sep = "")]])
+                purrr::map(.x = 1:input$automator_LIS_number_of_exons, .f = ~input[[paste("LIS_exon_genome_relative_coordinate_", .x, sep = "")]])
                 
             })
             
-            vector_LIV_exon_genome_relative_coordinates <- reactive_LIV_exon_genome_relative_coordinates() %>% unlist
+            vector_LIS_exon_genome_relative_coordinates <- reactive_LIS_exon_genome_relative_coordinates() %>% unlist
             
             # DEBUG ###
             # automator_input_alternative_event_region <- "9:137613615-137614211:*"
-            # list_of_LIV_exon_genome_relative_coordinates <- list(c("9:137613770-137614031:*", "9:137613770-137614139:*", "9:137613770-137613980:*"))
+            # list_of_LIS_exon_genome_relative_coordinates <- list(c("9:137613770-137614031:*", "9:137613770-137614139:*", "9:137613770-137613980:*"))
             #
             # automator_input_left_query_end_shift <- 0
             # automator_input_right_query_end_shift <- 0
@@ -2844,13 +2870,13 @@ server <- function(input, output, session) {
             output$automator_nomenclature_output <- renderText( { 
                 
                 triage_input_coordinates(vector_input_coordinates = automator_input_alternative_event_region, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
-                triage_input_coordinates(vector_input_coordinates = vector_LIV_exon_genome_relative_coordinates, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE) 
+                triage_input_coordinates(vector_input_coordinates = vector_LIS_exon_genome_relative_coordinates, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE) 
                 
                 # observeEvent(input$automator_button_execute, {
                 
                 # create list of tibble of exon start/ends
                 list_of_exon_start_end_tibbles <- purrr::map(
-                    .x = list(vector_LIV_exon_genome_relative_coordinates),
+                    .x = list(vector_LIS_exon_genome_relative_coordinates),
                     .f = function(a1) {
                         
                         # vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
@@ -2862,7 +2888,7 @@ server <- function(input, output, session) {
                         
                     } )
                 
-                paste("Suggested shorthand notation: \n", VSR_LIV_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIV = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
+                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
                 
             })
             
@@ -2957,6 +2983,8 @@ server <- function(input, output, session) {
             
         }
         
+        removeModal()
+        
     }, ignoreNULL = FALSE, ignoreInit = TRUE)
     
     # END AUTOMATOR ###
@@ -2964,28 +2992,27 @@ server <- function(input, output, session) {
     # WORKSHOP ###
     
     ## import GTF
-    observeEvent(input$workshop_import_GTF, {
-        
-        showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-        
-        observeEvent(reactive_tibble_ref_gtf(), {
-            
-            output$automator_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
-            output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
-            
-            removeModal()
-            
-        } )
-        
-    } )
-    
-    reactive_tibble_ref_gtf <- eventReactive(input$workshop_import_GTF, {
+    workshop_reactive_tibble_ref_gtf <- eventReactive(input$workshop_import_GTF, {
         
         # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
         import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
         return(import_tibble_ref_gtf)
+        
+    } )
+    
+    observeEvent(input$workshop_import_GTF, {
+        
+        showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
+        
+        observeEvent(workshop_reactive_tibble_ref_gtf(), {
+            
+            output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
+            
+            removeModal()
+            
+        } )
         
     } )
     
@@ -2997,20 +3024,37 @@ server <- function(input, output, session) {
             
             label = "Manage ranges",
             
-            actionButton("workshop_select_user_range", "Select",
-                         class = "btn btn-primary", inline = TRUE),
+            div(style = "display: inline-block; float: left",
+                actionButton("workshop_select_user_range", "Select",
+                             class = "btn btn-primary", inline = TRUE)
+                ),
             
-            actionButton("workshop_delete_user_range", "Delete", icon = icon("eraser"),
-                         class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE),
+            div(style = "display: inline-block; float: right",
+                actionButton("workshop_reset_user_table", "Delete all ranges", icon = icon("eraser"),
+                             class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
+            ),
             
-            actionButton("workshop_reset_user_table", "Delete all ranges", icon = icon("eraser"),
-                         class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE),
+            div(style = "display: inline-block; float: right",
+                actionButton("workshop_delete_user_range", "Delete", icon = icon("eraser"),
+                             class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
+            ),
+            
+            br(),
+            br(),
+            
+            if (length(workshop_reactiveValues_user_ranges$id) > 1) {
+             
+                div(style = "display: block; text-align: left; font-size: 150%",
+                    c("Input range history")
+                )
+                   
+            },
             
             if (length(workshop_reactiveValues_user_ranges$id) > 1) {
                 
                 radioButtons(
                     inputId = "workshop_user_range_id_selection", 
-                    label = h5("Input range history"), 
+                    label = NULL, 
                     choiceValues = workshop_reactiveValues_user_ranges$id %>% .[2:length(workshop_reactiveValues_user_ranges$id)],
                     choiceNames = purrr::map(.x = 2:length(workshop_reactiveValues_user_ranges$id), .f = function(a1) {
                         
@@ -3083,7 +3127,7 @@ server <- function(input, output, session) {
     # deal with user adding range values
     observeEvent(input$workshop_add_user_range, {
         
-        tibble_ref_gtf <- reactive_tibble_ref_gtf()
+        tibble_ref_gtf <- workshop_reactive_tibble_ref_gtf()
         
         triage_result <- triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
         
@@ -3242,7 +3286,7 @@ server <- function(input, output, session) {
         print("workshop_tibble_user_ranges inside")
         print(workshop_tibble_user_ranges)
         
-        tibble_ref_gtf <- reactive_tibble_ref_gtf()
+        tibble_ref_gtf <- workshop_reactive_tibble_ref_gtf()
         
         plot_x_scale <- workshop_reactive_plot_x_scale() %>% as.numeric
         plot_y_scale <- workshop_reactive_plot_y_scale() %>% as.numeric
@@ -3280,8 +3324,6 @@ server <- function(input, output, session) {
         
         # plot shenanigans
         tibble_captured_in_range <- tibble_ref_gtf[which(tibble_ref_gtf$seqnames == selected_chr & tibble_ref_gtf$start <= plot_view_initial_x_end & tibble_ref_gtf$end >= plot_view_initial_x_start & tibble_ref_gtf$strand %in% selected_strand), ]
-        
-        tibble_captured_in_range$transcript_id <- factor(tibble_captured_in_range$transcript_id, levels = tibble_captured_in_range$transcript_id %>% unique %>% na.omit %>% mixedsort(decreasing = TRUE))
         
         tibble_captured_in_range$panel <- "transcripts"
         
@@ -3361,16 +3403,18 @@ server <- function(input, output, session) {
         plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         
         # # # Zoomable plot
-        # plot_brush_ranges <- reactiveValues(
+        # workshop_plot_brush_ranges <- reactiveValues(
         #     x = c(plot_view_initial_x_start,
         #           plot_view_initial_x_end),
         #     y = c(plot_view_initial_y_start,
         #           plot_view_initial_y_end)
         # )
         
-        # plot_brush_ranges <- reactiveValues(x = NULL, y = NULL)
+        # workshop_plot_brush_ranges <- reactiveValues(x = NULL, y = NULL)
         
         tibble_combined <- dplyr::full_join(tibble_captured_in_range, tibble_distance_annotations_based_on_user_query)
+        
+        tibble_combined$hgnc_stable_variant_ID <- factor(tibble_combined$hgnc_stable_variant_ID, levels = mixedsort(tibble_combined$hgnc_stable_variant_ID %>% unique))
         
         print(tibble_combined, width = Inf, n = Inf)
         
@@ -3418,7 +3462,7 @@ server <- function(input, output, session) {
             plot_height <- workshop_reactive_plot_height()
             plot_width <- workshop_reactive_plot_width()
             
-            plot_brush_ranges <- reactiveValues(
+            workshop_plot_brush_ranges <- reactiveValues(
                 x = c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
                       workshop_reactive_final_plot() %>% .$plot_view_initial_x_end), 
                 y = c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
@@ -3430,7 +3474,7 @@ server <- function(input, output, session) {
             output$workshop_plot_output <- renderPlot( {
                 
                 final_plot +
-                    coord_cartesian(xlim = plot_brush_ranges$x, ylim = plot_brush_ranges$y)
+                    coord_cartesian(xlim = workshop_plot_brush_ranges$x, ylim = workshop_plot_brush_ranges$y)
                 
             }, height = plot_height, width = plot_width )
             
@@ -3449,26 +3493,26 @@ server <- function(input, output, session) {
                 
                 brush <- input$workshop_plot_output_brush
                 if (!is.null(brush)) {
-                    plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
-                    plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
+                    workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
+                    workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
                 } else {
-                    plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                    workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
                                              workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
-                    plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
+                    workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
                                              workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
                 }
                 
             } )
             
             # Create the button to download the scatterplot as PDF
-            output$workshop_plot_output_brush <- downloadHandler(
+            output$workshop_download_plot <- downloadHandler(
                 filename = function() {
                     paste('EDN_workshop_', Sys.Date(), '.pdf', sep = "")
                 },
                 content = function(file) {
                     
                     ggplot_final_plot <- final_plot +
-                        coord_cartesian(xlim = plot_brush_ranges$x, ylim = plot_brush_ranges$y)
+                        coord_cartesian(xlim = workshop_plot_brush_ranges$x, ylim = workshop_plot_brush_ranges$y)
                     
                     ggsave(file, ggplot_final_plot, width = 20, height = 20*(plot_height/plot_width), dpi = 600, units = "cm")
                 }
@@ -3481,8 +3525,6 @@ server <- function(input, output, session) {
     } )
     
     # END WORKSHOP ###
-    
-    removeModal()
     
     outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
     outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
