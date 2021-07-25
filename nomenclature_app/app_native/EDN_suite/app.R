@@ -19,6 +19,8 @@ library(shiny)
 library(shinyWidgets)
 
 library(tidyverse)
+library(ggh4x)
+
 library(rtracklayer)
 library(gtools)
 library(data.table)
@@ -2111,14 +2113,16 @@ ui <- fluidPage(
                             column(width = 12, ######
                                    
                                    br(),
-                                   p("This is a collection of 3 tools to help generate, visualise and interpret the Extended Delta Notation.",
+                                   p("This is a collection of 4 tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
                                      br(),
                                      br(),
-                                     strong("EDN automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
+                                     strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
                                      br(),
-                                     strong("EDN workshop: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.",
+                                     strong("EDN Workshop: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.",
                                      br(),
-                                     strong("EDN Reverse Translate: "), "From any user-given EDN, produces genomic co-ordinates, draws a schematic defined by the shorthand and the associated reference transcripts.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
+                                     strong("EDN Reverse Translate: "), "From any user-given EDN, produces genomic co-ordinates, draws a schematic defined by the shorthand and the associated reference transcripts. It also checks whether a pair of shorthands are equivalent.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px",
+                                     br(),
+                                     strong("Library of EDN: "), "A collection of curated literature re-annotations using EDN. Any researcher is free to submit a re-annotation of a splicing event previously described in literature using EDN. Multiple pieces of evidence are required in the submission. Once submitted, articles are curated and checked for duplication, before being added to a public collection. In this way, splicing events in literature are all in one place and searchable using EDN with a single click. There is also a leaderboard for high scores - this ranks researchers according to the number of submissions they have made.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
                                    br(),
                                    p("All reference data is retrieved from Ensembl and RefSeq.", style="text-align:justify; color:black; background-color:papayawhip; padding:15px ;border-radius:10px")
                             ),
@@ -2153,12 +2157,12 @@ ui <- fluidPage(
                                                               "Alternatively spliced regions" = c("Variable Splice Region (VSR)", "Local Splice Variation (LSV) (junctions only)")),
                                                width = "300px"),
                                    
-                                   
                                    selectInput("automator_genome_assembly", 
                                                label = "Select the genome assembly to use (Ensembl release)", 
-                                               choices = list("NCBI36 (hg18)" = "54",
+                                               choices = list("GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character,
                                                               "GRCh37 (hg19)" = "75",
-                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character),
+                                                              "NCBI36 (hg18)" = "54"
+                                               ),
                                                width = "300px"
                                    ),
                                    
@@ -2326,14 +2330,37 @@ ui <- fluidPage(
                                    # Application title
                                    titlePanel("EDN Workshop"),
                                    
-                                   selectInput("workshop_genome_assembly", 
-                                               label = "Select the genome assembly to use (Ensembl release)", 
-                                               choices = list("NCBI36 (hg18)" = "54",
-                                                              "GRCh37 (hg19)" = "75",
-                                                              "GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character), 
+                                   # Let user import a custom GTF
+                                   selectInput(inputId = "workshop_import_file_type_selection", 
+                                               label = "Choose the annotation files to import", 
+                                               choices = list("Reference GTF" = c("Ensembl"),
+                                                              "Custom GTF" = c("Upload custom GTF")),
                                                width = "200px"),
                                    
-                                   actionButton("workshop_import_GTF", "Import genome assembly", icon = icon("file-import"),
+                                   conditionalPanel(
+                                       condition = "input.workshop_import_file_type_selection == 'Ensembl'",
+                                       selectInput("workshop_genome_assembly", 
+                                                   label = "Select the genome assembly to use (Ensembl release)", 
+                                                   choices = list("GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character,
+                                                                  "GRCh37 (hg19)" = "75",
+                                                                  "NCBI36 (hg18)" = "54"
+                                                   ), 
+                                                   width = "200px")
+                                   ),
+                                   
+                                   conditionalPanel(
+                                       condition = "input.workshop_import_file_type_selection == 'Upload custom GTF'",
+                                       fileInput("workshop_path_to_custom_gtf", "Choose GTF file",
+                                                 accept = c(".gtf"), 
+                                                 width = "200px")
+                                   ),
+                                   
+                                   conditionalPanel(
+                                       condition = "input.workshop_import_file_type_selection == 'Upload custom GTF'",
+                                       textInput("workshop_custom_file_import_name", label = "Enter a name for this file", placeholder = "e.g. Fibroblast nanopore assembly", width = "200px")
+                                   ),
+                                   
+                                   actionButton("workshop_button_import_annotation_file", "Import", icon = icon("file-import"),
                                                 class = "btn btn-primary", width = "200px"),
                                    
                                    br(),
@@ -2358,8 +2385,6 @@ ui <- fluidPage(
                                        )
                                        
                                    ),
-                                   
-                                   tags$div(style = "width: 200px;"),
                                    
                                    br(),
                                    
@@ -2397,61 +2422,83 @@ ui <- fluidPage(
                                    h5("Click and drag + double-click to zoom. Double-click to reset."),
                                    
                                    br(),
-
-                                       shinyWidgets::materialSwitch(inputId = "workshop_plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
                                    
-                                       shinyWidgets::dropdownButton(
-                                           
-                                           sliderInput("workshop_slider_plot_width", "Plot width:",
-                                                       min = 100, max = 4000, step = 100,
-                                                       value = 800),
-                                           sliderInput("workshop_slider_plot_height", "Plot height:",
-                                                       min = 100, max = 4000, step = 100,
-                                                       value = 1500),
-                                           
-                                           sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
-                                                       min = -5, max = 5, step = 0.01,
-                                                       value = 1),
-                                           sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
-                                                       min = -5, max = 5, step = 0.01,
-                                                       value = 1.3),
-                                           
-                                           sliderInput("workshop_slider_plot_x_offset", "Base offset left/right:",
-                                                       min = -5, max = 5, step = 0.01,
-                                                       value = 0),
-                                           sliderInput("workshop_slider_plot_y_offset", "Base offset up/down:",
-                                                       min = -5, max = 5, step = 0.01,
-                                                       value = 0),
-                                           
-                                           actionButton("workshop_reset_sliders", "Reset sliders",
-                                                        class = "btn btn-primary", width = "200px"),
-                                           
-                                           circle = FALSE, status = "info", icon = icon("gear"),
-                                           label = "Plot settings",
-                                           inline = TRUE
-                                       ),
-
+                                   shinyWidgets::materialSwitch(inputId = "workshop_plot_is_active", label = "Activate plot", status = "success", value = FALSE, right = FALSE, inline = TRUE),
+                                   
                                    div(style = "display: inline-block; vertical-align: middle; align: left",
                                        br()
                                    ),
                                    
+                                   # manage user ranges
                                    div(style = "display: inline-block; vertical-align: middle; align: left",
                                        uiOutput("workshop_reactive_UI_1")
                                    ),
                                    
-                                   # generate an upload box for users to upload full-length reconstructed isoforms
+                                   div(style = "display: inline-block; vertical-align: middle; align: left",
+                                       br()
+                                   ),
+                                   
+                                   shinyWidgets::dropdownButton(
+                                       
+                                       sliderInput("workshop_slider_plot_width", "Plot width:",
+                                                   min = 100, max = 4000, step = 100,
+                                                   value = 800),
+                                       sliderInput("workshop_slider_plot_height", "Plot height:",
+                                                   min = 100, max = 4000, step = 100,
+                                                   value = 1500),
+                                       
+                                       sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
+                                                   min = -5, max = 5, step = 0.01,
+                                                   value = 1.2),
+                                       sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
+                                                   min = -5, max = 5, step = 0.01,
+                                                   value = 1.45),
+                                       
+                                       sliderInput("workshop_slider_plot_x_offset", "Base offset left/right:",
+                                                   min = -5, max = 5, step = 0.01,
+                                                   value = 0),
+                                       sliderInput("workshop_slider_plot_y_offset", "Base offset up/down:",
+                                                   min = -5, max = 5, step = 0.01,
+                                                   value = 0),
+                                       
+                                       sliderInput("workshop_slider_table_height", "Height of table:",
+                                                   min = 100, max = 3000, step = 50,
+                                                   value = 250),
+                                       sliderInput("workshop_slider_table_width", "Width of table:",
+                                                   min = 100, max = 3000, step = 50,
+                                                   value = 800),
+                                       sliderInput("workshop_slider_table_font_size", "Table font size:",
+                                                   min = 10, max = 800, step = 5,
+                                                   value = 80),
+                                       
+                                       actionButton("workshop_reset_sliders", "Reset sliders",
+                                                    class = "btn btn-primary", width = "200px"),
+                                       
+                                       circle = FALSE, status = "info", icon = icon("gear"),
+                                       label = "Plot settings",
+                                       inline = TRUE
+                                   ),
+                                   
+                                   div(style = "display: inline-block; vertical-align: middle; align: left",
+                                       br()
+                                   ),
+                                   
+                                   # manage plot panels
+                                   div(style = "display: inline-block; vertical-align: middle; align: left",
+                                       uiOutput("workshop_reactive_UI_2")
+                                   ),
+                                   
+                                   # generate an download box for users to save the plot
                                    div(style = "display: inline-block; vertical-align: middle; float: right",
                                        downloadButton("workshop_download_plot", "Save Plot")
                                    ),
                                    
                                    br(),
-                                   br(),
                                    
                                    h3("Reference exon table"),
                                    
-                                   div(style = "height: 200px; overflow-y: scroll; overflow-x: scroll; font-size: 80%", 
-                                       dataTableOutput("workshop_ref_table_output")
-                                       ),
+                                   # exon table
+                                   uiOutput("workshop_reactive_exon_table"),
                                    
                                    h3("Schematic"),
                                    
@@ -2469,6 +2516,16 @@ ui <- fluidPage(
                ), # tabPanel
                
                tabPanel("EDN Reverse Translate",
+                        
+                        fluidRow(column(width = 12,
+                                        br(),
+                                        p("Coming soon...",)
+                        )
+                        )
+                        
+               ), # tabPanel
+               
+               tabPanel("Library of EDN",
                         
                         fluidRow(column(width = 12,
                                         br(),
@@ -2624,7 +2681,6 @@ server <- function(input, output, session) {
             ###########
             
             automator_path_recon_GTF <- input$automator_path_full_length_recon_gtf$datapath
-            
             
             output$automator_nomenclature_output <- renderPrint( {
                 # manage parrallellisation
@@ -2896,8 +2952,8 @@ server <- function(input, output, session) {
         } else if (automator_input_structure_type == "Alternative exon") {
             
             # DEBUG ###
-            # automator_input_alternative_exon_coords <- "1:155309077-155309788:*"
-            #
+            # automator_input_alternative_exon_coords <- "7:7157427-7234302:*"
+            # 
             # automator_input_left_query_end_shift <- 0
             # automator_input_right_query_end_shift <- 0
             # automator_input_left_match_tolerance <- 1
@@ -2991,33 +3047,106 @@ server <- function(input, output, session) {
     
     # WORKSHOP ###
     
-    ## import GTF
-    workshop_reactive_tibble_ref_gtf <- eventReactive(input$workshop_import_GTF, {
+    # import files
+    
+    workshop_reactive_button_import_annotation_file <- reactive({input$workshop_button_import_annotation_file}) %>% debounce(2000) %>% throttle(2000)
+    
+    ## deal with the annotation tracks
+    ## create metadata
+    workshop_reactiveValues_annotation_files <- reactiveValues( 
+        "annotation_files" = list(
+            "reference_gtf" = list(),
+            "custom_gtf" = list()
+        )
+    )
+    
+    workshop_reactiveValues_custom_file_import_name <- reactiveValues(
+        "workshop_custom_file_import_name" = character()
+    )
+    
+    observe( {
+        workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- input$workshop_custom_file_import_name
+    } )
+    
+    ## import reference GTF
+    observeEvent(workshop_reactive_button_import_annotation_file(), {
+        
+        if (input$workshop_import_file_type_selection == "Ensembl") {
+            
+            showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
+            
+        } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+            
+            showModal(modalDialog(paste("Importing custom GTF. Please wait...\n", sep = ""), footer = NULL))
+            
+        }
+        
+    }, ignoreNULL = FALSE, ignoreInit = TRUE )
+    
+    workshop_reactive_temp_imported_annotation_file <- eventReactive(workshop_reactive_button_import_annotation_file(), {
         
         # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
-        import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        if (input$workshop_import_file_type_selection == "Ensembl") {
+            
+            import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- paste("ensembl_", input$workshop_genome_assembly, sep = "")
+            
+            return(import_tibble_ref_gtf)
+            
+        } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+            
+            # import_tibble_custom_gtf <- rtracklayer::import(con = "/mnt/LTS/projects/2019_hmsc_spliceome/Kassem_OB/analysis_strawberry/results_assemblyonly/merged/BM_MSC_to_OB_3d_denovo_reconstructed_stringtiemerged.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() 
+            
+            workshop_path_recon_GTF <- input$workshop_path_to_custom_gtf$datapath
+            
+            import_tibble_custom_gtf <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert()
+            
+            # remove chrX... etc if required
+            import_tibble_custom_gtf$seqnames <- gsub(x = import_tibble_custom_gtf$seqnames, pattern = "chr(.*)", replacement = "\\1")
+            # change chromosome M to MT.
+            import_tibble_custom_gtf[import_tibble_custom_gtf$seqnames == "M", "seqnames"] <- "MT"
+            
+            return(import_tibble_custom_gtf)
+            
+        }
         
-        return(import_tibble_ref_gtf)
-        
-    } )
+    }, ignoreNULL = FALSE, ignoreInit = TRUE )
     
-    observeEvent(input$workshop_import_GTF, {
+    observeEvent(workshop_reactive_temp_imported_annotation_file(), {
         
-        showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
-        
-        observeEvent(workshop_reactive_tibble_ref_gtf(), {
+        # check if file has indeed been imported
+        if ((input$workshop_import_file_type_selection == "Ensembl") | 
+            (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE)) {
+            
+            input_annotation_file <- workshop_reactive_temp_imported_annotation_file()
+            
+            if (input$workshop_import_file_type_selection == "Ensembl" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_gtf <- workshop_reactiveValues_annotation_files$annotation_files$reference_gtf %>% purrr::splice(
+                    input_annotation_file
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+            } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+                workshop_reactiveValues_annotation_files$annotation_files$custom_gtf <- workshop_reactiveValues_annotation_files$annotation_files$custom_gtf %>% purrr::splice(
+                    input_annotation_file
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+            }
+            
+            print(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)
+            print(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)
             
             output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
             
             removeModal()
             
-        } )
+        }
         
     } )
     
     # reactive ui ####
-    ## this is for displaying the user ranges
+    ## this is for managing the user ranges
     output$workshop_reactive_UI_1 <- renderUI( {
         
         shinyWidgets::dropdownButton(
@@ -3027,7 +3156,7 @@ server <- function(input, output, session) {
             div(style = "display: inline-block; float: left",
                 actionButton("workshop_select_user_range", "Select",
                              class = "btn btn-primary", inline = TRUE)
-                ),
+            ),
             
             div(style = "display: inline-block; float: right",
                 actionButton("workshop_reset_user_table", "Delete all ranges", icon = icon("eraser"),
@@ -3043,11 +3172,11 @@ server <- function(input, output, session) {
             br(),
             
             if (length(workshop_reactiveValues_user_ranges$id) > 1) {
-             
+                
                 div(style = "display: block; text-align: left; font-size: 150%",
                     c("Input range history")
                 )
-                   
+                
             },
             
             if (length(workshop_reactiveValues_user_ranges$id) > 1) {
@@ -3072,9 +3201,73 @@ server <- function(input, output, session) {
                     selected = 1)
                 
             },
-            
             circle = FALSE, status = "info", icon = icon("file-alt"),
             width = 500
+        )
+        
+    } ) # renderUI
+    
+    # reactive ui ####
+    ## this is for managing the plot panels
+    output$workshop_reactive_UI_2 <- renderUI( {
+        
+        shinyWidgets::dropdownButton(
+            
+            label = "Show/hide panels",
+            
+            checkboxGroupInput(
+                inputId = "workshop_select_plot_panels",
+                label = NULL,
+                inline = FALSE,
+                choices = NULL,
+                choiceNames = purrr::map2(
+                    .x = workshop_reactiveValues_annotation_files$annotation_files,
+                    .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+                    .f = function(a1, a2) {
+                        
+                        purrr::map2(
+                            .x = a1,
+                            .y = names(a1),
+                            .f = function(b1, b2) {
+                                
+                                paste(a2 %>% stringr::str_to_sentence() %>% gsub(pattern = "gtf", replacement = "GTF") %>% gsub(pattern = "_", replacement = " "), ": ", b2, sep = "")  %>%
+                                    return
+                                
+                            } )
+                        
+                    } ) %>% unlist(use.names = FALSE),
+                choiceValues = purrr::map2(
+                    .x = workshop_reactiveValues_annotation_files$annotation_files,
+                    .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+                    .f = function(a1, a2) {
+                        
+                        purrr::map2(
+                            .x = a1,
+                            .y = names(a1),
+                            .f = function(b1, b2) {
+                                
+                                paste(a2, "|", b2, sep = "") %>%
+                                    return
+                                
+                            } )
+                        
+                    } ) %>% unlist(use.names = FALSE)
+                ),
+            
+            circle = FALSE, status = "info", icon = icon("fa-eye"),
+            width = 500
+        )
+        
+    } ) # renderUI
+    
+    workshop_reactive_slider_table_height <- reactive({input$workshop_slider_table_height})
+    workshop_reactive_slider_table_width <- reactive({input$workshop_slider_table_width})
+    workshop_reactive_slider_table_font_size <- reactive({input$workshop_slider_table_font_size})
+    
+    output$workshop_reactive_exon_table <- renderUI( {
+        
+        div(style = paste("height: ", as.numeric(workshop_reactive_slider_table_height()), "px; width: ", as.numeric(workshop_reactive_slider_table_width()), "px; overflow-y: scroll; overflow-x: scroll; font-size: ", as.numeric(workshop_reactive_slider_table_font_size()), "%", sep = ""), 
+            dataTableOutput("workshop_ref_table_output")
         )
         
     } ) # renderUI
@@ -3089,14 +3282,20 @@ server <- function(input, output, session) {
     workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset})
     workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset})
     
-    observeEvent(input$workshop_reset_sliders,{
-        updateSliderInput(session, "workshop_slider_plot_width" ,value = 800)
-        updateSliderInput(session, "workshop_slider_plot_height" ,value = 1500)
-        updateSliderInput(session, "workshop_slider_plot_x_scale" ,value = 1)
-        updateSliderInput(session, "workshop_slider_plot_y_scale" ,value = 1.3)
-        updateSliderInput(session, "workshop_slider_plot_x_offset" ,value = 0)
-        updateSliderInput(session, "workshop_slider_plot_y_offset" ,value = 0)
-    })
+    observeEvent(input$workshop_reset_sliders, {
+        updateSliderInput(session, "workshop_slider_plot_width", value = 800)
+        updateSliderInput(session, "workshop_slider_plot_height", value = 1500)
+        
+        updateSliderInput(session, "workshop_slider_plot_x_scale", value = 1)
+        updateSliderInput(session, "workshop_slider_plot_y_scale", value = 1.3)
+        
+        updateSliderInput(session, "workshop_slider_plot_x_offset", value = 0)
+        updateSliderInput(session, "workshop_slider_plot_y_offset", value = 0)
+        
+        updateSliderInput(session, "workshop_slider_table_height", value = 250)
+        updateSliderInput(session, "workshop_slider_table_width", value = 800)
+        updateSliderInput(session, "workshop_slider_table_font_size", value = 80)
+    } )
     
     # handle user selection
     workshop_reactive_user_range_id_selection <- reactive({input$workshop_user_range_id_selection})
@@ -3124,6 +3323,21 @@ server <- function(input, output, session) {
         panel = "user_ranges"
     )
     
+    # deal with user editing plot panels
+    observeEvent(input$workshop_select_plot_panels, {
+        
+        # list-ify
+        list_selected_plot_panels <- tibble("L1" = input$workshop_select_plot_panels %>% gsub(pattern = "(.*)\\|(.*)", replacement = "\\1") %>% unique,
+                                            "L2" = input$workshop_select_plot_panels %>% gsub(pattern = "(.*)\\|(.*)", replacement = "\\2") %>% unique
+        ) %>% dplyr::group_split(L1) %>%
+            purrr::map(~.x$L2)
+        
+        # subset the annotation files according to selection
+        workshop_reactiveValues_annotation_files_selected <- input$workshop_select_plot_panels %>% 
+            
+        
+    })
+    
     # deal with user adding range values
     observeEvent(input$workshop_add_user_range, {
         
@@ -3131,9 +3345,30 @@ server <- function(input, output, session) {
         
         triage_result <- triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)
         
-        output$workshop_nomenclature_output <- renderText({triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = TRUE)})
-        
-        if (triage_result == "triage successful") {
+        if (triage_result == "triage fail") {
+            
+            triage_result_2 <- triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, tibble_gtf_table = tibble_ref_gtf, expect_stranded = FALSE)
+            
+            if (triage_result_2 == "triage successful") {
+                
+                input_chr <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
+                input_start <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\2") %>% type.convert
+                input_end <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\3") %>% type.convert
+                input_strand <- "*"
+                
+                workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {1} else {max(workshop_reactiveValues_user_ranges$id) + 1} )
+                workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
+                workshop_reactiveValues_user_ranges$start <- c(workshop_reactiveValues_user_ranges$start, input_start)
+                workshop_reactiveValues_user_ranges$end <- c(workshop_reactiveValues_user_ranges$end, input_end)
+                workshop_reactiveValues_user_ranges$strand <- c(workshop_reactiveValues_user_ranges$strand, input_strand)
+                workshop_reactiveValues_user_ranges$range_type <- c(workshop_reactiveValues_user_ranges$range_type, input$workshop_range_type)
+                workshop_reactiveValues_user_ranges$panel <- c(workshop_reactiveValues_user_ranges$panel, "user_ranges")
+                
+                triage_result <- triage_result_2
+                
+            }
+            
+        } else if (triage_result == "triage successful") {
             
             input_chr <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
             input_start <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
@@ -3149,6 +3384,8 @@ server <- function(input, output, session) {
             workshop_reactiveValues_user_ranges$panel <- c(workshop_reactiveValues_user_ranges$panel, "user_ranges")
             
         }
+        
+        output$workshop_nomenclature_output <- renderText({triage_result})
         
         # automatically select the one that was added
         workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)]
@@ -3414,7 +3651,9 @@ server <- function(input, output, session) {
         
         tibble_combined <- dplyr::full_join(tibble_captured_in_range, tibble_distance_annotations_based_on_user_query)
         
-        tibble_combined$hgnc_stable_variant_ID <- factor(tibble_combined$hgnc_stable_variant_ID, levels = mixedsort(tibble_combined$hgnc_stable_variant_ID %>% unique))
+        # tibble_combined$hgnc_stable_variant_ID <- factor(tibble_combined$hgnc_stable_variant_ID, levels = mixedsort(tibble_combined$hgnc_stable_variant_ID %>% unique, decreasing = FALSE))
+        
+        tibble_combined$transcript_id <- factor(tibble_combined$transcript_id, levels = tibble_combined$transcript_id %>% .[mixedorder(tibble_combined$hgnc_stable_variant_ID, decreasing = TRUE)] %>% unique %>% na.omit )
         
         print(tibble_combined, width = Inf, n = Inf)
         
@@ -3425,7 +3664,7 @@ server <- function(input, output, session) {
             
             # transcripts
             geom_segment(data = tibble_combined %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)) +
-            geom_text(data = tibble_combined %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::map2(.x = strand, .y = hgnc_stable_variant_ID, .f = function(.x, .y) {if (.x == "+") {paste("> > > > > > ", .y, " > > > > > >", sep = "")} else if (.x == "-") {paste("< < < < < < ", .y, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
+            geom_text(data = tibble_combined %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::pmap(.l = list("a1" = strand, "a2" = hgnc_stable_variant_ID, "a3" = transcript_version), .f = function(a1, a2, a3) {if (a1 == "+") {paste("> > > > > > ", a2, ".", a3, " > > > > > >", sep = "")} else if (a1 == "-") {paste("< < < < < < ", a2, ".", a3, " < < < < < <", sep = "")} else {.y} } ) %>% unlist)) +
             geom_segment(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10) +
             geom_label(data = tibble_combined %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))) +
             
@@ -3438,7 +3677,7 @@ server <- function(input, output, session) {
             geom_segment(data = tibble_combined, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)) +
             geom_label(data = tibble_combined, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex)) +
             
-            ggh4x::force_panelsizes(rows = c(1, 0.3)) +
+            ggh4x::force_panelsizes(rows = c(1, nrow(workshop_tibble_user_ranges[workshop_tibble_user_ranges$id > 0, ])/length(tibble_captured_in_range$transcript_id %>% unique))) +
             theme_bw() +
             theme(text = element_text(family = "Helvetica"))
         
@@ -3462,6 +3701,8 @@ server <- function(input, output, session) {
             plot_height <- workshop_reactive_plot_height()
             plot_width <- workshop_reactive_plot_width()
             
+            slider_table_height <- workshop_reactive_slider_table_height()
+            
             workshop_plot_brush_ranges <- reactiveValues(
                 x = c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
                       workshop_reactive_final_plot() %>% .$plot_view_initial_x_end), 
@@ -3479,12 +3720,13 @@ server <- function(input, output, session) {
             }, height = plot_height, width = plot_width )
             
             output$workshop_ref_table_output <- renderDataTable(
-                workshop_reactive_final_plot() %>% .$tibble_captured_in_range %>% 
-                    dplyr::select(hgnc_stable_variant_ID, transcript_version, type, exon_number, seqnames, start, end, width, strand, gene_id, transcript_id, protein_id, gene_biotype, transcript_biotype, retirement_status) %>% 
-                    .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
-                    setNames(nm = c("HGNC stable variant ID", "Transcript version", "Type", "Exon number", "chr", "start", "end", "width", "strand", "Gene stable ID", "Transcript stable ID", "Protein stable ID", "Gene biotype", "Transcript biotype", "Retirement status")) %>%
-                    dplyr::mutate("id" = 1:nrow(.), .before = 1), 
-                options = list(scrollX = TRUE, scrollY = "200px", lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+                {workshop_reactive_final_plot() %>% .$tibble_captured_in_range %>% 
+                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("retirement_status")) %>% 
+                        .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
+                        dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+                        dplyr::mutate("id" = 1:nrow(.), .before = 1) %>% 
+                        return}, 
+                options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
             )
             
             # When a double-click happens, check if there's a brush on the plot.
@@ -3497,9 +3739,9 @@ server <- function(input, output, session) {
                     workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
                 } else {
                     workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                             workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
+                                                      workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
                     workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
-                                             workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+                                                      workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
                 }
                 
             } )
@@ -3529,6 +3771,8 @@ server <- function(input, output, session) {
     outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
     outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
     outputOptions(output, "workshop_reactive_UI_1", suspendWhenHidden = TRUE)
+    outputOptions(output, "workshop_reactive_UI_2", suspendWhenHidden = TRUE)
+    outputOptions(output, "workshop_reactive_exon_table", suspendWhenHidden = TRUE)
     
 } # server
 
