@@ -2839,7 +2839,7 @@ server <- function(input, output, session) {
             
             output$automator_nomenclature_output <- renderText( {
                 
-                triage_input_coordinates(vector_input_coordinates = vector_FLI_exon_genome_relative_coordinates %>% unlist, , vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
+                triage_input_coordinates(vector_input_coordinates = vector_FLI_exon_genome_relative_coordinates %>% unlist, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
                 
                 # create tibble of chr start end strand
                 vector_isoform_chr <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
@@ -3127,7 +3127,7 @@ server <- function(input, output, session) {
             
             workshop_path_recon_GTF <- input$workshop_path_to_custom_gtf$datapath
             
-            import_tibble_custom_gtf <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert()
+            import_tibble_custom_gtf <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() %>% dplyr::rename("exon_number" = "exon_id")
             
             # remove chrX... etc if required
             import_tibble_custom_gtf$seqnames <- gsub(x = import_tibble_custom_gtf$seqnames, pattern = "chr(.*)", replacement = "\\1")
@@ -3319,14 +3319,14 @@ server <- function(input, output, session) {
     } ) # renderUI
     
     # handle plot
-    workshop_reactive_plot_width <- reactive({input$workshop_slider_plot_width})
-    workshop_reactive_plot_height <- reactive({input$workshop_slider_plot_height})
+    workshop_reactive_plot_width <- reactive({input$workshop_slider_plot_width}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_height <- reactive({input$workshop_slider_plot_height}) %>% debounce(300) %>% throttle(300)
     
-    workshop_reactive_plot_x_scale <- reactive({input$workshop_slider_plot_x_scale})
-    workshop_reactive_plot_y_scale <- reactive({input$workshop_slider_plot_y_scale})
+    workshop_reactive_plot_x_scale <- reactive({input$workshop_slider_plot_x_scale}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_y_scale <- reactive({input$workshop_slider_plot_y_scale}) %>% debounce(300) %>% throttle(300)
     
-    workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset})
-    workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset})
+    workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset}) %>% debounce(300) %>% throttle(300)
     
     observeEvent(input$workshop_reset_sliders, {
         updateSliderInput(session, "workshop_slider_plot_width", value = 800)
@@ -3776,7 +3776,7 @@ server <- function(input, output, session) {
                     .y = names(a1),
                     .f = function(b1, b2) {
                         
-                        return(paste(a2 %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " "), ": ", b2, sep = ""))
+                        return(paste(a2 %>% stringr::str_to_sentence() %>% gsub(pattern = "gtf", replacement = "GTF") %>% gsub(pattern = "\\_", replacement = " "), ": ", b2, sep = ""))
                         
                     } ) %>% unlist
                 
@@ -3906,17 +3906,20 @@ server <- function(input, output, session) {
         print("list_distances_between_user_ranges_and_reference_annotations")
         print(list_distances_between_user_ranges_and_reference_annotations)
         
+        print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Reference GTF\")]")
+        print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")])
+        
         ggplot_final_plot <- list(
             ggplot(),
             ggplot2::facet_grid(panel ~ ., scales = "free_y")) %>% 
             
             purrr::splice(
                 
-                # ref and custom GTF
-                if (length(list_tibbles_track_features_visible) > 0) {
+                # reference_gtf
+                if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
                     
                     purrr::map(
-                        .x = list_tibbles_track_features_visible_flattened, 
+                        .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")], 
                         .f = function(a1) {
                             
                             list(
@@ -3925,6 +3928,26 @@ server <- function(input, output, session) {
                                 geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " < < < < < <", sep = "")} else {paste(b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3)) {b3}, sep = "")} } ) %>% unlist)),
                                 geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                                 geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                                
+                            )
+                            
+                        } ) %>% purrr::flatten()
+                    
+                },
+                
+                # custom_gtf
+                if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+                    
+                    purrr::map(
+                        .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")], 
+                        .f = function(a2) {
+                            
+                            list(
+                                
+                                geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = transcript_id)),
+                                geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                                geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                 
                             )
                             
@@ -3954,12 +3977,12 @@ server <- function(input, output, session) {
                     
                     purrr::map(
                         .x = list_distances_between_user_ranges_and_reference_annotations, 
-                        .f = function(a1) {
+                        .f = function(a3) {
                             
                             list(
                                 
-                                geom_segment(data = a1, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
-                                geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
+                                geom_segment(data = a3, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
+                                geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
                                 
                             )
                             
@@ -3970,7 +3993,17 @@ server <- function(input, output, session) {
                 # these mark the original viewing window
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
-                ggh4x::force_panelsizes(rows = c(list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist, tibble_user_ranges_visible %>% nrow)),
+                ggh4x::force_panelsizes(rows = c(
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^reference_gtf")]) > 0){
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^reference_gtf")] %>% rbindlist %>% .$transcript_id %>% unique %>% length
+                    },
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^custom_gtf")]) > 0){
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^custom_gtf")] %>% rbindlist %>% .$transcript_id %>% unique %>% length
+                    },
+                    if (nrow(tibble_user_ranges_visible) > 0){
+                        tibble_user_ranges_visible %>% nrow
+                    }
+                ) %>% (function(x) {return(x/sum(x))} ) ),
                 theme_bw(),
                 theme(text = element_text(family = "Helvetica"))
             )  %>% purrr::reduce(ggplot2:::`+.gg`)
