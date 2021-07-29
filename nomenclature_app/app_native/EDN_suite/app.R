@@ -3796,19 +3796,17 @@ server <- function(input, output, session) {
         ## find the user ranges visible in the viewing range
         tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
         
-        # print("tibble_user_ranges_visible 1")
-        # print(tibble_user_ranges_visible)
-        
-        # print("workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0")
-        # print(workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0)
+        list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
         
         # distance shenanigans
         ## calculate distances for selected range
         ## only do this if the selected range is visible
-        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0) {
+        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0 & length(list_tibbles_track_features_visible_flattened) > 0) {
             
             # flatten the original full GTF table
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
+            
+            list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened 
             
             ## having determined the plot window, calculate distances to every exon in the plot range
             list_distance_annotation_data_flattened <- purrr::pmap(
@@ -3917,26 +3915,29 @@ server <- function(input, output, session) {
                     
                 } )
             
+            list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
+            
+            # add back in the exons touched by the distance range
+            list_tibbles_track_features_visible_flattened <- purrr::pmap(
+                .l = list(
+                    "a1" = list_tibbles_track_features_visible_flattened,
+                    "a2" = list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_all_exons_of_overlapped_parent_transcript),
+                    "a3" = names(list_tibbles_track_features_visible_flattened)
+                ), .f = function(a1, a2, a3) {
+                    
+                    dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% 
+                        return
+                    
+                } 
+            ) %>% set_names(nm = names(list_tibbles_track_features_visible_flattened))
+            
         } else {
             
-            list_distance_annotation_data <- list()
+            list_distances_between_user_ranges_and_reference_annotations <- list()
+            
+            list_tibbles_track_features_visible_flattened <- list()
+            
         }
-        
-        list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
-        
-        # add back in the exons touched by the distance range
-        list_tibbles_track_features_visible_flattened <- purrr::pmap(
-            .l = list(
-                "a1" = list_tibbles_track_features_visible_flattened,
-                "a2" = list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_all_exons_of_overlapped_parent_transcript),
-                "a3" = names(list_tibbles_track_features_visible_flattened)
-            ), .f = function(a1, a2, a3) {
-                
-                dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% 
-                    return
-                
-            } 
-        ) %>% set_names(nm = names(list_tibbles_track_features_visible_flattened))
         
         number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
         
@@ -4051,8 +4052,6 @@ server <- function(input, output, session) {
             
             if (workshop_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
                 
-                
-                
                 ## get the y-axis values 
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
                     
@@ -4070,8 +4069,6 @@ server <- function(input, output, session) {
                 
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial <- workshop_reactiveValues_plot_metadata$list_y_axis_scale
                 
-                
-                
             }
             
             ## number of features per track
@@ -4081,17 +4078,21 @@ server <- function(input, output, session) {
             workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
             
             # DEBUG ###
-            # workshop_list_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
-            # list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
-            # workshop_list_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
-            # tibble_user_ranges_visible <<- tibble_user_ranges_visible
-            # workshop_list_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            print("plot debug")
+            workshop_list_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            workshop_list_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+            tibble_user_ranges_visible <<- tibble_user_ranges_visible
+            workshop_list_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
             ###########
             
             # CREATE GGPLOT
             ggplot_final_plot <- list(
                 ggplot(),
-                ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y")) %>% 
+                ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y"),
+                # these mark the original viewing window
+                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
+                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end)) %>% 
                 
                 purrr::splice(
                     
@@ -4145,11 +4146,11 @@ server <- function(input, output, session) {
                     if (nrow(tibble_user_ranges_visible) > 1) {
                         geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
                     },
-                    if (workshop_list_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-                        geom_vline(colour = "red", lty = 2, xintercept = workshop_list_selected_user_range$start)
+                    if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+                        geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
                     },
-                    if (workshop_list_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-                        geom_vline(colour = "red", lty = 2, xintercept = workshop_list_selected_user_range$end)
+                    if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+                        geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
                     },
 
                     # distance annotation
@@ -4169,10 +4170,6 @@ server <- function(input, output, session) {
                             } ) %>% purrr::flatten()
 
                     },
-
-                    # these mark the original viewing window
-                    geom_vline(colour = "green", lty = 2, xintercept = workshop_list_current_plot_range$start),
-                    geom_vline(colour = "green", lty = 2, xintercept = workshop_list_current_plot_range$end),
 
                     # adaptive facet aspect ratio
                     ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
