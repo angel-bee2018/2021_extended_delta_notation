@@ -13,4 +13,6 @@ parallel --link --delay 1 --round-robin -N 1 'cd {1}; wget -c "ftp://ftp.ensembl
 ::: $(ncftpls ftp://ftp.ensembl.org/pub | grep release\- | sed 's/pub\/release\-//g' | sed 's/\///g')
 
 # unzip all files
-for file in $(ls *.gz); do gunzip $file & done
+for file in $(ls *.gz); do echo "n" | gunzip $file & done
+
+rm *.gtf.gz

@@ -106,7 +106,7 @@ names(list_all_GTFs) <- vector_release_numbers
 # get vector of assembly numbers
 vector_assembly_numbers <- gsub(x = list.files(input_GTF_dir), pattern = ".*\\.(.*)\\.(\\d+)\\.gtf", replacement = "\\1")
 
-setDTthreads(144)
+setDTthreads(66)
 
 # add column to each GTF indicating assembly and release version and tibblise
 list_all_GTFs <- purrr::pmap(

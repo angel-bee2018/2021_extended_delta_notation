@@ -2463,7 +2463,7 @@ ui <- fluidPage(
                                        sliderInput("workshop_slider_table_width", "Width of table:",
                                                    min = 100, max = 3000, step = 50,
                                                    value = 800),
-                                       sliderInput("workshop_slider_table_font_size", "Table font size:",
+                                       sliderInput("workshop_slider_table_font_size", "Table font size (%):",
                                                    min = 10, max = 800, step = 5,
                                                    value = 80),
                                        
@@ -3319,21 +3319,21 @@ server <- function(input, output, session) {
     } ) # renderUI
     
     # handle plot
-    workshop_reactive_plot_width <- reactive({input$workshop_slider_plot_width}) %>% debounce(300) %>% throttle(300)
-    workshop_reactive_plot_height <- reactive({input$workshop_slider_plot_height}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_width <- reactive({input$workshop_slider_plot_width}) %>% debounce(1000) %>% throttle(1000)
+    workshop_reactive_plot_height <- reactive({input$workshop_slider_plot_height}) %>% debounce(1000) %>% throttle(1000)
     
-    workshop_reactive_plot_x_scale <- reactive({input$workshop_slider_plot_x_scale}) %>% debounce(300) %>% throttle(300)
-    workshop_reactive_plot_y_scale <- reactive({input$workshop_slider_plot_y_scale}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_x_scale <- reactive({input$workshop_slider_plot_x_scale}) %>% debounce(1000) %>% throttle(1000)
+    workshop_reactive_plot_y_scale <- reactive({input$workshop_slider_plot_y_scale}) %>% debounce(1000) %>% throttle(1000)
     
-    workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset}) %>% debounce(300) %>% throttle(300)
-    workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset}) %>% debounce(300) %>% throttle(300)
+    workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset}) %>% debounce(1000) %>% throttle(1000)
+    workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset}) %>% debounce(1000) %>% throttle(1000)
     
     observeEvent(input$workshop_reset_sliders, {
         updateSliderInput(session, "workshop_slider_plot_width", value = 800)
         updateSliderInput(session, "workshop_slider_plot_height", value = 1500)
         
         updateSliderInput(session, "workshop_slider_plot_x_scale", value = 1)
-        updateSliderInput(session, "workshop_slider_plot_y_scale", value = 1.3)
+        updateSliderInput(session, "workshop_slider_plot_y_scale", value = 0)
         
         updateSliderInput(session, "workshop_slider_plot_x_offset", value = 0)
         updateSliderInput(session, "workshop_slider_plot_y_offset", value = 0)
@@ -3615,6 +3615,11 @@ server <- function(input, output, session) {
         "end" = 11809682
     )
     
+    workshop_plot_brush_ranges <- reactiveValues(
+        x = c(), 
+        y = c()
+    )
+    
     # deal with user jumping to coord
     observeEvent(input$workshop_coord_jump_button, {
         
@@ -3692,7 +3697,7 @@ server <- function(input, output, session) {
         
         # set up ALL user ranges
         tibble_all_user_ranges <- tibble(
-            "id" = workshop_reactiveValues_user_ranges$id,
+            "id" = workshop_reactiveValues_user_ranges$id %>% as.character,
             "chr" = workshop_reactiveValues_user_ranges$chr,
             "start" = workshop_reactiveValues_user_ranges$start,
             "end" = workshop_reactiveValues_user_ranges$end,
@@ -3711,12 +3716,12 @@ server <- function(input, output, session) {
             selected_user_range_strand <- c("+", "-")
         }
         
-        print("workshop_reactiveValues_current_plot_range$chr")
-        print(workshop_reactiveValues_current_plot_range$chr)
-        print("workshop_reactiveValues_current_plot_range$start")
-        print(workshop_reactiveValues_current_plot_range$start)
-        print("workshop_reactiveValues_current_plot_range$end")
-        print(workshop_reactiveValues_current_plot_range$end)
+        # print("workshop_reactiveValues_current_plot_range$chr")
+        # print(workshop_reactiveValues_current_plot_range$chr)
+        # print("workshop_reactiveValues_current_plot_range$start")
+        # print(workshop_reactiveValues_current_plot_range$start)
+        # print("workshop_reactiveValues_current_plot_range$end")
+        # print(workshop_reactiveValues_current_plot_range$end)
         
         # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
         plot_view_initial_x_start <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + plot_x_scale*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
@@ -3726,17 +3731,17 @@ server <- function(input, output, session) {
         plot_view_initial_x_start <- plot_view_initial_x_start + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
         plot_view_initial_x_end <- plot_view_initial_x_end + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
         
-        print("workshop_reactiveValues_annotation_files_selected$annotation_files")
-        print(workshop_reactiveValues_annotation_files_selected$annotation_files)
-        
-        print("workshop_reactiveValues_current_plot_range$chr")
-        print(workshop_reactiveValues_current_plot_range$chr)
-        
-        print("plot_view_initial_x_end")
-        print(plot_view_initial_x_end)
-        
-        print("plot_view_initial_x_start")
-        print(plot_view_initial_x_start)
+        # print("workshop_reactiveValues_annotation_files_selected$annotation_files")
+        # print(workshop_reactiveValues_annotation_files_selected$annotation_files)
+        # 
+        # print("workshop_reactiveValues_current_plot_range$chr")
+        # print(workshop_reactiveValues_current_plot_range$chr)
+        # 
+        # print("plot_view_initial_x_end")
+        # print(plot_view_initial_x_end)
+        # 
+        # print("plot_view_initial_x_start")
+        # print(plot_view_initial_x_start)
         
         # plot shenanigans
         ## find the reference elements visible in the viewing range
@@ -3760,8 +3765,8 @@ server <- function(input, output, session) {
                 
             } )
         
-        print("list_tibbles_track_features_visible")
-        print(list_tibbles_track_features_visible)
+        # print("list_tibbles_track_features_visible")
+        # print(list_tibbles_track_features_visible)
         
         ## flatten into single list with names like: "category | name"
         list_tibbles_track_features_visible_flattened <- list_tibbles_track_features_visible %>% flatten
@@ -3791,28 +3796,53 @@ server <- function(input, output, session) {
         ## find the user ranges visible in the viewing range
         tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
         
-        print("workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0")
-        print(workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0)
+        # print("tibble_user_ranges_visible 1")
+        # print(tibble_user_ranges_visible)
+        
+        # print("workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0")
+        # print(workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0)
         
         # distance shenanigans
         ## calculate distances for selected range
         ## only do this if the selected range is visible
         if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0) {
             
+            # flatten the original full GTF table
+            list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
+            
             ## having determined the plot window, calculate distances to every exon in the plot range
-            list_distances_between_user_ranges_and_reference_annotations <- purrr::map2(
-                .x = list_tibbles_track_features_visible_flattened,
-                .y = names(list_tibbles_track_features_visible_flattened),
-                .f = function(a1, a2) {
+            list_distance_annotation_data_flattened <- purrr::pmap(
+                .l = list(
+                    "a1" = list_tibbles_track_features_visible_flattened,
+                    "a2" = names(list_tibbles_track_features_visible_flattened),
+                    "a3" = list_tibbles_track_features_all_flattened
+                ),
+                .f = function(a1, a2, a3) {
                     
-                    # determine transcript ids overlapped by user range
-                    tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = c("*"), tibble_gtf_table = a1, left_query_shift = input$workshop_left_query_end_shift %>% type.convert, right_query_shift = input$workshop_right_query_end_shift %>% type.convert, left_tolerance = input$workshop_left_match_tolerance %>% type.convert, right_tolerance = input$workshop_right_match_tolerance %>% type.convert, return_type = "transcript")
+                    # DEBUG ###
+                    # a1 <- list_tibbles_track_features_visible_flattened[[1]]
+                    # a2 <- names(list_tibbles_track_features_visible_flattened)[[1]]
+                    # a3 <- list_tibbles_track_features_all_flattened[[1]]
+                    ###########
+                    
+                    # determine visible transcript ids overlapped by user range
+                    tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = "*", tibble_gtf_table = a1, left_query_shift = input$workshop_left_query_end_shift %>% type.convert, right_query_shift = input$workshop_right_query_end_shift %>% type.convert, left_tolerance = input$workshop_left_match_tolerance %>% type.convert, right_tolerance = input$workshop_right_match_tolerance %>% type.convert, return_type = "transcript")
+                    
+                    print("tibble_ref_transcripts_overlapped_by_user_query")
+                    print(tibble_ref_transcripts_overlapped_by_user_query)
+                    
+                    selected_user_range_chr <- "7"
+                    selected_user_range_start <- 7157427
+                    selected_user_range_end <- 7234302
                     
                     # check if the selected transcript overlaps a ref transcript
                     if (tibble_ref_transcripts_overlapped_by_user_query %>% nrow > 0) {
                         
-                        tibble_all_exons_of_overlapped_parent_transcript <- a1[which(a1$type == "exon" & a1$transcript_id %in% (tibble_ref_transcripts_overlapped_by_user_query$transcript_id %>% unique)), ]
+                        tibble_all_exons_of_overlapped_parent_transcript <- a3[which(a3$type == "exon" & a3$transcript_id %in% (tibble_ref_transcripts_overlapped_by_user_query$transcript_id %>% unique)), ]
                         
+                        print("tibble_all_exons_of_overlapped_parent_transcript")
+                        print(tibble_all_exons_of_overlapped_parent_transcript)
+
                         tibble_distance_annotations_based_on_user_query <- purrr::map2(
                             # overlapping transcript entries
                             .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id),
@@ -3869,6 +3899,7 @@ server <- function(input, output, session) {
                     } else {
                         
                         tibble_distance_annotations_based_on_user_query <- tibble()
+                        tibble_all_exons_of_overlapped_parent_transcript <- tibble()
                         
                     }
                     
@@ -3877,160 +3908,105 @@ server <- function(input, output, session) {
                     
                     ##########
                     
-                    return(tibble_distance_annotations_based_on_user_query)
+                    return(
+                        list(
+                            "tibble_distance_annotations_based_on_user_query" = tibble_distance_annotations_based_on_user_query,
+                            "tibble_all_exons_of_overlapped_parent_transcript" = tibble_all_exons_of_overlapped_parent_transcript
+                        )
+                    )
                     
                 } )
             
         } else {
             
-            list_distances_between_user_ranges_and_reference_annotations <- list()
+            list_distance_annotation_data <- list()
         }
+        
+        list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
+        
+        # add back in the exons touched by the distance range
+        list_tibbles_track_features_visible_flattened <- purrr::pmap(
+            .l = list(
+                "a1" = list_tibbles_track_features_visible_flattened,
+                "a2" = list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_all_exons_of_overlapped_parent_transcript),
+                "a3" = names(list_tibbles_track_features_visible_flattened)
+            ), .f = function(a1, a2, a3) {
+                
+                dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% 
+                    return
+                
+            } 
+        ) %>% set_names(nm = names(list_tibbles_track_features_visible_flattened))
         
         number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
         
         # ONLY NOW we can set the y-viewing range
-        plot_view_initial_y_start <- 1 - 1.5*(number_of_transcripts_captured - 1) + plot_y_scale*(number_of_transcripts_captured - 1)
-        plot_view_initial_y_end <- number_of_transcripts_captured + 1.5*(number_of_transcripts_captured - 1) - plot_y_scale*(number_of_transcripts_captured - 1)
+        plot_view_initial_y_start <- 1 + plot_y_scale*(number_of_transcripts_captured - 1)
+        #  - 1.5*(number_of_transcripts_captured - 1)
+        plot_view_initial_y_end <- number_of_transcripts_captured - plot_y_scale*(number_of_transcripts_captured - 1)
+        #  + 1.5*(number_of_transcripts_captured - 1)
         
         # apply offset
         ## minuses because the y axis is in reversed order.
         plot_view_initial_y_start <- plot_view_initial_y_start - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         
-        print("list_tibbles_track_features_visible_flattened")
-        print(list_tibbles_track_features_visible_flattened)
-        
-        print("tibble_user_ranges_visible")
-        print(tibble_user_ranges_visible)
-        
-        print("list_distances_between_user_ranges_and_reference_annotations")
-        print(list_distances_between_user_ranges_and_reference_annotations)
-        
-        print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Reference GTF\")]")
-        print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")])
-        
-        ggplot_final_plot <- list(
-            ggplot(),
-            ggplot2::facet_grid(panel ~ ., scales = "free_y")) %>% 
-            
-            purrr::splice(
-                
-                # reference_gtf
-                if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
-                    
-                    purrr::map(
-                        .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")], 
-                        .f = function(a1) {
-                            
-                            list(
-                                
-                                geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                                geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " < < < < < <", sep = "")} else {paste(b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3)) {b3}, sep = "")} } ) %>% unlist)),
-                                geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                                geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
-                                
-                            )
-                            
-                        } ) %>% purrr::flatten()
-                    
-                },
-                
-                # custom_gtf
-                if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
-                    
-                    purrr::map(
-                        .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")], 
-                        .f = function(a2) {
-                            
-                            list(
-                                
-                                geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(c(plot_view_initial_x_start, plot_view_initial_x_end)), y = transcript_id, label = transcript_id)),
-                                geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                                geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
-                                
-                            )
-                            
-                        } ) %>% purrr::flatten()
-                    
-                },
-                
-                # user ranges
-                if (nrow(tibble_user_ranges_visible) > 0) {
-                    geom_curve(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id > 0, ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id))
-                },
-                if (nrow(tibble_user_ranges_visible) > 0) {
-                    geom_segment(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id > 0, ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id))
-                },
-                if (nrow(tibble_user_ranges_visible) > 0) {
-                    geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id > 0, ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
-                },
-                if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-                    geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
-                },
-                if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-                    geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
-                },
-                
-                # distance annotation
-                if (length(list_distances_between_user_ranges_and_reference_annotations) > 0) {
-                    
-                    purrr::map(
-                        .x = list_distances_between_user_ranges_and_reference_annotations, 
-                        .f = function(a3) {
-                            
-                            list(
-                                
-                                geom_segment(data = a3, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
-                                geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
-                                
-                            )
-                            
-                        } ) %>% purrr::flatten()
-                    
-                },
-                
-                # these mark the original viewing window
-                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
-                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
-                ggh4x::force_panelsizes(rows = c(
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^reference_gtf")]) > 0){
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^reference_gtf")] %>% rbindlist %>% .$transcript_id %>% unique %>% length
-                    },
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^custom_gtf")]) > 0){
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^custom_gtf")] %>% rbindlist %>% .$transcript_id %>% unique %>% length
-                    },
-                    if (nrow(tibble_user_ranges_visible) > 0){
-                        tibble_user_ranges_visible %>% nrow
-                    }
-                ) %>% (function(x) {return(x/sum(x))} ) ),
-                theme_bw(),
-                theme(text = element_text(family = "Helvetica"))
-            )  %>% purrr::reduce(ggplot2:::`+.gg`)
-        
-        
-        # ,
-        # ggh4x::facetted_pos_scales(
-        #     x = list(
-        #         scale_x_reverse(),
-        #         scale_x_continuous(labels = scales::dollar,
-        #                            minor_breaks = c(2.5, 4.5)),
-        #         scale_x_continuous(breaks = c(2.945, 6),
-        #                            limits = c(0, 10),
-        #                            guide = "axis_minor")
-        #     ),
-        #     y = list(...),
-        # )
+        # print("list_tibbles_track_features_visible_flattened")
+        # print(list_tibbles_track_features_visible_flattened)
+        # 
+        # print("tibble_user_ranges_visible")
+        # print(tibble_user_ranges_visible)
+        # 
+        # print("list_distances_between_user_ranges_and_reference_annotations")
+        # print(list_distances_between_user_ranges_and_reference_annotations)
+        # 
+        # print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Reference GTF\")]")
+        # print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")])
+        # 
+        # print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Custom GTF\")]")
+        # print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")])
+        # 
+        # print("tibble_user_ranges_visible %>% nrow")
+        # print(tibble_user_ranges_visible %>% nrow)
         
         return(list(
-            "ggplot_final_plot" = ggplot_final_plot,
             "plot_view_initial_x_start" = plot_view_initial_x_start,
             "plot_view_initial_x_end" = plot_view_initial_x_end,
             "plot_view_initial_y_start" = plot_view_initial_y_start,
-            "plot_view_initial_y_end" = plot_view_initial_y_end
+            "plot_view_initial_y_end" = plot_view_initial_y_end,
+            "list_tibbles_track_features_visible_flattened" = list_tibbles_track_features_visible_flattened,
+            "tibble_user_ranges_visible" = tibble_user_ranges_visible,
+            "list_distances_between_user_ranges_and_reference_annotations" = list_distances_between_user_ranges_and_reference_annotations
         ) )
         
     } )
+    
+    workshop_plot_brush_ranges <- reactiveValues(
+        x = c(), 
+        y = c(),
+        logical_brush_zoom_on = FALSE
+    )
+    
+    observe( {
+        
+        workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                                          workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
+        
+        # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
+        #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+        
+    } )
+    
+    workshop_reactiveValues_plot_metadata <- reactiveValues(
+        "list_track_data_in_viewing_range" = list(),
+        "list_y_axis_scale" = list(),
+        "list_y_axis_scale_initial" = list(),
+        "vector_number_of_features_per_track" = list(),
+        "list_distances_between_user_ranges_and_reference_annotations" = list()
+    )
+    
+    
+    
     
     # Zoomable plot + ref table output
     observe( {
@@ -4041,27 +4017,195 @@ server <- function(input, output, session) {
             plot_height <- workshop_reactive_plot_height()
             plot_width <- workshop_reactive_plot_width()
             
+            plot_view_initial_y_start <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_start
+            plot_view_initial_y_end <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_end
+            
+            # print("plot_height")
+            # print(plot_height)
+            # print("plot_width")
+            # print(plot_width)
+            
             slider_table_height <- workshop_reactive_slider_table_height()
+        
+
+            list_tibbles_track_features_visible_flattened <- workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened
+
+            tibble_user_ranges_visible <- workshop_reactive_final_plot() %>% .$tibble_user_ranges_visible
+            # print("tibble_user_ranges_visible 2")
+            # print(tibble_user_ranges_visible)
             
-            workshop_plot_brush_ranges <- reactiveValues(
-                x = c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                      workshop_reactive_final_plot() %>% .$plot_view_initial_x_end), 
-                y = c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
-                      workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
-            )
+            list_distances_between_user_ranges_and_reference_annotations <- workshop_reactive_final_plot() %>% .$list_distances_between_user_ranges_and_reference_annotations
+
+            # update the metadata record of items in the viewing range
+            ## track data
+            workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range <- list(
+                
+                if (length(list_tibbles_track_features_visible_flattened) > 0){
+                    list_tibbles_track_features_visible_flattened
+                },
+                if (nrow(tibble_user_ranges_visible) > 0){
+                    list("tibble_user_ranges_visible" = tibble_user_ranges_visible)
+                }
+                
+            ) %>% flatten
             
-            ggplot_final_plot <- workshop_reactive_final_plot() %>% .$ggplot_final_plot
+            if (workshop_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
+                
+                
+                
+                ## get the y-axis values 
+                workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
+                    
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_variant_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                    },
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
+                    },
+                    if (nrow(tibble_user_ranges_visible) > 0) {
+                        list("user_ranges" = tibble_user_ranges_visible$id %>% as.character())
+                    }
+                    
+                ) %>% flatten
+                
+                workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial <- workshop_reactiveValues_plot_metadata$list_y_axis_scale
+                
+                
+                
+            }
+            
+            ## number of features per track
+            workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track <- workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% 
+                purrr::map(~.x %>% length) %>% unlist
+            ## distances
+            workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
+            
+            # DEBUG ###
+            # workshop_list_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            # list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            # workshop_list_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+            # tibble_user_ranges_visible <<- tibble_user_ranges_visible
+            # workshop_list_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            ###########
+            
+            # CREATE GGPLOT
+            ggplot_final_plot <- list(
+                ggplot(),
+                ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y")) %>% 
+                
+                purrr::splice(
+                    
+                    # reference_gtf
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
+                        
+                        purrr::map(
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")], 
+                            .f = function(a1) {
+                                
+                                list(
+                                    
+                                    geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                                    geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " < < < < < <", sep = "")} else {paste(b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3)) {b3}, sep = "")} } ) %>% unlist)),
+                                    geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                                    geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                                    
+                                )
+                                
+                            } ) %>% purrr::flatten()
+                        
+                    },
+                    
+                    # custom_gtf
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+
+                        purrr::map(
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")],
+                            .f = function(a2) {
+
+                                list(
+
+                                    geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                                    geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                                    geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                                    geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+
+                                )
+
+                            } ) %>% purrr::flatten()
+
+                    },
+
+                    # user ranges
+                    if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+                        geom_curve(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id))
+                    },
+                    if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+                        geom_segment(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id))
+                    },
+                    if (nrow(tibble_user_ranges_visible) > 1) {
+                        geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
+                    },
+                    if (workshop_list_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+                        geom_vline(colour = "red", lty = 2, xintercept = workshop_list_selected_user_range$start)
+                    },
+                    if (workshop_list_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+                        geom_vline(colour = "red", lty = 2, xintercept = workshop_list_selected_user_range$end)
+                    },
+
+                    # distance annotation
+                    if (length(list_distances_between_user_ranges_and_reference_annotations) > 0) {
+
+                        purrr::map(
+                            .x = list_distances_between_user_ranges_and_reference_annotations,
+                            .f = function(a3) {
+
+                                list(
+
+                                    geom_segment(data = a3, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
+                                    geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
+
+                                )
+                                
+                            } ) %>% purrr::flatten()
+
+                    },
+
+                    # these mark the original viewing window
+                    geom_vline(colour = "green", lty = 2, xintercept = workshop_list_current_plot_range$start),
+                    geom_vline(colour = "green", lty = 2, xintercept = workshop_list_current_plot_range$end),
+
+                    # adaptive facet aspect ratio
+                    ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+                                                (function(x) {
+                                                    if (sum(x) != 0) {
+                                                        return(x/sum(x))
+                                                        } else {
+                                                            return(0)}
+                                                    } ) ),
+
+                    # facet-specific brush resizing (y)
+                    ggh4x::facetted_pos_scales(
+                        y = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% purrr::map(~scale_y_discrete(limits = .x, breaks = .x, labels = .x))
+                    ),
+                    # brush resizing (x)
+                    # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
+                    coord_cartesian(xlim = workshop_plot_brush_ranges$x
+                                    # ,
+                                    # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
+                                    ),
+                    theme_bw(),
+                    theme(text = element_text(family = "Helvetica"))
+                )  %>% purrr::reduce(ggplot2:::`+.gg`)
             
             output$workshop_plot_output <- renderPlot( {
                 
-                ggplot_final_plot +
-                    coord_cartesian(xlim = workshop_plot_brush_ranges$x, ylim = workshop_plot_brush_ranges$y)
+                ggplot_final_plot
                 
             }, height = plot_height, width = plot_width )
             
             output$workshop_ref_table_output <- renderDataTable(
-                {workshop_reactive_final_plot() %>% .$tibble_captured_in_range %>% 
-                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("retirement_status")) %>% 
+                {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
+                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>% 
                         .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
                         dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
                         dplyr::mutate("id" = 1:nrow(.), .before = 1) %>% 
@@ -4069,22 +4213,7 @@ server <- function(input, output, session) {
                 options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
             )
             
-            # When a double-click happens, check if there's a brush on the plot.
-            # If so, zoom to the brush bounds; if not, reset the zoom.
-            observeEvent(input$workshop_plot_output_dblclick, {
-                
-                brush <- input$workshop_plot_output_brush
-                if (!is.null(brush)) {
-                    workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
-                    workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
-                } else {
-                    workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                                      workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
-                    workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
-                                                      workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
-                }
-                
-            } )
+            
             
             # Create the button to download the scatterplot as PDF
             output$workshop_download_plot <- downloadHandler(
@@ -4093,8 +4222,7 @@ server <- function(input, output, session) {
                 },
                 content = function(file) {
                     
-                    ggplot_final_plot <- ggplot_final_plot +
-                        coord_cartesian(xlim = workshop_plot_brush_ranges$x, ylim = workshop_plot_brush_ranges$y)
+                    ggplot_final_plot <- ggplot_final_plot
                     
                     ggsave(file, ggplot_final_plot, width = 20, height = 20*(plot_height/plot_width), dpi = 600, units = "cm")
                 }
@@ -4105,6 +4233,60 @@ server <- function(input, output, session) {
         } 
         
     } )
+    
+    # When a double-click happens, check if there's a brush on the plot.
+    # If so, zoom to the brush bounds; if not, reset the zoom.
+    observeEvent(input$workshop_plot_output_dblclick, {
+        
+        # print("input$workshop_plot_output_dblclick")
+        # print(input$workshop_plot_output_dblclick)
+        # test_workshop_plot_output_dblclick <<- input$workshop_plot_output_dblclick
+        
+        # print("input$workshop_plot_output_brush")
+        # print(input$workshop_plot_output_brush %>% head)
+        # test_workshop_plot_output_brush <<- input$workshop_plot_output_brush
+        
+        brush <- input$workshop_plot_output_brush
+        if (!is.null(brush)) {
+            workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
+            
+            workshop_plot_brush_ranges$logical_brush_zoom_on <- TRUE
+            # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
+            #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+            # workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
+        } else {
+            workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                                              workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale <- workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial
+            
+            workshop_plot_brush_ranges$logical_brush_zoom_on <- FALSE
+            
+            # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
+            #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+        }
+        
+        print("workshop_plot_brush_ranges$logical_brush_zoom_on")
+        print(workshop_plot_brush_ranges$logical_brush_zoom_on)
+        
+        
+        # print("workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial")
+        # print(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial)
+        # print("workshop_reactiveValues_plot_metadata$list_y_axis_scale")
+        # print(workshop_reactiveValues_plot_metadata$list_y_axis_scale)
+        
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
+    
+    # test <- ggplot() +
+    #     ggplot2::facet_grid(panel ~ ., scales = "free_y") +
+    #     geom_bar(data = mtcars %>% as_tibble %>% .[, "mpg"] %>% tibble::add_column("panel" = "one"), aes(x = mpg)) +
+    #     geom_bar(data = mtcars %>% as_tibble %>% .[, "disp"] %>% tibble::add_column("panel" = "one"), aes(x = disp)) +
+    #     geom_bar(data = mtcars %>% as_tibble %>% .[, "drat"] %>% tibble::add_column("panel" = "two"), aes(x = drat)) +
+    #     ggh4x::facetted_pos_scales(
+    #         y = list(NULL, NULL)
+    #     )
+    
+    
     
     # END WORKSHOP ###
     
