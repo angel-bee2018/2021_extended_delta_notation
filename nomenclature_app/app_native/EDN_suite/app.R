@@ -2444,8 +2444,8 @@ ui <- fluidPage(
                                                    value = 1500),
                                        
                                        sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
-                                                   min = -5, max = 5, step = 0.01,
-                                                   value = 1.2),
+                                                   min = -5, max = 1.5, step = 0.01,
+                                                   value = 1),
                                        sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
                                                    min = -5, max = 5, step = 0.01,
                                                    value = 1.45),
@@ -3437,9 +3437,9 @@ server <- function(input, output, session) {
                 input_chr <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
                 input_start <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\2") %>% type.convert
                 input_end <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\3") %>% type.convert
-                input_strand <- "*"
+                input_strand <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)([\\:])?", replacement = "\\4") %>% gsub(pattern = "\\:", replacement = "")
                 
-                workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {1} else {max(workshop_reactiveValues_user_ranges$id) + 1} )
+                workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
                 workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
                 workshop_reactiveValues_user_ranges$start <- c(workshop_reactiveValues_user_ranges$start, input_start)
                 workshop_reactiveValues_user_ranges$end <- c(workshop_reactiveValues_user_ranges$end, input_end)
@@ -3458,7 +3458,7 @@ server <- function(input, output, session) {
             input_end <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
             input_strand <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
             
-            workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {1} else {max(workshop_reactiveValues_user_ranges$id) + 1} )
+            workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
             workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
             workshop_reactiveValues_user_ranges$start <- c(workshop_reactiveValues_user_ranges$start, input_start)
             workshop_reactiveValues_user_ranges$end <- c(workshop_reactiveValues_user_ranges$end, input_end)
@@ -3532,13 +3532,11 @@ server <- function(input, output, session) {
         workshop_reactiveValues_user_ranges$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
         workshop_reactiveValues_user_ranges$panel <- workshop_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
         
-        print("logical")
-        print(workshop_reactiveValues_user_ranges$id)
-        print(workshop_user_range_id_selection)
-        print(workshop_reactiveValues_user_ranges$id != workshop_user_range_id_selection)
+        print("workshop_reactiveValues_user_ranges")
+        print(reactiveValuesToList(workshop_reactiveValues_user_ranges))
         
-        print("workshop_reactiveValues_selected_user_range$id outside")
-        print(workshop_reactiveValues_selected_user_range$id)
+        print("workshop_reactiveValues_selected_user_range")
+        print(reactiveValuesToList(workshop_reactiveValues_selected_user_range))
         
         # check for out of bounds and no items left after delete
         if (!workshop_user_range_id_selection %in% workshop_reactiveValues_user_ranges$id & length(workshop_reactiveValues_user_ranges$id) > 1) {
@@ -3560,18 +3558,18 @@ server <- function(input, output, session) {
             
         } else if (length(workshop_reactiveValues_user_ranges$id) == 1) {
             
-            workshop_reactiveValues_selected_user_range$id <- numeric()
-            workshop_reactiveValues_selected_user_range$chr <- character()
-            workshop_reactiveValues_selected_user_range$start <- integer()
-            workshop_reactiveValues_selected_user_range$end <- integer()
-            workshop_reactiveValues_selected_user_range$strand <- character()
-            workshop_reactiveValues_selected_user_range$range_type <- character()
-            workshop_reactiveValues_selected_user_range$panel <- character()
+            workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[1]
+            workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[1]
+            workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[1]
+            workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[1]
+            workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[1]
+            workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
+            workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
             
             # autojump to selected range
-            workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_user_ranges$chr
-            workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_user_ranges$start
-            workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_user_ranges$end
+            workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
+            workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
+            workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
             
         }
         
@@ -3594,18 +3592,20 @@ server <- function(input, output, session) {
         workshop_reactiveValues_user_ranges$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
         workshop_reactiveValues_user_ranges$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
         
-        workshop_reactiveValues_selected_user_range$id <- numeric()
-        workshop_reactiveValues_selected_user_range$chr <- character()
-        workshop_reactiveValues_selected_user_range$start <- integer()
-        workshop_reactiveValues_selected_user_range$end <- integer()
-        workshop_reactiveValues_selected_user_range$strand <- character()
-        workshop_reactiveValues_selected_user_range$range_type <- character()
-        workshop_reactiveValues_selected_user_range$panel <- character()
+        # select default range
+        workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[1]
+        workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[1]
+        workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[1]
+        workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[1]
+        workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[1]
+        workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
+        workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
         
+        # autojump to default range
         # autojump to selected range
-        workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_user_ranges$chr
-        workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_user_ranges$start
-        workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_user_ranges$end
+        workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
+        workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
+        workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
         
     } )
     
@@ -3620,7 +3620,7 @@ server <- function(input, output, session) {
         y = c()
     )
     
-    # deal with user jumping to coord
+    # process the viewable co-ordinate range
     observeEvent(input$workshop_coord_jump_button, {
         
         # enable interactivity automatically
@@ -3681,6 +3681,15 @@ server <- function(input, output, session) {
         # plot_x_offset <- 0
         # plot_y_offset <- 0
         
+        # update jump-to slider
+        updateTextInput(
+            session = session,
+            inputId = "workshop_jump_to_coords",
+            placeholder = paste(workshop_reactiveValues_current_plot_range$chr, ":", workshop_reactiveValues_current_plot_range$start, "-", workshop_reactiveValues_current_plot_range$end, sep = "")
+        )
+        
+        global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+        
         # smuggle and set up variables
         plot_x_scale <- workshop_reactive_plot_x_scale() %>% as.numeric
         plot_y_scale <- workshop_reactive_plot_y_scale() %>% as.numeric
@@ -3706,6 +3715,11 @@ server <- function(input, output, session) {
             "panel" = "user_ranges"
         )
         
+        print("tibble_all_user_ranges")
+        print(tibble_all_user_ranges)
+        
+        global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+        
         # set up the ranges that the user has selected to highlight and calculate distances for
         selected_user_range_chr <- workshop_reactiveValues_selected_user_range$chr
         selected_user_range_start <- workshop_reactiveValues_selected_user_range$start
@@ -3723,13 +3737,38 @@ server <- function(input, output, session) {
         # print("workshop_reactiveValues_current_plot_range$end")
         # print(workshop_reactiveValues_current_plot_range$end)
         
-        # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
-        plot_view_initial_x_start <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + plot_x_scale*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
-        plot_view_initial_x_end <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - plot_x_scale*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+        print("plot_view_initial_x_end beginning")
+        print(workshop_reactiveValues_current_plot_range$end)
         
-        # apply offset
-        plot_view_initial_x_start <- plot_view_initial_x_start + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
-        plot_view_initial_x_end <- plot_view_initial_x_end + (plot_view_initial_x_end - plot_view_initial_x_start)*plot_x_offset
+        print("plot_view_initial_x_start beginning")
+        print(workshop_reactiveValues_current_plot_range$start)
+        
+        # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
+        plot_view_initial_x_start0 <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+        plot_view_initial_x_end0 <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+        
+        print("plot_view_initial_x_end middle")
+        print(plot_view_initial_x_end0)
+        
+        print("plot_view_initial_x_start middle")
+        print(plot_view_initial_x_start0)
+        
+        print("plot_x_offset")
+        print(plot_x_offset)
+        
+        # make sure the start coord is to the left of the end
+        if (plot_view_initial_x_start0 < plot_view_initial_x_end0) {
+            
+            # apply offset
+            plot_view_initial_x_start <- plot_view_initial_x_start0 + (plot_view_initial_x_end0 - plot_view_initial_x_end0)*plot_x_offset
+            plot_view_initial_x_end <- plot_view_initial_x_end0 + (plot_view_initial_x_end0 - plot_view_initial_x_start0)*plot_x_offset
+            
+        } else {
+            
+            plot_view_initial_x_start <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+            plot_view_initial_x_end <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+            
+        }
         
         # print("workshop_reactiveValues_annotation_files_selected$annotation_files")
         # print(workshop_reactiveValues_annotation_files_selected$annotation_files)
@@ -3737,13 +3776,15 @@ server <- function(input, output, session) {
         # print("workshop_reactiveValues_current_plot_range$chr")
         # print(workshop_reactiveValues_current_plot_range$chr)
         # 
-        # print("plot_view_initial_x_end")
-        # print(plot_view_initial_x_end)
-        # 
-        # print("plot_view_initial_x_start")
-        # print(plot_view_initial_x_start)
+        print("plot_view_initial_x_end final")
+        print(plot_view_initial_x_end)
+
+        print("plot_view_initial_x_start final")
+        print(plot_view_initial_x_start)
         
-        # plot shenanigans
+        global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
+        
+        # plot calculation
         ## find the reference elements visible in the viewing range
         list_tibbles_track_features_visible <- purrr::map2(
             .x = workshop_reactiveValues_annotation_files_selected$annotation_files,
@@ -3796,7 +3837,7 @@ server <- function(input, output, session) {
         ## find the user ranges visible in the viewing range
         tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
         
-        list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+        global_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
         
         # distance shenanigans
         ## calculate distances for selected range
@@ -3806,7 +3847,7 @@ server <- function(input, output, session) {
             # flatten the original full GTF table
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
             
-            list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened 
+            global_list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened
             
             ## having determined the plot window, calculate distances to every exon in the plot range
             list_distance_annotation_data_flattened <- purrr::pmap(
@@ -3821,6 +3862,9 @@ server <- function(input, output, session) {
                     # a1 <- list_tibbles_track_features_visible_flattened[[1]]
                     # a2 <- names(list_tibbles_track_features_visible_flattened)[[1]]
                     # a3 <- list_tibbles_track_features_all_flattened[[1]]
+                    # selected_user_range_chr <- "7"
+                    # selected_user_range_start <- 7157427
+                    # selected_user_range_end <- 7234302
                     ###########
                     
                     # determine visible transcript ids overlapped by user range
@@ -3829,10 +3873,7 @@ server <- function(input, output, session) {
                     print("tibble_ref_transcripts_overlapped_by_user_query")
                     print(tibble_ref_transcripts_overlapped_by_user_query)
                     
-                    selected_user_range_chr <- "7"
-                    selected_user_range_start <- 7157427
-                    selected_user_range_end <- 7234302
-                    
+               
                     # check if the selected transcript overlaps a ref transcript
                     if (tibble_ref_transcripts_overlapped_by_user_query %>% nrow > 0) {
                         
@@ -3952,24 +3993,6 @@ server <- function(input, output, session) {
         plot_view_initial_y_start <- plot_view_initial_y_start - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         
-        # print("list_tibbles_track_features_visible_flattened")
-        # print(list_tibbles_track_features_visible_flattened)
-        # 
-        # print("tibble_user_ranges_visible")
-        # print(tibble_user_ranges_visible)
-        # 
-        # print("list_distances_between_user_ranges_and_reference_annotations")
-        # print(list_distances_between_user_ranges_and_reference_annotations)
-        # 
-        # print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Reference GTF\")]")
-        # print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")])
-        # 
-        # print("list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = \"^Custom GTF\")]")
-        # print(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")])
-        # 
-        # print("tibble_user_ranges_visible %>% nrow")
-        # print(tibble_user_ranges_visible %>% nrow)
-        
         return(list(
             "plot_view_initial_x_start" = plot_view_initial_x_start,
             "plot_view_initial_x_end" = plot_view_initial_x_end,
@@ -4079,11 +4102,18 @@ server <- function(input, output, session) {
             
             # DEBUG ###
             print("plot debug")
-            workshop_list_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
-            list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
-            workshop_list_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
-            tibble_user_ranges_visible <<- tibble_user_ranges_visible
-            workshop_list_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+            global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
+            global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            global_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            
+            print("tibble_user_ranges_visible")
+            print(tibble_user_ranges_visible)
+            
+            print("list_distances_between_user_ranges_and_reference_annotations")
+            print(list_distances_between_user_ranges_and_reference_annotations)
             ###########
             
             # CREATE GGPLOT
@@ -4106,7 +4136,7 @@ server <- function(input, output, session) {
                                 list(
                                     
                                     geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                                    geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " < < < < < <", sep = "")} else {paste(b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3)) {b3}, sep = "")} } ) %>% unlist)),
+                                    geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3) == FALSE) {b3}, " < < < < < <", sep = "")} else {paste(b2, if (is.na(b3) == FALSE) {"."}, if (is.na(b3)) {b3}, sep = "")} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                                     geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     
@@ -4200,22 +4230,20 @@ server <- function(input, output, session) {
                 
             }, height = plot_height, width = plot_width )
             
-            output$workshop_ref_table_output <- renderDataTable(
-                {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
-                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>% 
-                        .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
-                        dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
-                        dplyr::mutate("id" = 1:nrow(.), .before = 1) %>% 
-                        return}, 
-                options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
-            )
-            
-            
+            # output$workshop_ref_table_output <- renderDataTable(
+            #     {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
+            #             dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>% 
+            #             .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
+            #             dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+            #             dplyr::mutate("id" = 1:nrow(.), .before = 1) %>% 
+            #             return}, 
+            #     options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+            # )
             
             # Create the button to download the scatterplot as PDF
             output$workshop_download_plot <- downloadHandler(
                 filename = function() {
-                    paste('EDN_workshop_', Sys.Date(), '.pdf', sep = "")
+                    paste('EDN_workshop_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
                 },
                 content = function(file) {
                     
