@@ -3657,7 +3657,7 @@ server <- function(input, output, session) {
                 list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
                 
                 # grep each column
-                list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~.x %>% grep(pattern = input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
+                list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~which(.x == input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
                 
                 if (length(list_grep_result_per_column) > 0) {
 
@@ -3738,6 +3738,8 @@ server <- function(input, output, session) {
             "range_type" = workshop_reactiveValues_user_ranges$range_type,
             "panel" = "user_ranges"
         )
+        
+        global_tibble_all_user_ranges <<- tibble_all_user_ranges
         
         print("tibble_all_user_ranges")
         print(tibble_all_user_ranges)
@@ -3854,6 +3856,9 @@ server <- function(input, output, session) {
         #     } ) %>% unlist
         
         names(list_tibbles_track_features_visible_flattened) <- purrr::map(.x = list_tibbles_track_features_visible_flattened, .f = ~.x$panel %>% unique)
+        
+        print("list_tibbles_track_features_visible_flattened")
+        print(list_tibbles_track_features_visible_flattened)
         
         # list_tibbles_track_features_visible_flattened <- purrr::map2(
         #     .x = list_tibbles_track_features_visible_flattened,
@@ -4003,7 +4008,9 @@ server <- function(input, output, session) {
             
             list_distances_between_user_ranges_and_reference_annotations <- list()
             
-            list_tibbles_track_features_visible_flattened <- list()
+            if (length(list_tibbles_track_features_visible_flattened) == 0) {
+                list_tibbles_track_features_visible_flattened <- list()
+            }
             
         }
         
@@ -4146,10 +4153,18 @@ server <- function(input, output, session) {
             # CREATE GGPLOT
             ggplot_final_plot <- list(
                 ggplot(),
-                ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y"),
                 # these mark the original viewing window
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
-                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end)) %>% 
+                geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
+                theme_bw(),
+                theme(text = element_text(family = "Helvetica")),
+                # brush resizing (x)
+                # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
+                coord_cartesian(xlim = workshop_plot_brush_ranges$x
+                                # ,
+                                # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
+                )
+                ) %>% 
                 
                 purrr::splice(
                     
@@ -4225,30 +4240,32 @@ server <- function(input, output, session) {
                                 )
                                 
                             } ) %>% purrr::flatten()
-
+                        
                     },
-
+                    
+                    # FACETS 
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                        ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y")
+                    },
+                    
                     # adaptive facet aspect ratio
-                    ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
-                                                (function(x) {
-                                                    if (sum(x) != 0) {
-                                                        return(x/sum(x))
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                        ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+                                                    (function(x) {
+                                                        if (sum(x) != 0) {
+                                                            return(x/sum(x))
                                                         } else {
                                                             return(0)}
-                                                    } ) ),
-
+                                                    } ) )
+                    },
+                    
                     # facet-specific brush resizing (y)
-                    ggh4x::facetted_pos_scales(
-                        y = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% purrr::map(~scale_y_discrete(limits = .x, breaks = .x, labels = .x))
-                    ),
-                    # brush resizing (x)
-                    # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
-                    coord_cartesian(xlim = workshop_plot_brush_ranges$x
-                                    # ,
-                                    # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
-                                    ),
-                    theme_bw(),
-                    theme(text = element_text(family = "Helvetica"))
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                        ggh4x::facetted_pos_scales(
+                            y = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% purrr::map(~scale_y_discrete(limits = .x, breaks = .x, labels = .x))
+                        )
+                    }
+                    
                 )  %>% purrr::reduce(ggplot2:::`+.gg`)
             
             output$workshop_plot_output <- renderPlot( {
@@ -4257,15 +4274,15 @@ server <- function(input, output, session) {
                 
             }, height = plot_height, width = plot_width )
             
-            # output$workshop_ref_table_output <- renderDataTable(
-            #     {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
-            #             dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>% 
-            #             .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
-            #             dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
-            #             dplyr::mutate("id" = 1:nrow(.), .before = 1) %>% 
-            #             return}, 
-            #     options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
-            # )
+            output$workshop_ref_table_output <- renderDataTable(
+                {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
+                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
+                        .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
+                        dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+                        dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
+                        return},
+                options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+            )
             
             # Create the button to download the scatterplot as PDF
             output$workshop_download_plot <- downloadHandler(
