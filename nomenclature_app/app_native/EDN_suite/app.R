@@ -3150,14 +3150,14 @@ server <- function(input, output, session) {
             
             if (input$workshop_import_file_type_selection == "Ensembl" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)) {
                 workshop_reactiveValues_annotation_files$annotation_files$reference_gtf <- workshop_reactiveValues_annotation_files$annotation_files$reference_gtf %>% purrr::splice(
-                    input_annotation_tibble
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference GTF: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 )
                 names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
                 # automatically checkbox the added GTF
                 workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_gtf", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
             } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
                 workshop_reactiveValues_annotation_files$annotation_files$custom_gtf <- workshop_reactiveValues_annotation_files$annotation_files$custom_gtf %>% purrr::splice(
-                    input_annotation_tibble
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Custom GTF: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 )
                 names(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
                 # automatically checkbox the added GTF
@@ -3646,6 +3646,30 @@ server <- function(input, output, session) {
                 
                 triage_result <- triage_result_2
                 
+            # this is the case when the jump-to coords aren't coords - we have to search the HGNC variant ID, HGNC gene symbol, gene_id, transcript_id and protein_id.
+            } else if (length(workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
+                
+                # rbind all the annotation files together
+                long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
+                
+                # list-ify by column
+                long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_variant_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
+                list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
+                
+                # grep each column
+                list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~.x %>% grep(pattern = input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
+                
+                if (length(list_grep_result_per_column) > 0) {
+
+                    # get the first match and only consider the annotation table associated with the first result
+                    tibble_matches <- long_tibble_all_annotation_files[list_grep_result_per_column[[1]], ] %>% .[.$panel == (long_tibble_all_annotation_files[list_grep_result_per_column[[1]][1], ] %>% .$panel), ]
+                    
+                    workshop_reactiveValues_current_plot_range$chr <- tibble_matches$seqnames %>% unique %>% .[1]
+                    workshop_reactiveValues_current_plot_range$start <- tibble_matches$start %>% min
+                    workshop_reactiveValues_current_plot_range$end <- tibble_matches$start %>% max
+                    
+                } 
+                
             }
             
         } else if (triage_result == "triage successful") {
@@ -3737,21 +3761,21 @@ server <- function(input, output, session) {
         # print("workshop_reactiveValues_current_plot_range$end")
         # print(workshop_reactiveValues_current_plot_range$end)
         
-        print("plot_view_initial_x_end beginning")
-        print(workshop_reactiveValues_current_plot_range$end)
-        
         print("plot_view_initial_x_start beginning")
         print(workshop_reactiveValues_current_plot_range$start)
+        
+        print("plot_view_initial_x_end beginning")
+        print(workshop_reactiveValues_current_plot_range$end)
         
         # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
         plot_view_initial_x_start0 <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
         plot_view_initial_x_end0 <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
         
-        print("plot_view_initial_x_end middle")
-        print(plot_view_initial_x_end0)
-        
         print("plot_view_initial_x_start middle")
         print(plot_view_initial_x_start0)
+        
+        print("plot_view_initial_x_end middle")
+        print(plot_view_initial_x_end0)
         
         print("plot_x_offset")
         print(plot_x_offset)
@@ -3776,12 +3800,12 @@ server <- function(input, output, session) {
         # print("workshop_reactiveValues_current_plot_range$chr")
         # print(workshop_reactiveValues_current_plot_range$chr)
         # 
-        print("plot_view_initial_x_end final")
-        print(plot_view_initial_x_end)
-
         print("plot_view_initial_x_start final")
         print(plot_view_initial_x_start)
         
+        print("plot_view_initial_x_end final")
+        print(plot_view_initial_x_end)
+
         global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
         
         # plot calculation
@@ -3812,27 +3836,30 @@ server <- function(input, output, session) {
         ## flatten into single list with names like: "category | name"
         list_tibbles_track_features_visible_flattened <- list_tibbles_track_features_visible %>% flatten
         
-        names(list_tibbles_track_features_visible_flattened) <- purrr::map2(
-            .x = list_tibbles_track_features_visible, 
-            .y = names(list_tibbles_track_features_visible), 
-            .f = function(a1, a2) {
-                
-                purrr::map2(
-                    .x = a1,
-                    .y = names(a1),
-                    .f = function(b1, b2) {
-                        
-                        return(paste(a2 %>% stringr::str_to_sentence() %>% gsub(pattern = "gtf", replacement = "GTF") %>% gsub(pattern = "\\_", replacement = " "), ": ", b2, sep = ""))
-                        
-                    } ) %>% unlist
-                
-            } ) %>% unlist
+        # names(list_tibbles_track_features_visible_flattened) <- purrr::map2(
+        #     .x = list_tibbles_track_features_visible, 
+        #     .y = names(list_tibbles_track_features_visible), 
+        #     .f = function(a1, a2) {
+        #         
+        #         purrr::map2(
+        #             .x = a1,
+        #             .y = names(a1),
+        #             .f = function(b1, b2) {
+        #                 
+        #                 # return(paste(a2 %>% stringr::str_to_sentence() %>% gsub(pattern = "gtf", replacement = "GTF") %>% gsub(pattern = "\\_", replacement = " "), ": ", b2, sep = ""))
+        #                 
+        #                 
+        #             } ) %>% unlist
+        #         
+        #     } ) %>% unlist
         
-        list_tibbles_track_features_visible_flattened <- purrr::map2(
-            .x = list_tibbles_track_features_visible_flattened,
-            .y = names(list_tibbles_track_features_visible_flattened),
-            .f = ~.x %>% tibble::add_column("panel" = .y)
-        )
+        names(list_tibbles_track_features_visible_flattened) <- purrr::map(.x = list_tibbles_track_features_visible_flattened, .f = ~.x$panel %>% unique)
+        
+        # list_tibbles_track_features_visible_flattened <- purrr::map2(
+        #     .x = list_tibbles_track_features_visible_flattened,
+        #     .y = names(list_tibbles_track_features_visible_flattened),
+        #     .f = ~.x %>% tibble::add_column("panel" = .y)
+        # )
         
         ## find the user ranges visible in the viewing range
         tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
