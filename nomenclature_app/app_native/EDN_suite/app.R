@@ -3869,7 +3869,7 @@ server <- function(input, output, session) {
         ## find the user ranges visible in the viewing range
         tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
         
-        global_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+        global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
         
         # distance shenanigans
         ## calculate distances for selected range
@@ -4141,7 +4141,7 @@ server <- function(input, output, session) {
             global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
             global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
             global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
-            global_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
             
             print("tibble_user_ranges_visible")
             print(tibble_user_ranges_visible)
