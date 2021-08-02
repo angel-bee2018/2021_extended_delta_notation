@@ -2413,6 +2413,15 @@ ui <- fluidPage(
         padding-top: 40px;
         position: relative;",
                                        verbatimTextOutput("workshop_nomenclature_output", placeholder = TRUE)
+                                   ),
+                                   
+                                   div(style = "text-align: center;
+        box-shadow: 0px 0px 0px #888888;
+        width: 200px;
+        height: 400px;
+        padding-top: 40px;
+        position: relative;",
+                                       verbatimTextOutput("workshop_graph_click_info", placeholder = TRUE)
                                    )
                                    
                             ),
@@ -2529,6 +2538,7 @@ ui <- fluidPage(
                                    h5("Click and drag + double-click to zoom. Double-click to reset."),
                                    
                                    plotOutput("workshop_plot_output", height = 300,
+                                              click = "workshop_plot_output_sglclick",
                                               dblclick = "workshop_plot_output_dblclick",
                                               brush = brushOpts(
                                                   id = "workshop_plot_output_brush",
@@ -4158,6 +4168,7 @@ server <- function(input, output, session) {
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
                 theme_bw(),
                 theme(text = element_text(family = "Helvetica")),
+                ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
                 # brush resizing (x)
                 # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
                 coord_cartesian(xlim = workshop_plot_brush_ranges$x
@@ -4346,6 +4357,21 @@ server <- function(input, output, session) {
         
     }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
+    # When a single-click happens, output the coords which were clicked
+    # If so, zoom to the brush bounds; if not, reset the zoom.
+    observeEvent(input$workshop_plot_output_sglclick, {
+        
+        output$workshop_graph_click_info <- renderText( {
+
+            paste("x = chr", workshop_reactiveValues_current_plot_range$chr, ":", input$workshop_plot_output_sglclick$x %>% round(digits = 0), "\ny = ", input$workshop_plot_output_sglclick$domain$discrete_limits$y %>% .[[input$workshop_plot_output_sglclick$y %>% round(digits = 0)]], 
+                  sep = "")
+
+        } )
+        
+        global_workshop_plot_output_sglclick <<- input$workshop_plot_output_sglclick
+        
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
+    
     # test <- ggplot() +
     #     ggplot2::facet_grid(panel ~ ., scales = "free_y") +
     #     geom_bar(data = mtcars %>% as_tibble %>% .[, "mpg"] %>% tibble::add_column("panel" = "one"), aes(x = mpg)) +
@@ -4355,7 +4381,7 @@ server <- function(input, output, session) {
     #         y = list(NULL, NULL)
     #     )
     
-    
+        
     
     # END WORKSHOP ###
     
