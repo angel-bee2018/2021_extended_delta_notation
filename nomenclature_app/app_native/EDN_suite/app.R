@@ -1334,7 +1334,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
         # finally, extract the transcript version
         variant_slot <- paste(list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, ".", tibble_selected_transcript_entries[tibble_selected_transcript_entries$hgnc_stable_variant_ID == list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
         
-        final_VSR_nomenclature <- paste(variant_slot, " ", tibble_sorted_combined_nomenclature$slots %>% paste(collapse = " "), sep = "") %>% 
+        final_VSR_nomenclature <- paste(variant_slot, "t ", tibble_sorted_combined_nomenclature$slots %>% paste(collapse = " "), sep = "") %>% 
             trimws
         
     } else if (flag_is_intergenic == TRUE) {
@@ -1541,6 +1541,7 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
     
     # DEBUG ###
     # tibble_LSV_coords <- tibble(chr = c("1", "1", "1", "1", "1", "1"), start = c(150267478, 150267789, 150267991, 150268127, 150267478, 150267789), end = c(150268696, 150268696, 150268696, 150268696, 150267714, 150267955), strand = c("-", "-", "-", "-", "-", "-"))
+    
     # left_query_shift <- 0
     # right_query_shift <- 0
     # left_tolerance <- 1
@@ -1819,18 +1820,23 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
 name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, variant_ID_override = NULL, override_mode = "inexact", left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
     
     # DEBUG ###
-    # query_chr <- AE_query_chr
-    # query_start <- AE_query_start %>% type.convert
-    # query_end <- AE_query_end %>% type.convert
-    # query_strand <- AE_query_strand
-    # tibble_gtf_table <- tibble_ref_gtf
-    # variant_ID_override <- NULL
-    # override_mode <- "inexact"
-    # 
-    # left_query_shift <- 0
-    # right_query_shift <- 0
-    # left_tolerance <- 0
-    # right_tolerance <- 0
+    query_chr <- AE_query_chr
+    query_start <- AE_query_start %>% type.convert
+    query_end <- AE_query_end %>% type.convert
+    query_strand <- AE_query_strand
+    tibble_gtf_table <- tibble_ref_gtf
+    variant_ID_override <- NULL
+    override_mode <- "inexact"
+
+    left_query_shift <- 0
+    right_query_shift <- 0
+    left_tolerance <- 0
+    right_tolerance <- 0
+    
+    query_chr <- "7"
+    query_start <- 7157427
+    query_end <- 7234302
+    query_strand <- "*"
     
     # print(query_chr, "\n")
     # print(query_start, "\n")
@@ -1854,6 +1860,8 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     ## look for exact match in the reference
     tibble_matched_reference_exons <- extract_matching.exons(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
     
+    tibble_matched_reference_junctions <- extract_junction.flanking.exons(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, match_consecutive = FALSE, return_type = "exon")
+    
     # check if the override variant ID was in the exact match list. if so, then use it.
     if (is.null(variant_ID_override) == FALSE & override_mode == "exact") {
         
@@ -1874,7 +1882,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             "exon_slot" = paste("E", matched_exon_number, sep = "")
         ))
         
-        # INEXACT MATCH - exon modifiers required
+    # INEXACT MATCH - exon modifiers required
     } else {
         
         tibble_overlapping_reference_exon <- extract_overlapping_features(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
@@ -2103,7 +2111,6 @@ triage_input_coordinates <- function(vector_input_coordinates, vector_of_expecte
 ### SHINY ####
 
 ui <- fluidPage(
-    
     
     navbarPage(title = "EDN Suite",               
                tabPanel(icon("info"),
@@ -2988,12 +2995,12 @@ server <- function(input, output, session) {
         } else if (automator_input_structure_type == "Alternative exon") {
             
             # DEBUG ###
-            # automator_input_alternative_exon_coords <- "7:7157427-7234302:*"
-            # 
-            # automator_input_left_query_end_shift <- 0
-            # automator_input_right_query_end_shift <- 0
-            # automator_input_left_match_tolerance <- 1
-            # automator_input_right_match_tolerance <- 1
+            automator_input_alternative_exon_coords <- "7:7157427-7234302:*"
+
+            automator_input_left_query_end_shift <- 0
+            automator_input_right_query_end_shift <- 0
+            automator_input_left_match_tolerance <- 1
+            automator_input_right_match_tolerance <- 1
             ###########
             
             output$automator_nomenclature_output <- renderText( {
@@ -3054,11 +3061,11 @@ server <- function(input, output, session) {
                 triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
                 
                 # DEBUG ###
-                # vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
-                # automator_input_left_query_end_shift <- 0
-                # automator_input_right_query_end_shift <- 0
-                # automator_input_left_match_tolerance <- 1
-                # automator_input_right_match_tolerance <- 1
+                vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
+                automator_input_left_query_end_shift <- 0
+                automator_input_right_query_end_shift <- 0
+                automator_input_left_match_tolerance <- 1
+                automator_input_right_match_tolerance <- 1
                 ###########
                 
                 LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")

@@ -1,0 +1,25 @@
+# interproscan
+
+interproscan_dump_dir=/mnt/LTS/reference_data/interpro/interproscan/
+
+cd $interproscan_dump_dir
+
+## use GNU parallel
+parallel --link --round-robin --ungroup -N 1 --delay 5 -j 15 'cd {1}; mkdir {2}; cd {2}; for i in $(ncftpls "ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5/"{2}); do wget -c "ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5/"{2}$i; done' \
+::: $interproscan_dump_dir \
+::: $(ncftpls ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5/)
+
+# interpro database
+
+interpro_database_dump_dir=/mnt/LTS/reference_data/interpro/database/
+
+cd $interpro_database_dump_dir
+
+## use GNU parallel
+wget -cr -l 0 ftp://ftp.ebi.ac.uk/pub/databases/interpro/*
+
+wget -nc -c -r -l 0 ftp://ftp.ebi.ac.uk/pub/databases/interpro/*
+
+parallel --link --round-robin --ungroup -N 1 --delay 5 -j 15 'cd {1}; mkdir {2}; cd {2}; for i in $(ncftpls "ftp://ftp.ebi.ac.uk/pub/databases/interpro/"{2}); do wget -c "ftp://ftp.ebi.ac.uk/pub/databases/interpro/"{2}$i; done' \
+::: $interpro_database_dump_dir \
+::: $(ncftpls ftp://ftp.ebi.ac.uk/pub/databases/interpro/)
