@@ -55,9 +55,9 @@ output_dir <- input_args$output_dir
 ncores <- input_args$ncores
 
 # DEBUG ########
-# input_GTF_dir <- "/mnt/Helium_8TB_1/2020_isoform_nomenclature/ensembl_GTF_dump/"
-# output_dir <- "/mnt/Helium_8TB_1/2020_isoform_nomenclature/ENST_to_HGNC_stable_variant_mapping/"
-# ncores <- "8x4"
+#input_GTF_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ensembl_GTF_dump/"
+#output_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ENST_to_HGNC_stable_variant_mapping/"
+#ncores <- "8x4"
 ################
 
 cat("input_GTF_dir:", input_GTF_dir, "\n")
@@ -131,19 +131,19 @@ tibble_all_GTFs <- list_all_GTFs %>% rbindlist(fill = TRUE, use.names = TRUE) %>
 latest_release_number <- tibble_all_GTFs$ensembl_release_version %>% max
 
 ## ENST TRACKING TABLE: filter table for ENST ID and version 
-tibble_ENST_ID_version_tracked_by_release <- tibble_all_GTFs[, c("transcript_id", "transcript_version", "ensembl_release_version", "genome_assembly")] %>% dplyr::distinct()
+tibble_ENST_ID_version_tracked_by_release <- tibble_all_GTFs[, c("gene_name", "transcript_id", "ensembl_release_version", "genome_assembly")] %>% dplyr::distinct()
 
 ## ENST RETIREMENT TABLE: last release + retirement status
 tibble_ENST_retirement_status <- tibble_ENST_ID_version_tracked_by_release %>% 
-  dplyr::select(-transcript_version) %>% dplyr::distinct() %>%
+  dplyr::distinct() %>%
   dplyr::group_by(transcript_id) %>%
   dplyr::summarise("release_last_seen" = max(ensembl_release_version), 
                    "retirement_status" = if (max(ensembl_release_version) == latest_release_number) {"active"} else if (max(ensembl_release_version) < latest_release_number) {"retired"} )
 
 # to enumerate the HGNC stable variant ID, split by ENSG ID
 list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs %>% 
-  dplyr::distinct(gene_id, transcript_id, gene_name) %>% 
-  na.omit %>%
+  dplyr::distinct(gene_id, transcript_id, gene_name, transcript_version) %>% 
+  .[!is.na(.$gene_id) & !is.na(.$transcript_id) & !is.na(.$gene_name), ] %>%
   dplyr::group_split(gene_id) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$gene_id %>% unique) %>% unlist)
 
@@ -155,24 +155,31 @@ tibble_HGNC_stable_variant_IDs <- furrr::future_map(
   .f = function(a1) {
     
     # DEBUG ###
-    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID[[1]]
+    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$ENSG00000234722
     ###########
     
     # sort by ENST ID
     sorted_tibble <- a1[mixedorder(a1$transcript_id), ]
     
     # add HGNC_stable_variant_ID
-    output_tibble <- sorted_tibble %>% add_column("hgnc_stable_variant_ID" = paste(sorted_tibble$gene_name, "-v", 1:nrow(sorted_tibble), sep = ""))
+    output_tibble <- sorted_tibble %>%
+      dplyr::group_by(gene_id, transcript_id) %>% 
+      tibble::add_column("stable_variant_number" = group_indices(.)) %>%
+      dplyr::ungroup() %>%
+      dplyr::mutate("hgnc_stable_variant_ID" = paste(sorted_tibble$gene_name, "-enst", stable_variant_number, ".", sorted_tibble$transcript_version, sep = ""))
     
   }, .progress = TRUE ) %>% rbindlist %>% as_tibble
 
+# get rid of NA transcript_versions
+tibble_HGNC_stable_variant_IDs <- tibble_HGNC_stable_variant_IDs %>% 
+  dplyr::mutate("hgnc_stable_variant_ID" = gsub(x = `hgnc_stable_variant_ID`, pattern = ".NA$", replacement = ""))
+
 # TOTAL MAPPING TABLE
 ## we are going to combine the information from all 3 tables into one
-tibble_total_mapping_table <- dplyr::left_join(tibble_ENST_ID_version_tracked_by_release, tibble_ENST_retirement_status, by = "transcript_id")
-tibble_total_mapping_table <- dplyr::left_join(tibble_total_mapping_table, tibble_HGNC_stable_variant_IDs, by = "transcript_id")
+tibble_total_mapping_table <- dplyr::left_join(tibble_HGNC_stable_variant_IDs, tibble_ENST_retirement_status, by = c("transcript_id"))
 
 # ANNOTATE ALL RELEASES
-tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs, tibble_total_mapping_table, by = c("transcript_id", "gene_id", "gene_name", "transcript_version", "ensembl_release_version", "genome_assembly"))
+tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs, tibble_total_mapping_table)
 
 # list-ify and save
 list_all_annotated_releases <- tibble_all_annotated_releases %>%
