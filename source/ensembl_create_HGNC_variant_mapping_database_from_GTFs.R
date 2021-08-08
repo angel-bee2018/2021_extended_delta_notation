@@ -147,7 +147,7 @@ list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs %>%
   dplyr::group_split(gene_id) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$gene_id %>% unique) %>% unlist)
 
-options(mc.cores = 10)
+options(mc.cores = 16)
 
 # HGNC STABLE VARIANT ID MAPPING TABLE: create HGNC stable variant IDs
 tibble_HGNC_stable_variant_IDs <- furrr::future_map(
@@ -159,17 +159,19 @@ tibble_HGNC_stable_variant_IDs <- furrr::future_map(
     ###########
     
     # sort by ENST ID
-    sorted_tibble <- a1[mixedorder(a1$transcript_id), ]
+    sorted_tibble <- a1[mixedorder(a1$transcript_id), ] %>% 
+      dplyr::mutate("gene_name2" = `gene_name`)
     
     # IN THE CASE OF BLANK gene_ids - USE THE ENSG. jeez.
-    sorted_tibble[is.na(sorted_tibble$gene_name), "gene_name"] <- sorted_tibble[is.na(sorted_tibble$gene_name), "gene_id"]
+    sorted_tibble[is.na(sorted_tibble$gene_name2), "gene_name2"] <- sorted_tibble[is.na(sorted_tibble$gene_name2), "gene_id"]
     
     # add HGNC_stable_variant_ID
     output_tibble <- sorted_tibble %>%
       dplyr::group_by(gene_id, transcript_id) %>% 
       tibble::add_column("stable_variant_number" = group_indices(.)) %>%
       dplyr::ungroup() %>%
-      dplyr::mutate("hgnc_stable_variant_ID" = paste(sorted_tibble$gene_name, "-enst", stable_variant_number, ".", sorted_tibble$transcript_version, sep = ""))
+      dplyr::mutate("hgnc_stable_variant_ID" = paste(sorted_tibble$gene_name2, "-enst", stable_variant_number, ".", sorted_tibble$transcript_version, sep = "")) %>%
+      dplyr::select(-gene_name2)
     
   }, .progress = TRUE ) %>% rbindlist %>% as_tibble
 
