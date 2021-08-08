@@ -143,7 +143,7 @@ tibble_ENST_retirement_status <- tibble_ENST_ID_version_tracked_by_release %>%
 # to enumerate the HGNC stable variant ID, split by ENSG ID
 list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs %>% 
   dplyr::distinct(gene_id, transcript_id, gene_name, transcript_version) %>% 
-  .[!is.na(.$gene_id) & !is.na(.$transcript_id) & !is.na(.$gene_name), ] %>%
+  .[!is.na(.$gene_id) & !is.na(.$transcript_id), ] %>%
   dplyr::group_split(gene_id) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$gene_id %>% unique) %>% unlist)
 
@@ -155,11 +155,14 @@ tibble_HGNC_stable_variant_IDs <- furrr::future_map(
   .f = function(a1) {
     
     # DEBUG ###
-    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$ENSG00000234722
+    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$ENSG00000229425
     ###########
     
     # sort by ENST ID
     sorted_tibble <- a1[mixedorder(a1$transcript_id), ]
+    
+    # IN THE CASE OF BLANK gene_ids - USE THE ENSG. jeez.
+    sorted_tibble[is.na(sorted_tibble$gene_name), "gene_name"] <- sorted_tibble[is.na(sorted_tibble$gene_name), "gene_id"]
     
     # add HGNC_stable_variant_ID
     output_tibble <- sorted_tibble %>%
