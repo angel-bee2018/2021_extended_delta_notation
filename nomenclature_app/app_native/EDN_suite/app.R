@@ -2558,11 +2558,14 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
 
 # END name_a_single_exon() ###
 
-# AE: FUNCTION TO NAME A SINGLE EXON
-# we will take an exon's coordinates and find overlapping counterparts in the reference. Then add exon modifiers as required.
+# AJ: FUNCTION TO NAME A SINGLE JUNCTIOn
+# very similar to alternative exon naming, except we use a caret and also the extension/trunction rules are swapped around
+# we will take a junction's coordinates and find overlapping counterparts in the reference. Then add modifiers as required. 
+# we will not use intron symbols at this stage.
+# return all possible matches for EACH junction end. This is because a junction can match two different transcripts at the same time
 # return_all_possibilities: return not only the lowest HGNC stable variant ID, but all matches. THis is for doing LIS or VSR.
 # premagnetised: if TRUE, then this will do magnetisation for edge tolerance cases. if FALSE, such as calls from VSR naming, then treat query starts and ends as is and don't use tolerance.
-name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
+name_a_single_junction <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
     
     # DEBUG ###
     # query_chr <- AE_query_chr
@@ -2576,9 +2579,9 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     # left_tolerance <- 1
     # right_tolerance <- 1
     
-    # query_chr <- "7"
-    # query_start <- 153399920
-    # query_end <- 153405491
+    # query_chr <- "11"
+    # query_start <- 12864838
+    # query_end <- 12879706
     # query_strand <- "*"
     # return_all_possibilities <- TRUE
     # premagnetised <- TRUE
@@ -2632,16 +2635,16 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     } else if (nrow(tibble_overlapping_reference_transcripts) > 0) {
         
         # check whether query exon overlaps with reference exons, as the transcript with exon with the highest overlap takes priority.
-        tibble_overlapping_reference_exons <- extract_overlapping_features(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
+        # tibble_overlapping_reference_exons <- extract_overlapping_features(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
         # calculate euclidean distances between the query exon and each overlapped ref exon.
-        vector_distance_between_query_and_overlapped_ref_exons <- (abs(tibble_overlapping_reference_exons$start - query_start - left_query_shift) - left_tolerance) %>% (function(x) {x[x < 0] <- 0; return(x)} ) + (abs(tibble_overlapping_reference_exons$end - query_end - right_query_shift) - right_tolerance) %>% (function(x) {x[x < 0] <- 0; return(x)} )
+        # vector_distance_between_query_and_overlapped_ref_exons <- (abs(tibble_overlapping_reference_exons$start - query_start - left_query_shift) - left_tolerance) %>% (function(x) {x[x < 0] <- 0; return(x)} ) + (abs(tibble_overlapping_reference_exons$end - query_end - right_query_shift) - right_tolerance) %>% (function(x) {x[x < 0] <- 0; return(x)} )
         
         # if we don't use return_all_possibilities, then take the lowest ref. transcript that has the highest exonic overlap.
-        if (return_all_possibilities == FALSE) {
-            best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_variant_ID == (.$hgnc_stable_variant_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_variant_ID
-            # go back and select only the best matched overlapped reference transcript for feeding into the next steps
-            tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID == best_match_hgnc_variant_name, ]
-        }
+        # if (return_all_possibilities == FALSE) {
+        #     best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_variant_ID == (.$hgnc_stable_variant_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_variant_ID
+        #     # go back and select only the best matched overlapped reference transcript for feeding into the next steps
+        #     tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID == best_match_hgnc_variant_name, ]
+        # }
         
         # loop thru each overlapped reference transcript and get the nomenclature
         list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID <- purrr::imap(
@@ -2651,150 +2654,58 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                 print(a2)
                 
                 # DEBUG ###
-                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[4]]
+                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[1]]
                 ###########
                 
                 tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_variant_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
                 
                 ## add in intronic entries
-                if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
-                    
-                    for (i in (tibble_subset_ref_exons$exon_number %>% .[1:(length(.) - 1)] %>% rev)) {
-                        
-                        tibble_subset_ref_exons <- tibble_subset_ref_exons %>%
-                            tibble::add_row(tibble_subset_ref_exons[1, ] %>% dplyr::mutate(
-                                "start" = (tibble_subset_ref_exons[i, ] %>% .$end) + 1 ,
-                                "end" = (tibble_subset_ref_exons[i + 1, ] %>% .$start) - 1,
-                                "type" = "intron",
-                                "exon_number" = i + 0.5
-                            ) %>% 
-                                dplyr::mutate(
-                                    "width" = `end` - `start` + 1
-                                ), .after = i )
-                        
-                    }
-                    
-                } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
-                    
-                    for (i in (tibble_subset_ref_exons$exon_number %>% .[1:(length(.) - 1)] %>% rev)) {
-                        
-                        tibble_subset_ref_exons <- tibble_subset_ref_exons %>%
-                            tibble::add_row(tibble_subset_ref_exons[1, ] %>% dplyr::mutate(
-                                "start" = (tibble_subset_ref_exons[i + 1, ] %>% .$end) + 1 ,
-                                "end" = (tibble_subset_ref_exons[i, ] %>% .$start) - 1,
-                                "type" = "intron",
-                                "exon_number" = i + 0.5
-                            ) %>% 
-                                dplyr::mutate(
-                                    "width" = `end` - `start` + 1
-                                ), .after = i )
-                        
-                    }
-                    
-                } # elif
+                # if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
+                #     
+                #     for (i in (tibble_subset_ref_exons$exon_number %>% .[1:(length(.) - 1)] %>% rev)) {
+                #         
+                #         tibble_subset_ref_exons <- tibble_subset_ref_exons %>%
+                #             tibble::add_row(tibble_subset_ref_exons[1, ] %>% dplyr::mutate(
+                #                 "start" = (tibble_subset_ref_exons[i, ] %>% .$end) + 1 ,
+                #                 "end" = (tibble_subset_ref_exons[i + 1, ] %>% .$start) - 1,
+                #                 "type" = "intron",
+                #                 "exon_number" = i + 0.5
+                #             ) %>% 
+                #                 dplyr::mutate(
+                #                     "width" = `end` - `start` + 1
+                #                 ), .after = i )
+                #         
+                #     }
+                #     
+                # } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
+                #     
+                #     for (i in (tibble_subset_ref_exons$exon_number %>% .[1:(length(.) - 1)] %>% rev)) {
+                #         
+                #         tibble_subset_ref_exons <- tibble_subset_ref_exons %>%
+                #             tibble::add_row(tibble_subset_ref_exons[1, ] %>% dplyr::mutate(
+                #                 "start" = (tibble_subset_ref_exons[i + 1, ] %>% .$end) + 1 ,
+                #                 "end" = (tibble_subset_ref_exons[i, ] %>% .$start) - 1,
+                #                 "type" = "intron",
+                #                 "exon_number" = i + 0.5
+                #             ) %>% 
+                #                 dplyr::mutate(
+                #                     "width" = `end` - `start` + 1
+                #                 ), .after = i )
+                #         
+                #     }
+                #     
+                # } # elif
                 
-                ## test query ends to see which exon/intron number the query spans
-                ### test query start 
-                tibble_entry_overlapping_query_start <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start <= (query_start + left_query_shift + left_tolerance) & tibble_subset_ref_exons$end >= (query_start + left_query_shift - left_tolerance)), ]
-                ### test query end 
-                tibble_entry_overlapping_query_end <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start <= (query_end + right_query_shift + right_tolerance) & tibble_subset_ref_exons$end >= (query_end + right_query_shift - right_tolerance)), ]
+                # test query ends for the closest start/end coords, and where they lie relative to each other.
+                # QUERY START
+                closest_ref_vertex_to_the_left_of_query_start <- c(tibble_subset_ref_exons$start, tibble_subset_ref_exons$end) %>% .[. <= (query_start + left_query_shift + left_tolerance)] %>% max 
+                closest_ref_vertex_to_the_right_of_query_start <- c(tibble_subset_ref_exons$start, tibble_subset_ref_exons$end) %>% .[. >= (query_start + left_query_shift - left_tolerance)] %>% min
+                # if one distance is negative, then the vertex lies within the transcript. if positive, then it lies outside
+                logical_query_start_is_in_transcript <- length((!is.infinite(c(closest_ref_vertex_to_the_left_of_query_start, closest_ref_vertex_to_the_right_of_query_start))) %>% which) == 2
                 
-                # if left/right end fell within a transcript, measure whether it crosses more than 50% of the exon or junction
-                # if less than 50%, then previous element extension.
-                # if more than 50%, then current element truncation.
-                
-                # if the tolerance made any query cross an exon/intron boundary then we will select the leftmost START vertex or the rightmost END vertex.
-                if (nrow(tibble_entry_overlapping_query_start) > 1) {
-                    tibble_entry_overlapping_query_start <- tibble_entry_overlapping_query_start[tibble_entry_overlapping_query_start$start == min(tibble_entry_overlapping_query_start$start %>% .[. <= (query_start + left_query_shift + left_tolerance) & . >= (query_start + left_query_shift - left_tolerance)]), ]
-                } # elif
-                
-                # if the tolerance made any query cross an exon/intron boundary then we will select the leftmost START vertex or the rightmost END vertex.
-                if (nrow(tibble_entry_overlapping_query_end) > 1) {
-                    tibble_entry_overlapping_query_end <- tibble_entry_overlapping_query_end[tibble_entry_overlapping_query_end$end == max(tibble_entry_overlapping_query_end$end %>% .[. <= (query_end + right_query_shift + right_tolerance) & . >= (query_end + right_query_shift - right_tolerance)]), ]
-                } # elif
-                
-                # query lies within the confines of the transcript
-                if (nrow(tibble_entry_overlapping_query_start) > 0 & nrow(tibble_entry_overlapping_query_end) > 0) {
+                # deal with the condition that query start is outside the transcript
+                if (logical_query_start_is_in_transcript == FALSE) {
                     
-                    # QUERY START ###
-                    logical_query_start_is_further_than_50_pct <- query_start <= 0.5*(tibble_entry_overlapping_query_start$start + tibble_entry_overlapping_query_start$end)
-                    
-                    # make special case for if query exon is confined within a single element of the transcript. then it will always "cross 50%" for truncation.
-                    if (tibble_entry_overlapping_query_start$exon_number == tibble_entry_overlapping_query_end$exon_number) {
-                        logical_query_start_is_further_than_50_pct <- TRUE
-                    }
-                    
-                    # use the crossing logicals to determine the element bounds
-                    if (logical_query_start_is_further_than_50_pct == FALSE) {
-                        
-                        # find the lowest start coord greater than the left query end
-                        lowest_start_coord_greater_than_query_start <- tibble_subset_ref_exons$start %>% .[which(. >= query_start)] %>% min
-                        
-                        # find out the exon that has this coord
-                        query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == lowest_start_coord_greater_than_query_start), ] %>% .$exon_number
-                        
-                        query_start_distance_to_vertex <- lowest_start_coord_greater_than_query_start - query_start
-                        
-                        # get distance modifier
-                        query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
-                        
-                    } else if (logical_query_start_is_further_than_50_pct == TRUE) {
-                        
-                        # find the highest start coord smaller than the left query end
-                        highest_start_coord_less_than_query_start <- tibble_subset_ref_exons$start %>% .[which(. <= query_start)] %>% max
-                        
-                        # find out the exon that has this coord
-                        query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == highest_start_coord_less_than_query_start), ] %>% .$exon_number
-                        
-                        query_start_distance_to_vertex <- query_start - highest_start_coord_less_than_query_start
-                        
-                        # get distance modifier
-                        query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
-                        
-                    }
-                    
-                    # QUERY END ###
-                    logical_query_end_is_further_than_50_pct <- query_end >= 0.5*(tibble_entry_overlapping_query_end$start + tibble_entry_overlapping_query_end$end)
-                    
-                    # make special case for if query exon is confined within a single element of the transcript. then it will always "cross 50%" for truncation.
-                    if (tibble_entry_overlapping_query_start$exon_number == tibble_entry_overlapping_query_end$exon_number) {
-                        logical_query_end_is_further_than_50_pct <- TRUE
-                    }
-                    
-                    # use the crossing logicals to determine the element bounds
-                    if (logical_query_end_is_further_than_50_pct == FALSE) {
-                        
-                        # find the highest end coord less than the query end
-                        highest_end_coord_less_than_query_end <- tibble_subset_ref_exons$end %>% .[which(. <= query_end)] %>% max
-                        
-                        # find out the exon that has this coord
-                        query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == highest_end_coord_less_than_query_end), ] %>% .$exon_number
-                        
-                        query_end_distance_to_vertex <- query_end - highest_end_coord_less_than_query_end
-                        
-                        # get distance modifier
-                        query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
-                        
-                    } else if (logical_query_end_is_further_than_50_pct == TRUE) {
-                        
-                        # find the lowest end coord larger than the left query end
-                        lowest_end_coord_greater_than_query_end <- tibble_subset_ref_exons$end %>% .[which(. >= query_end)] %>% min
-                        
-                        # find out the exon that has this coord
-                        query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == lowest_end_coord_greater_than_query_end), ] %>% .$exon_number
-                        
-                        query_end_distance_to_vertex <- lowest_end_coord_greater_than_query_end - query_end
-                        
-                        # get distance modifier
-                        query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
-                        
-                    }
-                    
-                    # if the query start doesn't lie within the transcript, then it's an extension of the leftmost exon.    
-                    # in that case, we have to be careful to make sure that the end's exon is always a truncation if it lies to the left of the leftmost end
-                } else if (nrow(tibble_entry_overlapping_query_start) == 0 & nrow(tibble_entry_overlapping_query_end) > 0) {
-                    
-                    # QUERY START ###
                     # find the lowest end coord larger than the left query end
                     leftmost_exon_start <- tibble_subset_ref_exons$start %>% min
                     
@@ -2805,85 +2716,60 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                     # get distance modifier
                     query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
                     
-                    # QUERY END ###
-                    logical_query_end_is_further_than_50_pct <- query_end >= 0.5*(tibble_entry_overlapping_query_end$start + tibble_entry_overlapping_query_end$end)
-                    # test for leftmost end
-                    if (length(which(tibble_subset_ref_exons$end < query_end)) == 0) {
-                        logical_query_end_is_further_than_50_pct <- TRUE
+                    if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
+                        exon_slot_query_start <- paste("5'(", query_start_distance_modifier,"E", query_start_exon_number, ")", sep = "")
+                    } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
+                        exon_slot_query_start <- paste("(", "E", query_start_exon_number, query_start_distance_modifier, ")3'", sep = "")
                     }
                     
-                    # use the crossing logicals to determine the element bounds
-                    if (logical_query_end_is_further_than_50_pct == FALSE) {
-                        
-                        # find the highest end coord less than the query end
-                        highest_end_coord_less_than_query_end <- tibble_subset_ref_exons$end %>% .[which(. <= query_end)] %>% max
-                        
-                        # find out the exon that has this coord
-                        query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == highest_end_coord_less_than_query_end), ] %>% .$exon_number
-                        
-                        query_end_distance_to_vertex <- query_end - highest_end_coord_less_than_query_end
-                        
-                        # get distance modifier
-                        query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
-                        
-                    } else if (logical_query_end_is_further_than_50_pct == TRUE) {
-                        
-                        # find the lowest end coord larger than the left query end
-                        lowest_end_coord_greater_than_query_end <- tibble_subset_ref_exons$end %>% .[which(. >= query_end)] %>% min
-                        
-                        # find out the exon that has this coord
-                        query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == lowest_end_coord_greater_than_query_end), ] %>% .$exon_number
-                        
-                        query_end_distance_to_vertex <- lowest_end_coord_greater_than_query_end - query_end
-                        
-                        # get distance modifier
-                        query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
-                        
+                # if closest_ref_vertex_to_the_left... is a start, then we're in an exon (truncation). otherwise we're in an intron if it's an end (extension).
+                ## exonic
+                } else if ((any(closest_ref_vertex_to_the_left_of_query_start %in% tibble_subset_ref_exons$start) & any(closest_ref_vertex_to_the_right_of_query_start %in% tibble_subset_ref_exons$end)) | (closest_ref_vertex_to_the_left_of_query_start == closest_ref_vertex_to_the_right_of_query_start)) {
+                    
+                    if (closest_ref_vertex_to_the_left_of_query_start == closest_ref_vertex_to_the_right_of_query_start) {
+                        query_start_exon_number <- tibble_subset_ref_exons[which((tibble_subset_ref_exons$end == closest_ref_vertex_to_the_right_of_query_start) | (tibble_subset_ref_exons$start == closest_ref_vertex_to_the_right_of_query_start)), ] %>% .$exon_number
+                    } else {
+                        query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == closest_ref_vertex_to_the_right_of_query_start), ] %>% .$exon_number
                     }
                     
-                    # if the query end doesn't lie within the transcript, then it's an extension of the rightmost exon.
-                    # in that case, we have to be careful to make sure that the start's exon is always a truncation if it lies to the right of the rightmost start.
-                } else if (nrow(tibble_entry_overlapping_query_start) > 0 & nrow(tibble_entry_overlapping_query_end) == 0) {
+                    query_start_distance_to_vertex <- (tibble_subset_ref_exons[tibble_subset_ref_exons$exon_number == query_start_exon_number, ] %>% .$end) - query_start + 1
                     
-                    # QUERY START ###
-                    logical_query_start_is_further_than_50_pct <- query_start <= 0.5*(tibble_entry_overlapping_query_start$start + tibble_entry_overlapping_query_start$end)
-                    # test for rightmost start
-                    if (length(which(tibble_subset_ref_exons$start > query_start)) == 0) {
-                        logical_query_start_is_further_than_50_pct <- TRUE
+                    query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
+                    
+                    if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
+                        exon_slot_query_start <- paste("E", query_start_exon_number, query_start_distance_modifier, sep = "")
+                    } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
+                        exon_slot_query_start <- paste(query_start_distance_modifier, "E", query_start_exon_number, sep = "")
                     }
                     
-                    # use the crossing logicals to determine the element bounds
-                    if (logical_query_start_is_further_than_50_pct == FALSE) {
-                        
-                        # find the lowest start coord greater than the left query end
-                        lowest_start_coord_greater_than_query_start <- tibble_subset_ref_exons$start %>% .[which(. >= query_start)] %>% min
-                        
-                        # find out the exon that has this coord
-                        query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == lowest_start_coord_greater_than_query_start), ] %>% .$exon_number
-                        
-                        query_start_distance_to_vertex <- lowest_start_coord_greater_than_query_start - query_start
-                        
-                        # get distance modifier
-                        query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
-                        
-                    } else if (logical_query_start_is_further_than_50_pct == TRUE) {
-                        
-                        # find the highest start coord smaller than the left query end
-                        highest_start_coord_less_than_query_start <- tibble_subset_ref_exons$start %>% .[which(. <= query_start)] %>% max
-                        
-                        # find out the exon that has this coord
-                        query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == highest_start_coord_less_than_query_start), ] %>% .$exon_number
-                        
-                        query_start_distance_to_vertex <- query_start - highest_start_coord_less_than_query_start
-                        
-                        # get distance modifier
-                        query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
-                        
+                ## intronic
+                } else if (any(closest_ref_vertex_to_the_left_of_query_start %in% tibble_subset_ref_exons$end) & any(closest_ref_vertex_to_the_right_of_query_start %in% tibble_subset_ref_exons$start)) {
+                    
+                    query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == closest_ref_vertex_to_the_left_of_query_start), ] %>% .$exon_number
+                    
+                    query_start_distance_to_vertex <- query_start - closest_ref_vertex_to_the_left_of_query_start - 1
+                    
+                    query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+                    
+                    if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
+                        exon_slot_query_start <- paste("E", query_start_exon_number, query_start_distance_modifier, sep = "")
+                    } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
+                        exon_slot_query_start <- paste(query_start_distance_modifier, "E", query_start_exon_number, sep = "")
                     }
                     
-                    # QUERY END ###
+                }
+                
+                # QUERY END
+                closest_ref_vertex_to_the_left_of_query_end <- c(tibble_subset_ref_exons$start, tibble_subset_ref_exons$end) %>% .[. <= (query_end + right_query_shift + right_tolerance)] %>% max
+                closest_ref_vertex_to_the_right_of_query_end <- c(tibble_subset_ref_exons$start, tibble_subset_ref_exons$end) %>% .[. >= (query_end + right_query_shift - right_tolerance)] %>% min
+                # if one distance is negative, then the vertex lies within the transcript. if positive, then it lies outside
+                logical_query_end_is_in_transcript <- length((!is.infinite(c(closest_ref_vertex_to_the_left_of_query_end, closest_ref_vertex_to_the_right_of_query_end))) %>% which) == 2
+                
+                # deal with the condition that query start is outside the transcript
+                if (logical_query_end_is_in_transcript == FALSE) {
+                    
                     # find the lowest end coord larger than the left query end
-                    rightmost_exon_end <- tibble_subset_ref_exons$end %>% max
+                    rightmost_exon_end <- tibble_subset_ref_exons$end %>% min
                     
                     query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$end == rightmost_exon_end), ] %>% .$exon_number
                     
@@ -2892,73 +2778,72 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                     # get distance modifier
                     query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
                     
-                } # elif
-                
-                list_exon_slot <- purrr::pmap(
-                    .l = list(
-                        "exon_intron_number" = seq(from = min(c(query_start_exon_number, query_end_exon_number)), to = max(c(query_start_exon_number, query_end_exon_number)), by = 0.5) %/% 1,
-                        "logical_is_intron" = seq(from = min(c(query_start_exon_number, query_end_exon_number)), to = max(c(query_start_exon_number, query_end_exon_number)), by = 0.5) %% 1
-                    ),
-                    .f = function(exon_intron_number, logical_is_intron) {
-                        
-                        if (logical_is_intron == 0.0) {
-                            exon_intron <- "E"
-                        } else if (logical_is_intron == 0.5) {
-                            exon_intron <- "I"
-                        }
-                        
-                        return(paste(exon_intron, exon_intron_number, sep = ""))
-                        
-                    } )
-                
-                if (length(list_exon_slot) > 3) {
-                    list_exon_slot <- list(list_exon_slot[[1]], "++", list_exon_slot[[length(list_exon_slot)]])
-                }
-                
-                if (query_start_distance_to_vertex == 0 & query_end_distance_to_vertex == 0) {
-                    flag_is_exact_match <- "FULL"
-                    exon_slot <- paste(list_exon_slot, collapse = " ")
-                } else if (query_start_distance_to_vertex == 0 | query_end_distance_to_vertex == 0) {
-                    flag_is_exact_match <- "HALF"
                     if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
-                        exon_slot <- paste(query_start_distance_modifier, paste(list_exon_slot, collapse = " "), query_end_distance_modifier, sep = "") %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = "")
+                        exon_slot_query_end <- paste("(", "E", query_end_exon_number, query_end_distance_modifier, ")3'", sep = "")
                     } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
-                        exon_slot <- paste(query_end_distance_modifier, paste(list_exon_slot, collapse = " "), query_start_distance_modifier, sep = "") %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = "")
+                        exon_slot_query_end <- paste("5'(", query_end_distance_modifier,"E", query_end_exon_number, ")", sep = "")
                     }
-                } else {
-                    flag_is_exact_match <- "NO"
+                    
+                # if closest_ref_vertex_to_the_left... is a start, then we're in an exon (truncation). otherwise we're in an intron if it's an end (extension).
+                ## exonic
+                } else if ((any(closest_ref_vertex_to_the_left_of_query_end %in% tibble_subset_ref_exons$start) & any(closest_ref_vertex_to_the_right_of_query_end %in% tibble_subset_ref_exons$end)) | (closest_ref_vertex_to_the_left_of_query_end == closest_ref_vertex_to_the_right_of_query_end)) {
+                    
+                    if (closest_ref_vertex_to_the_left_of_query_end == closest_ref_vertex_to_the_right_of_query_end) {
+                        query_end_exon_number <- tibble_subset_ref_exons[which((tibble_subset_ref_exons$end == closest_ref_vertex_to_the_left_of_query_end) | (tibble_subset_ref_exons$start == closest_ref_vertex_to_the_left_of_query_end)), ] %>% .$exon_number
+                    } else {
+                        query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == closest_ref_vertex_to_the_left_of_query_end), ] %>% .$exon_number
+                    }
+                    
+                    query_end_distance_to_vertex <- query_end - (tibble_subset_ref_exons[tibble_subset_ref_exons$exon_number == query_end_exon_number, ] %>% .$start) + 1
+                    
+                    query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
+                    
                     if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
-                        exon_slot <- paste(query_start_distance_modifier, paste(list_exon_slot, collapse = " "), query_end_distance_modifier, sep = "")
+                        exon_slot_query_end <- paste(query_end_distance_modifier, "E", query_end_exon_number, sep = "")
                     } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
-                        exon_slot <- paste(query_end_distance_modifier, paste(list_exon_slot, collapse = " "), query_start_distance_modifier, sep = "")
+                        exon_slot_query_end <- paste("E", query_end_exon_number, query_end_distance_modifier, sep = "")
                     }
+                    
+                ## intronic
+                } else if (any(closest_ref_vertex_to_the_left_of_query_end %in% tibble_subset_ref_exons$end) & any(closest_ref_vertex_to_the_right_of_query_end %in% tibble_subset_ref_exons$start)) {
+                    
+                    query_end_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == closest_ref_vertex_to_the_right_of_query_end), ] %>% .$exon_number
+                    
+                    query_end_distance_to_vertex <- closest_ref_vertex_to_the_right_of_query_end - query_end - 1
+                    
+                    query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+                    
+                    if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
+                        exon_slot_query_end <- paste(query_end_distance_modifier, "E", query_end_exon_number, sep = "")
+                    } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
+                        exon_slot_query_end <- paste("E", query_end_exon_number, query_end_distance_modifier, sep = "")
+                    }
+                    
                 }
-                
-                exon_slot <- gsub(x = exon_slot, pattern = " \\+\\+ ", replacement = "++")
                 
                 return(
                     tibble(
                         "variant_ID_slot" = a1,
-                        "exon_slot" = exon_slot,
-                        "flag_is_exact_match" = flag_is_exact_match,
+                        "exon_slot_query_start" = exon_slot_query_start,
+                        "exon_slot_query_end" = exon_slot_query_end,
+                        "flag_is_exact_match" = if ((query_start_distance_to_vertex + query_end_distance_to_vertex) == 0) {"FULL"} else if (query_start_distance_to_vertex == 0 | query_end_distance_to_vertex == 0) {"HALF"} else {"NO"},
+                        "query_start_match_distance" = query_start_distance_to_vertex,
+                        "query_end_match_distance" = query_end_distance_to_vertex,
                         "intergenic" = FALSE
                     )
                 )
-                
                 
             } ) # purrr::map
         
         list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID %>% 
             rbindlist %>% as_tibble %>% 
-            dplyr::left_join(., 
-                             tibble("variant_ID_slot" = tibble_overlapping_reference_exons$hgnc_stable_variant_ID, "vector_distance_between_query_and_overlapped_ref_exons" = vector_distance_between_query_and_overlapped_ref_exons) ) %>% 
             return
         
     } # elif intergenic test
     
 }
 
-# END name_a_single_exon() ###
+# END name_a_single_junction() ###
 
 # SHINY: FUNCTION TO SCREEN INPUT COORDINATES
 ## input: a vector of co-ordinates to be tested
