@@ -1758,8 +1758,26 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                     # b1 <- a1[[2]]
                     ###########
                     
-                    name_a_single_exon(query_chr = query_chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance) %>%
-                        return
+                    if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
+                        # find free end
+                        free_A3_5SS_vertex <- setdiff(c(b1$query_start_magnetised, b1$query_end_magnetised), c(b1$effective_VSR_start, b1$effective_VSR_end, b1$effective_VSR_start_magnetised, b1$effective_VSR_end_magnetised) %>% .[duplicated(.)])
+                    }
+                    
+                    b1 %>% 
+                        purrr::splice(
+                            "exonic_matches" = if (b1$left_end_of_VSR == FALSE & b1$right_end_of_VSR == FALSE) {
+                                name_a_single_exon(query_chr = b1$chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance)
+                            },
+                            "effective_VSR_matches" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
+                                name_a_single_junction(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
+                            },
+                            "ref_exons_matched_to_free_A3_5SS_vertex" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
+                                dplyr::bind_rows(
+                                    magnetise_genome_position_to_ref_end(query_chr = b1$chr, query_coord = free_A3_5SS_vertex, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_end_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord,
+                                    magnetise_genome_position_to_ref_starts(query_chr = b1$chr, query_coord = free_A3_5SS_vertex, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_start_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord
+                                )
+                            }
+                        ) %>% return
                     
                 } ) %>% return
             
@@ -2509,6 +2527,8 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                         
                     } )
                 
+                number_of_ref_elements_to_describe_exon <- length(list_exon_slot)
+                
                 if (length(list_exon_slot) > 3) {
                     list_exon_slot <- list(list_exon_slot[[1]], "++", list_exon_slot[[length(list_exon_slot)]])
                 }
@@ -2538,18 +2558,17 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                     tibble(
                         "variant_ID_slot" = a1,
                         "exon_slot" = exon_slot,
+                        "vector_vertex_differences" = (query_start_distance_to_vertex + query_end_distance_to_vertex),
+                        "number_of_ref_elements_to_describe_exon" = number_of_ref_elements_to_describe_exon,
                         "flag_is_exact_match" = flag_is_exact_match,
                         "intergenic" = FALSE
                     )
                 )
                 
-                
             } ) # purrr::map
         
         list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID %>% 
             rbindlist %>% as_tibble %>% 
-            dplyr::left_join(., 
-                             tibble("variant_ID_slot" = tibble_overlapping_reference_exons$hgnc_stable_variant_ID, "vector_distance_between_query_and_overlapped_ref_exons" = vector_distance_between_query_and_overlapped_ref_exons) ) %>% 
             return
         
     } # elif intergenic test
