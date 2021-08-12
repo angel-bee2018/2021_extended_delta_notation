@@ -1487,8 +1487,9 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     
     VSR_coordinates <- automator_input_alternative_event_region
     # NOTE: we will deliberately choose to exclude rev() sequences which means that it won't mean anything to input reversed start/end coords.
-    # This is because we decided that this VSR matching program has to automate strand matching (often users aren't given strand info for input).
-    # So that means we have to report the most common strand
+    # This is because we decided that this VSR matching program has to automate strand matching (often users aren't given strand info for input). Also it's because we can fix the user input + start/end has meaning.
+    # So that means we have to report the most common strand - **all elements which are on the oppoosite strand are made to be OS(), meaning the reverse complement.**
+    # ALSO: We also require the user to know the exact exon connectivity of each LIS. This allows us to be able to give a more general description of heterogeneous LISs, such as those derived from multiple transcripts - ordering by exon number is meaningless between transcripts.
     list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
     tibble_gtf_table <- tibble_ref_gtf
     
@@ -1808,7 +1809,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                     
                     # add the exon numbers within the LIS and rbind into long tibble
                     long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
-                        mutate("LIS_number" = b2)
+                        mutate("number_in_LIS" = b2)
                     
                 } ) %>% dplyr::bind_rows() %>% 
                 dplyr::group_by(variant_ID_slot) %>%
@@ -1816,7 +1817,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
             
             # for each LIS, subset by matched HGNC stable variant ID 
             list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID <- tibble_matched_LIS_exons %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist) 
-            # %>% purrr::discard(.p = ~nrow(.x) < max(tibble_matched_LIS_exons$LIS_number))
+            # %>% purrr::discard(.p = ~nrow(.x) < max(tibble_matched_LIS_exons$number_in_LIS))
             
             # add in the VSR matches for each HGNC stable variant ID. 
             # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
@@ -1920,17 +1921,17 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                 tibble_LIS_record <- tibble(
                     "variant_ID_slot" = character(),
                     "exon_slot" = character(),
-                    "LIS_number" = numeric()
+                    "number_in_LIS" = numeric()
                 )
                 
             }
             
             # exact matches: get the lowest HGNC variant number for each LIS exon, select that for the tibble
-            if (length(tibble_LIS_record$LIS_number) < max(tibble_matched_LIS_exons$LIS_number)) {
+            if (length(tibble_LIS_record$number_in_LIS) < max(tibble_matched_LIS_exons$number_in_LIS)) {
                 
                 tibble_LIS_record <- tibble_matched_LIS_exons %>% 
                     dplyr::ungroup() %>%
-                    dplyr::group_split(LIS_number) %>% 
+                    dplyr::group_split(number_in_LIS) %>% 
                     purrr::map(
                         .f = ~.x %>%
                             # full matches take priority
@@ -1943,7 +1944,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                             .[.$number_of_ref_elements_to_describe_exon == min(.$number_of_ref_elements_to_describe_exon), ] %>%
                             # and finally lowest hgnc_stable+_variant_ID
                             .[.$variant_ID_slot == (.$variant_ID_slot %>% mixedsort %>% .[1]), ]
-                    ) %>% dplyr::bind_rows() %>% dplyr::bind_rows(.[!.$LIS_number %in% .$LIS_number, ])
+                    ) %>% dplyr::bind_rows() %>% dplyr::bind_rows(.[!.$number_in_LIS %in% .$number_in_LIS, ])
                 
             }
             
@@ -1958,7 +1959,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     vector_segments_with_VSR_authority <- which(purrr::map(
         .x = list_LIS_VSR_named_records,
         .f = ~.x$list_LIS_VSR_record %>% length
-    ) %>% unlist == 1)
+    ) %>% unlist > 0)
     
     # if there is VSR authority, then we extract the LIS/VSR combinations and go thru the list once again.
     if (length(vector_segments_with_VSR_authority) > 0) {
@@ -1999,6 +2000,9 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
         
     # if no VSR authority, then VSR and LISs will be independently named 
     } else if (length(vector_segments_with_VSR_authority) == 0) {
+        
+        logical_indices_LIS_with_VSR_override <- FALSE %>% rep(times = length(list_LIS_VSR_named_records))
+        
         tibble_VSR_final_naming <- tibble_VSR_possible_names %>% 
             .[if (any(.$flag_is_exact_match == "FULL")) {.$flag_is_exact_match == "FULL"} else {TRUE}, ] %>% 
             .[if (any(.$flag_is_exact_match == "HALF")) {.$flag_is_exact_match == "HALF"} else {TRUE}, ] %>% 
@@ -2024,124 +2028,42 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     ## no VSR override: modify by keeping only the independent LIS match
     list_LIS_VSR_named_records[!logical_indices_LIS_with_VSR_override] <- list_LIS_VSR_named_records[!logical_indices_LIS_with_VSR_override] %>% purrr::map(~.x$tibble_LIS_record)
     # finalise LIS naming
-    list_final_LIS_names <- purrr::map(
-        .x = 
-    )
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    list_initial_lowest_variant_detection <- list_tibble_exon_start_end_per_LIS %>% 
-        purrr::map(
-            .f = ~VSR_select_reference_transcript_variant(VSR_coordinates = VSR_coordinates,
-                                                          tibble_VSR_exon_start_end = .x,
-                                                          tibble_gtf_table = tibble_gtf_table,
-                                                          left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance))
-    
-    # get lowest common variant ID
-    lowest_common_variant_ID <- purrr::map(.x = list_initial_lowest_variant_detection, .f = ~.x$selected_hgnc_variant_name) %>% unlist %>% mixedsort %>% .[1]
-    
-    # edit the initial detection lists to force the lowest common variant ID.
-    list_initial_lowest_variant_detection_force_lowest_variant_ID <- purrr::map(
-        .x = list_initial_lowest_variant_detection,
-        .f = function(a1) {
-            
-            list_edited <- a1
-            tibble_parent_gene_entries <- list_edited$tibble_parent_gene_entries
-            
-            # rename the variant ID flag
-            list_edited$selected_hgnc_variant_name <- lowest_common_variant_ID
-            # refresh the selected parent entries for the new variant ID
-            list_edited$tibble_selected_transcript_entries <- tibble_parent_gene_entries[which(tibble_parent_gene_entries$hgnc_stable_variant_ID == lowest_common_variant_ID), ]
-            
-            # mark the tibble of body exon info to indicate which entries overlap with a different variant ID and need to be renamed
-            list_edited$tibble_body_exon_info <- list_edited$tibble_body_exon_info %>% 
-                add_column("still_needs_renaming" = list_edited$tibble_body_exon_info$lowest_stable_variant_ID_matched_to_exon != lowest_common_variant_ID)
-            
-            return(list_edited)
-            
-        } )
-    
-    # first pass naming using the lowest variant ID for ALL exons.
-    list_first_pass_naming <- list_initial_lowest_variant_detection_force_lowest_variant_ID %>% purrr::map(.f = ~VSR_name_body_exons_and_VSR(list_output_from_VSR_select_reference_transcript_variant = .x, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance))
-    
-    # check if we need second-pass naming
-    if (any(list_first_pass_naming %>% purrr::map(.f = ~.x$tibble_body_exon_info$still_needs_renaming) %>% unlist %>% na.omit == TRUE)) {
-        
-        # second-pass naming. inexact over-ride naming of each exon using the lowest overlapped variant ID.
-        list_second_pass_naming <- purrr::imap(
-            .x = list_first_pass_naming,
-            .f = function(a1, a2) {
-                
-                # DEBUG ###
-                # a1 <- list_first_pass_naming[[3]]
-                ###########
-                
-                # cat(a2, "\n")
-                
-                # retrieve the row indices of the exons that still need naming.
-                ## note that we do not match for A3/5SS exons, as the information is already captured in the VSR.
-                row.indices_exons_still_need_renaming <- which(a1$tibble_body_exon_info$still_needs_renaming == TRUE &
-                                                                   ((a1$tibble_body_exon_info$left_end_of_VSR == TRUE | a1$tibble_body_exon_info$right_end_of_VSR == TRUE) & a1$tibble_body_exon_info$exon_matches_to_any_reference == FALSE) == FALSE)
-                
-                # map thru all the row indices of exons that still need renaming
-                list_renamed_exons <- purrr::map(.x = a1$tibble_body_exon_info %>% .[row.indices_exons_still_need_renaming, ] %>% purrr::array_tree(),
-                                                 .f = ~name_a_single_exon(query_chr = a1$query_chr, query_start = .x$start, query_end = .x$end, query_strand = "*", tibble_gtf_table = a1$tibble_parent_gene_entries, variant_ID_override = .x$lowest_stable_variant_ID_matched_to_exon, gene_name_override = .x$lowest_stable_variant_ID_matched_to_exon %>% gsub(pattern = "(.*)\\-enst.*", replacement = "\\1"), left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance))
-                
-                list_edited <- a1
-                
-                list_edited[["list_body_exon_nomenclature"]][row.indices_exons_still_need_renaming] <- list_renamed_exons %>% purrr::map(~paste("(", .x$variant_ID_slot, " ", .x$exon_slot, ")", sep = ""))
-                
-                # don't need renaming anymore! :)
-                list_edited$tibble_body_exon_info$still_needs_renaming <- FALSE
-                
-                # done
-                
-                return(list_edited)
-                
-            } )
-        
-    } else {
-        
-        list_second_pass_naming <- list_first_pass_naming
-        
-    }
-    
-    # RETURN NOMENCLATURE
-    ## collapse by spaces between exons of the same LIS
-    list_final_LIS_nomenclature <- purrr::map(
-        .x = list_second_pass_naming,
-        .f = function(a1) {
+    ## IF VSR override present: don't explicitly specify the variant ID.
+    ## NOTE: there will never be mixed variant IDs whenever there is VSR authority because we only considered VSR authority if there was an exact LIS match to the variant ID.
+    final_LIS_name <- purrr::map2(
+        .x = list_LIS_VSR_named_records,
+        .y = logical_indices_LIS_with_VSR_override,
+        .f = function(a1, a2) {
             
             # DEBUG ###
-            # a1 <- list_second_pass_naming[[1]]
+            # a1 <- list_LIS_VSR_named_records[[1]]
+            # a2 <- logical_indices_LIS_with_VSR_override[[1]]
             ###########
             
-            collapsed_nomenclature_for_one_LIS <- a1$list_body_exon_nomenclature %>% unlist %>% na.omit %>% paste(collapse = " ")
+            # test whether the HGNC stable variant ID is the same for all slots. if they are, then we can factorise.
+            number_of_unique_variant_IDs_for_LIS <- a1$variant_ID_slot %>% unique %>% length
             
-            return(collapsed_nomenclature_for_one_LIS)
+            "LIS_slot" = if (number_of_unique_variant_IDs_for_LIS == 1 & a2 == FALSE) {
+                segment_name <- paste("(", a1$variant_ID_slot %>% unique, " ", paste(a1$exon_slot, collapse = " "), ")", sep = "")
+            } else if (number_of_unique_variant_IDs_for_LIS == 1 & a2 == TRUE) {
+                segment_name <- paste(a1$exon_slot, collapse = " ")
+            } else if (number_of_unique_variant_IDs_for_LIS > 1) {
+                segment_name <- paste(paste("(", a1$variant_ID_slot, " ", a1$exon_slot, ")", sep = ""), collapse = " ")
+            }
             
-        } )
+            return(segment_name)
+            
+        } 
+    ) %>% 
+        paste(collapse = "/")
     
-    # finally, extract the transcript version
-    variant_slot <- paste(lowest_common_variant_ID, ".", tibble_gtf_table[tibble_gtf_table$hgnc_stable_variant_ID == lowest_common_variant_ID, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
+    if (mode == "VSR") {
+        final_nomenclature <- paste(VSR_variant_ID_slot, " ", VSR_left_slot, " (", final_LIS_name, ") ", VSR_right_slot, sep = "")
+    } else if (mode == "LIS") {
+        final_nomenclature <- final_LIS_name
+    }
     
-    ## collapse by "/" between different LISs and sandwich between the VSR upstream and downstream slots
-    final_VSR_nomenclature <- paste(variant_slot, " ", list_first_pass_naming[[1]]$upstream_VSR_slot, " (", list_final_LIS_nomenclature %>% paste(collapse = " / "), ") ", list_first_pass_naming[[1]]$downstream_VSR_slot, sep = "") %>% 
-        trimws %>%
-        gsub(pattern = "\\(\\((.*)\\)\\)", replacement = "(\\1)") %>% 
-        gsub(pattern = "\\(\\)", replacement = "") 
-    
-    return(final_VSR_nomenclature)
+    return(final_nomenclature)
     
 }
 
