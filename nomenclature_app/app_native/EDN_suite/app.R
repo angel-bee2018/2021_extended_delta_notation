@@ -1446,7 +1446,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
 ## Behaviour: Select lowest variant for all LISs -> rename using the common lowest variant -> for the remaining un-named intronic exons, rename if they overlapped with a separate variant.
 ## inputs: VSR coords (pre-checked) and a list of start/end info for each LIS. 
 ## mode: VSR or LIS
-VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_start_end_per_LIS, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, mode = NULL) {
+VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start_end_per_LIS, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, mode = NULL) {
     
     # DEBUG ###
     
@@ -1488,8 +1488,10 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     VSR_coordinates <- automator_input_alternative_event_region
     # NOTE: we will deliberately choose to exclude rev() sequences which means that it won't mean anything to input reversed start/end coords.
     # This is because we decided that this VSR matching program has to automate strand matching (often users aren't given strand info for input). Also it's because we can fix the user input + start/end has meaning.
+    # also, most DS tools output the LIS coords out of strand order. Therefore, we actually can't assume the user actually knows the sequence of matches. Have to consult the matched strand for that.
     # So that means we have to report the most common strand - **all elements which are on the oppoosite strand are made to be OS(), meaning the reverse complement.**
     # ALSO: We also require the user to know the exact exon connectivity of each LIS. This allows us to be able to give a more general description of heterogeneous LISs, such as those derived from multiple transcripts - ordering by exon number is meaningless between transcripts.
+    # Also, all LIS coords must be in between the VSR coords. or it wont work. Triage will take care of this.
     list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
     tibble_gtf_table <- tibble_ref_gtf
     
@@ -1524,8 +1526,8 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     list_tibble_exon_start_end_per_LIS_flagged_extensions <- purrr::map(
         .x = list_tibble_exon_start_end_per_LIS,
         .f = ~.x %>% 
-            dplyr::mutate("left_end_of_VSR" = .x$start == query_VSR_start,
-                          "right_end_of_VSR" = .x$end == query_VSR_end)
+            dplyr::mutate("left_end_of_VSR" = .x$start + left_tolerance >= query_VSR_start & .x$start - left_tolerance <= query_VSR_start,
+                          "right_end_of_VSR" = .x$end + left_tolerance >= query_VSR_end & .x$end - left_tolerance <= query_VSR_end)
     )
     
     list_tibble_exon_start_end_per_LIS_A35SS_corrected <- purrr::map(
@@ -1542,12 +1544,12 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                 "logical_is_IR" = FALSE
             )
             
-            if (length(output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == FALSE) > 0) {
-                output_tibble[output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == FALSE, "effective_VSR_start"] <- output_tibble[output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == FALSE, "end"] %>% unlist + 1
+            if (any(output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == FALSE)) {
+                output_tibble$effective_VSR_start <- output_tibble[output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == FALSE, "end"] %>% unlist + 1
             }
             
-            if (length(output_tibble$left_end_of_VSR == FALSE & output_tibble$right_end_of_VSR == TRUE) > 0) {
-                output_tibble[output_tibble$left_end_of_VSR == FALSE & output_tibble$right_end_of_VSR == TRUE, "effective_VSR_end"] <- output_tibble[output_tibble$left_end_of_VSR == FALSE & output_tibble$right_end_of_VSR == TRUE, "start"] %>% unlist - 1
+            if (any(output_tibble$left_end_of_VSR == FALSE & output_tibble$right_end_of_VSR == TRUE)) {
+                output_tibble$effective_VSR_end <- output_tibble[output_tibble$left_end_of_VSR == FALSE & output_tibble$right_end_of_VSR == TRUE, "start"] %>% unlist - 1
             }
             
             output_tibble[output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == TRUE, "logical_is_IR"] <- TRUE
@@ -1588,7 +1590,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     
     vector_VSR_matched_hgnc_variant_names <- c(tibble_ref_entries_containing_magnetised_query_VSR_start$hgnc_stable_variant_ID, tibble_ref_entries_containing_magnetised_query_VSR_end$hgnc_stable_variant_ID) %>% na.omit %>% unique
     
-    tibble_VSR_possible_names <- name_a_single_junction(query_chr = query_chr, query_start = query_VSR_start_magnetised, query_end = query_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
+    tibble_global_VSR_possible_names <- name_a_single_junction(query_chr = query_chr, query_start = query_VSR_start_magnetised, query_end = query_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
     
     ## LIS starts, ends and effective VSR starts and ends
     list_tibble_exon_start_end_per_LIS_magnetised <- purrr::map(
@@ -1753,8 +1755,8 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
             ###########
             
             purrr::map2(
-                .x = a1[1:(length(a1) - 1)],
-                .y = 1:(length(a1) - 1),
+                .x = a1,
+                .y = 1:length(a1),
                 .f = function(b1, b2) {
                     
                     # print(b2)
@@ -1771,10 +1773,18 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                     b1 %>% 
                         purrr::splice(
                             "exonic_matches" = if (b1$left_end_of_VSR == FALSE & b1$right_end_of_VSR == FALSE) {
-                                name_a_single_exon(query_chr = b1$chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance)
+                                name_a_single_exon(query_chr = b1$chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance) %>% 
+                                    tibble::add_column(
+                                        "query_start" = b1$query_start_magnetised,
+                                        "query_end" = b1$query_end_magnetised
+                                    )
                             },
                             "effective_VSR_matches" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
-                                name_a_single_junction(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
+                                name_a_single_junction(query_chr = b1$chr, query_start = b1$effective_VSR_start, query_end = b1$effective_VSR_end, query_strand = query_strand, tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = tibble_gtf_table, right_tolerance = right_tolerance) %>% 
+                                    tibble::add_column(
+                                        "query_start" = b1$effective_VSR_start,
+                                        "query_end" = b1$effective_VSR_end
+                                    )
                             },
                             "ref_exons_matched_to_free_A3_5SS_vertex" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
                                 dplyr::bind_rows(
@@ -1794,12 +1804,13 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
         .f = function(a1) {
             
             # DEBUG ###
-            # a1 <- list_LIS_exons_named[[1]]
+            # a1 <- list_LIS_exons_named[[3]]
             ###########
             
-            tibble_matched_LIS_exons <- purrr::map2(
-                .x = a1,
-                .y = 1:length(a1),
+            # deal with exonic matches.
+            tibble_LIS_exonic_matches <- purrr::map2(
+                .x = a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist],
+                .y = 1:length(a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist]),
                 .f = function(b1, b2) {
                     
                     # DEBUG ###
@@ -1808,77 +1819,104 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                     ###########
                     
                     # add the exon numbers within the LIS and rbind into long tibble
-                    long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
-                        mutate("number_in_LIS" = b2)
+                    if ( is.null(b1$exonic_matches) == FALSE ) {
+                        long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
+                            dplyr::mutate("number_in_LIS" = b2)
+                    } else if ( is.null(b1$exonic_matches) == TRUE ) {
+                        long_tibble_named_exons_in_LIS <- tibble()
+                    }
+                    
                     
                 } ) %>% dplyr::bind_rows() %>% 
                 dplyr::group_by(variant_ID_slot) %>%
-                dplyr::mutate("number_of_LIS_exons_matched_to_variant" = n())
+                dplyr::mutate("number_of_LIS_exons_matched_to_variant" = n(),
+                              "match_type" = "exonic")
             
-            # for each LIS, subset by matched HGNC stable variant ID 
-            list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID <- tibble_matched_LIS_exons %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist) 
-            # %>% purrr::discard(.p = ~nrow(.x) < max(tibble_matched_LIS_exons$number_in_LIS))
-            
-            # add in the VSR matches for each HGNC stable variant ID. 
-            # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
-            # we take the first match with the lowest delta
-            list_VSR_possible_names_split_by_hgnc_stable_variant_ID <- tibble_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
-            
-            # commonise the lists 
-            vector_hgnc_stable_variant_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_variant_ID %>% names)
-            
-            if (length(vector_hgnc_stable_variant_IDs_in_common) > 0) {
+            # deal with A3/5SS matches.
+            # the A3/5SS junction is the effective VSR and everything splits up.
+            # the effective VSR is the same for the ENTIRE LIS, because the A3/5SS event has already defined the bounds of the VSR.
+            # if there are any A3/5SS events, then we match them together with the other exons in the LIS.
+            # if not, then continue with the global VSR as usual.
+            if (any(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == TRUE)) {
                 
-                list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID <- purrr::map2(
-                    .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
-                    .y = list_VSR_possible_names_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
-                    .f = ~list(
-                        "LIS" = .x,
-                        "VSR" = .y)
-                )
+                tibble_A35SS_effective_VSR_matches <- a1[[1]]$effective_VSR_matches %>%
+                    dplyr::mutate("number_in_LIS" = (max(tibble_LIS_exonic_matches$number_in_LIS) + 1),
+                                  "vector_vertex_differences" = `query_start_match_distance` + `query_end_match_distance`,
+                                  "number_of_ref_elements_to_describe_exon" = 0,
+                                  "match_type" = "effective_VSR")
                 
-                # find the transcript variant with the lowest delta
-                list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID %>% 
-                    (function(x) {
-                        
-                        # DEBUG ###
-                        # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID
-                        ###########
-                        
-                        # whole LIS matches take priority
-                        vector_metric <- purrr::map(.x = x, .f = ~.x$LIS$number_of_LIS_exons_matched_to_variant %>% .[1]) %>% unlist
-                        list_output <- x[which(vector_metric == max(vector_metric))]
-                        
-                        # full matches take priority
-                        vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
-                        list_output <- list_output[which(vector_metric == max(vector_metric))]
-                        
-                        # followed by half matches
-                        vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
-                        list_output <- list_output[which(vector_metric == max(vector_metric))]
-                        
-                        # followed by deltas
-                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
-                        list_output <- list_output[which(vector_metric == min(vector_metric))]
-                        
-                        # followed by number of ref exons needed to describe
-                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
-                        list_output <- list_output[which(vector_metric == min(vector_metric))]
-                        
-                        # and finally lowest hgnc_stable+_variant_ID
-                        list_output <- list_output[names(list_output) == (mixedsort(names(list_output)) %>% .[1])] %>% .[[1]]
-                        
-                        return(list_output)
-                        
-                    } )
+                tibble_LIS_match_entries <- dplyr::bind_rows(tibble_LIS_exonic_matches, tibble_A35SS_effective_VSR_matches)
                 
-            } else {
-                list_LIS_VSR_record <- list()
+            # feed into global VSR if there are no A3/5SS events
+            } else if (all(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == FALSE)) {
+                
+                tibble_LIS_match_entries <- tibble_LIS_exonic_matches
+                
             }
             
-            # organise LIS matching without taking into account the VSR.
+            # for each LIS match entry, subset by matched HGNC stable variant ID 
+            list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID <- tibble_LIS_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+           
+                # add in the VSR matches for each HGNC stable variant ID. 
+                # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
+                # we take the first match with the lowest delta
+                list_VSR_possible_names_split_by_hgnc_stable_variant_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+                
+                # commonise the lists 
+                vector_hgnc_stable_variant_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_variant_ID %>% names)
+                
+                if (length(vector_hgnc_stable_variant_IDs_in_common) > 0) {
+                    
+                    list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID <- purrr::map2(
+                        .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
+                        .y = list_VSR_possible_names_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
+                        .f = ~list(
+                            "LIS" = .x,
+                            "VSR" = .y)
+                    )
+                    
+                    # find the transcript variant with the lowest delta
+                    list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID %>% 
+                        (function(x) {
+                            
+                            # DEBUG ###
+                            # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID
+                            ###########
+                            
+                            # whole LIS matches take priority
+                            vector_metric <- purrr::map(.x = x, .f = ~nrow(.x$LIS)) %>% unlist
+                            list_output <- x[which(vector_metric == max(vector_metric))]
+                            
+                            # full matches take priority
+                            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
+                            list_output <- list_output[which(vector_metric == max(vector_metric))]
+                            
+                            # followed by half matches
+                            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
+                            list_output <- list_output[which(vector_metric == max(vector_metric))]
+                            
+                            # followed by deltas
+                            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
+                            list_output <- list_output[which(vector_metric == min(vector_metric))]
+                            
+                            # followed by number of ref exons needed to describe
+                            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
+                            list_output <- list_output[which(vector_metric == min(vector_metric))]
+                            
+                            # and finally lowest hgnc_stable+_variant_ID
+                            list_output <- list_output[names(list_output) == (mixedsort(names(list_output)) %>% .[1])] %>% .[[1]]
+                            
+                            return(list_output)
+                            
+                        } )
+                    
+                } else {
+                    list_LIS_VSR_record <- list()
+                }
+                
+            # organise LIS matching without taking into account the global VSR. 
             # whole LIS matches take priority
-            if (length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID) > 0) {
+            if ( length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID) > 0 ) {
                 
                 # find the transcript variant with the lowest delta
                 tibble_LIS_record <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% 
@@ -1889,7 +1927,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                         ###########
                         
                         # whole LIS matches take priority
-                        vector_metric <- purrr::map(.x = x, .f = ~.x$number_of_LIS_exons_matched_to_variant %>% .[1]) %>% unlist
+                        vector_metric <- purrr::map(.x = x, .f = ~nrow(.x)) %>% unlist
                         list_output <- x[which(vector_metric == max(vector_metric))]
                         
                         # full matches take priority
@@ -1901,11 +1939,11 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                         list_output <- list_output[which(vector_metric == max(vector_metric))]
                         
                         # followed by deltas
-                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$vector_vertex_differences) %>% sum) %>% unlist
+                        vector_metric <- purrr::map(.x = list_output, .f = ~.x$vector_vertex_differences %>% sum) %>% unlist
                         list_output <- list_output[which(vector_metric == min(vector_metric))]
                         
                         # followed by number of ref exons needed to describe
-                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
+                        vector_metric <- purrr::map(.x = list_output, .f = ~.x$number_of_ref_elements_to_describe_exon %>% sum) %>% unlist
                         list_output <- list_output[which(vector_metric == min(vector_metric))]
                         
                         # and finally lowest hgnc_stable+_variant_ID
@@ -1915,7 +1953,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                         
                     } ) %>% .[[1]]
                 
-                # if no ref matches for the entire LIS, then match each LIS exon individually 
+            # if no ref matches for the entire LIS, then match each LIS exon individually 
             } else {
                 # generate a tibble that records the HGNC stable variant ID, the exon entry and the LIS number.
                 tibble_LIS_record <- tibble(
@@ -1926,10 +1964,9 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
                 
             }
             
-            # exact matches: get the lowest HGNC variant number for each LIS exon, select that for the tibble
-            if (length(tibble_LIS_record$number_in_LIS) < max(tibble_matched_LIS_exons$number_in_LIS)) {
+            if (length(tibble_LIS_record$number_in_LIS) < max(tibble_LIS_match_entries$number_in_LIS)) {
                 
-                tibble_LIS_record <- tibble_matched_LIS_exons %>% 
+                tibble_LIS_record <- tibble_LIS_match_entries %>% 
                     dplyr::ungroup() %>%
                     dplyr::group_split(number_in_LIS) %>% 
                     purrr::map(
@@ -1956,16 +1993,16 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
         } )
     
     # finalise matching and names
-    vector_segments_with_VSR_authority <- which(purrr::map(
+    vector_segments_with_global_VSR_authority <- which(purrr::map(
         .x = list_LIS_VSR_named_records,
         .f = ~.x$list_LIS_VSR_record %>% length
     ) %>% unlist > 0)
     
     # if there is VSR authority, then we extract the LIS/VSR combinations and go thru the list once again.
-    if (length(vector_segments_with_VSR_authority) > 0) {
+    if (length(vector_segments_with_global_VSR_authority) > 0) {
         
-        tibble_VSR_authority <- purrr::map(
-            .x = list_LIS_VSR_named_records,
+        tibble_global_VSR_authority <- purrr::map(
+            .x = list_LIS_VSR_named_records[vector_segments_with_global_VSR_authority],
             .f = ~tibble(
                 "variant_ID_slot" = .x$list_LIS_VSR_record$VSR$variant_ID_slot,
                 "full_match_count" = length(which(.x$list_LIS_VSR_record$VSR$flag_is_exact_match == "FULL")) + length(which(.x$list_LIS_VSR_record$LIS$flag_is_exact_match == "FULL")),
@@ -1975,7 +2012,7 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
             )
         ) %>% dplyr::bind_rows()
         
-        VSR_variant_ID_slot <- tibble_VSR_authority %>% 
+        global_VSR_variant_ID_slot <- tibble_global_VSR_authority %>% 
             .[.$full_match_count == max(.$full_match_count), ] %>% 
             .[.$half_match_count == max(.$half_match_count), ] %>% 
             .[.$delta_sum == min(.$delta_sum), ] %>% 
@@ -1985,38 +2022,38 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
         
         # retrieve list indices of LISs which have VSR override as a result
         # these are the LISs which have been matched to the same hgnc_stable_variant_ID as the VSR variant ID
-        logical_indices_LIS_with_VSR_override <- purrr::map(.x = list_LIS_VSR_named_records, .f = ~.x$list_LIS_VSR_record$VSR$variant_ID_slot == VSR_variant_ID_slot) %>% unlist
+        logical_indices_LIS_with_global_VSR_override <- (1:length(list_LIS_VSR_named_records)) %in% (vector_segments_with_global_VSR_authority[purrr::map(.x = list_LIS_VSR_named_records[vector_segments_with_global_VSR_authority], .f = ~.x$list_LIS_VSR_record$VSR$variant_ID_slot == global_VSR_variant_ID_slot) %>% unlist])
         
         # retrieve VSR tibble from the first matching VSR table in the list
-        tibble_VSR_final_naming <- list_LIS_VSR_named_records[logical_indices_LIS_with_VSR_override][[1]]$list_LIS_VSR_record$VSR
+        tibble_global_VSR_final_naming <- list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override][[1]]$list_LIS_VSR_record$VSR
         
-        if (tibble_VSR_final_naming$matched_strand == "+") {
-            VSR_left_slot <- tibble_VSR_final_naming$exon_slot_query_start
-            VSR_right_slot <- tibble_VSR_final_naming$exon_slot_query_end
-        } else if (tibble_VSR_final_naming$matched_strand == "-") {
-            VSR_left_slot <- tibble_VSR_final_naming$exon_slot_query_end
-            VSR_right_slot <- tibble_VSR_final_naming$exon_slot_query_start
+        if (tibble_global_VSR_final_naming$matched_strand == "+") {
+            global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
+            global_VSR_right_slot <- tibble_global_VSR_final_naming$exon_slot_query_end
+        } else if (tibble_global_VSR_final_naming$matched_strand == "-") {
+            global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_end
+            global_VSR_right_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
         }
         
     # if no VSR authority, then VSR and LISs will be independently named 
-    } else if (length(vector_segments_with_VSR_authority) == 0) {
+    } else if (length(vector_segments_with_global_VSR_authority) == 0) {
         
-        logical_indices_LIS_with_VSR_override <- FALSE %>% rep(times = length(list_LIS_VSR_named_records))
+        logical_indices_LIS_with_global_VSR_override <- FALSE %>% rep(times = length(list_LIS_VSR_named_records))
         
-        tibble_VSR_final_naming <- tibble_VSR_possible_names %>% 
+        tibble_global_VSR_final_naming <- tibble_global_VSR_possible_names %>% 
             .[if (any(.$flag_is_exact_match == "FULL")) {.$flag_is_exact_match == "FULL"} else {TRUE}, ] %>% 
             .[if (any(.$flag_is_exact_match == "HALF")) {.$flag_is_exact_match == "HALF"} else {TRUE}, ] %>% 
             .[(.$query_start_match_distance + .$query_end_match_distance) == min(.$query_start_match_distance + .$query_end_match_distance), ] %>% 
             .[.$variant_ID_slot == (mixedsort(.$variant_ID_slot %>% .[1])), ] 
             
-        VSR_variant_ID_slot <- tibble_VSR_final_naming$variant_ID_slot
+        global_VSR_variant_ID_slot <- tibble_global_VSR_final_naming$variant_ID_slot
         
-        if (tibble_VSR_final_naming$matched_strand == "+") {
-            VSR_left_slot <- tibble_VSR_final_naming$exon_slot_query_start
-            VSR_right_slot <- tibble_VSR_final_naming$exon_slot_query_end
-        } else if (tibble_VSR_final_naming$matched_strand == "-") {
-            VSR_left_slot <- tibble_VSR_final_naming$exon_slot_query_end
-            VSR_right_slot <- tibble_VSR_final_naming$exon_slot_query_start
+        if (tibble_global_VSR_final_naming$matched_strand == "+") {
+            global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
+            global_VSR_right_slot <- tibble_global_VSR_final_naming$exon_slot_query_end
+        } else if (tibble_global_VSR_final_naming$matched_strand == "-") {
+            global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_end
+            global_VSR_right_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
         }
         
     }
@@ -2024,50 +2061,107 @@ VSR_LIS_organise_exon_rematching <- function(VSR_coordinates, list_tibble_exon_s
     # name the LIS
     ## deal with VSR override 
     ## VSR override: modify the list of LIS/VSR records by preserving only the LIS consistent with VSR match
-    list_LIS_VSR_named_records[logical_indices_LIS_with_VSR_override] <- list_LIS_VSR_named_records[logical_indices_LIS_with_VSR_override] %>% purrr::map(~.x$list_LIS_VSR_record$LIS)
+    list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override] <- list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override] %>% purrr::map(~.x$list_LIS_VSR_record$LIS)
     ## no VSR override: modify by keeping only the independent LIS match
-    list_LIS_VSR_named_records[!logical_indices_LIS_with_VSR_override] <- list_LIS_VSR_named_records[!logical_indices_LIS_with_VSR_override] %>% purrr::map(~.x$tibble_LIS_record)
+    list_LIS_VSR_named_records[!logical_indices_LIS_with_global_VSR_override] <- list_LIS_VSR_named_records[!logical_indices_LIS_with_global_VSR_override] %>% purrr::map(~.x$tibble_LIS_record)
+    
+    # find where A3/5SS events are. we will have to split them up and refactorise.
+    logical_LIS_containing_A35SS <- purrr::map(.x = list_tibble_exon_start_end_per_LIS_A35SS_corrected, .f = ~any(c(.x$left_end_of_VSR, .x$right_end_of_VSR) == TRUE)) %>% unlist
+    
     # finalise LIS naming
     ## IF VSR override present: don't explicitly specify the variant ID.
     ## NOTE: there will never be mixed variant IDs whenever there is VSR authority because we only considered VSR authority if there was an exact LIS match to the variant ID.
-    final_LIS_name <- purrr::map2(
-        .x = list_LIS_VSR_named_records,
-        .y = logical_indices_LIS_with_VSR_override,
-        .f = function(a1, a2) {
+    list_final_LIS_name <- purrr::pmap(
+        .l = list(
+            "a1" = list_LIS_VSR_named_records,
+            "a2" = logical_indices_LIS_with_global_VSR_override,
+            "a3" = logical_LIS_containing_A35SS
+        ),
+        .f = function(a1, a2, a3) {
             
             # DEBUG ###
             # a1 <- list_LIS_VSR_named_records[[1]]
-            # a2 <- logical_indices_LIS_with_VSR_override[[1]]
+            # a2 <- logical_indices_LIS_with_global_VSR_override[[1]]
+            # a3 <- logical_LIS_containing_A35SS[[1]]
             ###########
             
-            # test whether the HGNC stable variant ID is the same for all slots. if they are, then we can factorise.
-            number_of_unique_variant_IDs_for_LIS <- a1$variant_ID_slot %>% unique %>% length
+            tibble_exonic_records <- a1[a1$match_type == "exonic", ]
+            tibble_effective_VSR_records <- a1[a1$match_type == "effective_VSR", ]
             
-            "LIS_slot" = if (number_of_unique_variant_IDs_for_LIS == 1 & a2 == FALSE) {
-                segment_name <- paste("(", a1$variant_ID_slot %>% unique, " ", paste(a1$exon_slot, collapse = " "), ")", sep = "")
-            } else if (number_of_unique_variant_IDs_for_LIS == 1 & a2 == TRUE) {
-                segment_name <- paste(a1$exon_slot, collapse = " ")
-            } else if (number_of_unique_variant_IDs_for_LIS > 1) {
-                segment_name <- paste(paste("(", a1$variant_ID_slot, " ", a1$exon_slot, ")", sep = ""), collapse = " ")
+            # if global VSR override is active here, then we don't specify the effective VSR variant ID
+            if (a2 == TRUE | a3 == FALSE) {
+                effective_VSR_variant_ID_slot <- ""
+            } else if (a2 == FALSE & a3 == TRUE) {
+                effective_VSR_variant_ID_slot <- tibble_effective_VSR_records$variant_ID_slot
+            }
+            # do VSR slots
+            if (a3 == FALSE) {
+                effective_VSR_left_slot <- ""
+                effective_VSR_right_slot <- ""
+            } else if (tibble_effective_VSR_records$matched_strand == "+") {
+                effective_VSR_left_slot <- tibble_effective_VSR_records$exon_slot_query_start
+                effective_VSR_right_slot <- tibble_effective_VSR_records$exon_slot_query_end
+            } else if (tibble_effective_VSR_records$matched_strand == "-") {
+                effective_VSR_left_slot <- tibble_effective_VSR_records$exon_slot_query_end
+                effective_VSR_right_slot <- tibble_effective_VSR_records$exon_slot_query_start
             }
             
-            return(segment_name)
+            # detect majority strand and sort tibble by strand
+            ## + strand
+            if ( length(which(tibble_exonic_records$matched_strand == "+")) > length(which(tibble_exonic_records$matched_strand == "-")) ) {
+                flag_main_strand <- "+"
+                tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(query_start)
+            ## - strand
+            } else if ( length(which(tibble_exonic_records$matched_strand == "+")) < length(which(tibble_exonic_records$matched_strand == "-")) ) {
+                flag_main_strand <- "-"
+                tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(desc(query_start))
+            }
             
-        } 
-    ) %>% 
-        paste(collapse = "/")
+            tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"] <- paste("OS(", tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"], ")", sep = "")
+            
+            # test whether the HGNC stable variant ID is the same for the effective VSR and exonic slots. if they are, then we can factorise.
+            ## we have to show the exonic variant ID no matter what if the effective VSR (A35SS) exists AND the variant matches are not consistent with the exonic match.
+            ## also if there is no override.
+            if ( (length(setdiff(c(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot), intersect(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot))) > 0 & nrow(tibble_effective_VSR_records) > 0) | (nrow(tibble_effective_VSR_records) == 0 & a2 == FALSE) ) {
+                exonic_slot <- paste("(", tibble_exonic_records$variant_ID_slot %>% unique, " ", paste(tibble_exonic_records$exon_slot, collapse = " "), ")", sep = "")
+            ## don't have to show the exonic variant only if either the effective VSR variant is consistent with exonic, or if there are no A3/5SS events and there is override.
+            } else {
+                exonic_slot <- paste(tibble_exonic_records$exon_slot, collapse = " ")
+            }
+            
+            # if no global VSR override AND there is A3/5SS event, then we bracket off the effective VSR variant ID.
+            if (a2 == FALSE & nrow(tibble_effective_VSR_records) > 0) {
+                segment_name <- paste("(", effective_VSR_variant_ID_slot, " ", effective_VSR_left_slot, " ", exonic_slot, " ", effective_VSR_right_slot, ")", sep = "")
+            # global VSR override
+            } else {
+                segment_name <- paste(effective_VSR_variant_ID_slot, " ", effective_VSR_left_slot, " ", exonic_slot, " ", effective_VSR_right_slot, sep = "")
+            }
+            
+            return(segment_name %>% trimws() %>% stringr::str_squish())
+            
+        } ) 
     
-    if (mode == "VSR") {
-        final_nomenclature <- paste(VSR_variant_ID_slot, " ", VSR_left_slot, " (", final_LIS_name, ") ", VSR_right_slot, sep = "")
-    } else if (mode == "LIS") {
-        final_nomenclature <- final_LIS_name
+    # deal with A3/5SS events which will cause everything to split up
+    # in those cases, we will need to add the global VSR in every LIS except the A3/5SS-containing ones
+    if ( any(logical_LIS_containing_A35SS == TRUE) ) {
+        
+        list_final_LIS_name[!logical_LIS_containing_A35SS] <- purrr::map(
+            .x = list_final_LIS_name[!logical_LIS_containing_A35SS],
+            .f = ~paste("(", global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", .x, " ", global_VSR_right_slot, ")", sep = "")
+        )
+        
+        final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
+        
+    # if no A3/5SS events at all, then simply apply the global VSR as usual   
+    } else if ( all(logical_LIS_containing_A35SS == FALSE) ) {
+        final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
     }
     
     return(final_nomenclature)
     
 }
 
-# END VSR_LIS_organise_exon_rematching() ###
+# END VSR_LIS_organise_exon_naming() ###
 
 # LSVs, AJ: FUNCTION TO GENERALLY MATCH AN UNLIMITED NUMBER OF JUNCTIONS IN A REGION OF VARIABLE SPLICING
 ## accepts a tibble of chr/start/end/strand of junctions, assumed from the same LSV.
@@ -3924,8 +4018,8 @@ server <- function(input, output, session) {
             # automator_input_alternative_event_region <- "4:82425668-82426036:*"
             # list_of_VSR_exon_genome_relative_coordinates <- list("4:82425668-82426036:*", "4:82424884-82426036:*", "4:82424884-82425562:*")
             
-            # automator_input_alternative_event_region <- "7:153405599-153413612:*"
-            # list_of_VSR_exon_genome_relative_coordinates <- list(c("7:153406960-153407090:*", "7:153399920-153405492:*"), "7:153400547-153401340:*")
+            automator_input_alternative_event_region <- "7:153405599-153413612:*"
+            list_of_VSR_exon_genome_relative_coordinates <- list(c("7:153406960-153407090:*", "7:153399920-153405492:*"), "7:153400547-153401340:*", c("7:153405599-153406000:*", "7:153410612-153413612:*", "7:153406964-153407086:*"))
             
             # automator_input_left_query_end_shift <- 0
             # automator_input_right_query_end_shift <- 0
@@ -3956,7 +4050,7 @@ server <- function(input, output, session) {
                         
                     } )
                 
-                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
+                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
                 
             })
             
@@ -4002,7 +4096,7 @@ server <- function(input, output, session) {
                         
                     } )
                 
-                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_rematching(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
+                paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
                 
             })
             
