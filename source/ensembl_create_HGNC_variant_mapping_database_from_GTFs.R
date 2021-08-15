@@ -145,41 +145,28 @@ list_all_GTFs <- purrr::map(
     
   } )
 
-list_accumulated_data <- list(
-  "tibble_previous_release" = list_all_GTFs[[1]],
-  "tibble_universal_ensg_number_mapping" = tibble(
-    "ensg_gene_name_combined" = list_all_GTFs[[1]]$ensg_gene_name_combined %>% unique %>% mixedsort
-  ) %>% 
-    dplyr::mutate(
-      "universal_ensg_number" = 1:nrow(.)
-    ),
-  "tibble_previous_release_with_universal_ensg_number" = dplyr::left_join(list_all_GTFs[[1]], tibble_universal_ensg_number_mapping)
-)
+tibble_all_GTFs <- list_all_GTFs %>% rbindlist(fill = TRUE, use.names = TRUE) %>% as_tibble
 
-tibble_next_release <- list_all_GTFs[[3]]
 
-# start loop ###
-## master table
-tibble_table_join_onto_next_release <- dplyr::left_join(
-  tibble_next_release,
-  list_accumulated_data$tibble_previous_release_with_universal_ensg_number[, c("gene_id", "ensg_gene_name_combined", "universal_ensg_number")] %>% unique %>% dplyr::rename("ensg_gene_name_combined_accumulated" = "ensg_gene_name_combined"),
-  by = "gene_id"
-)
 
-# find the missing unjoined ENSG IDs (they're the ones that may potentially be novel in the current release), group by the ensg + gene_name column in the CURRENT release, and fill in the missing universal_ensg_numbers
-tibble_next_release_unmatched_universal_ENSG_gene_names <- tibble_table_join_onto_next_release[is.na(tibble_table_join_onto_next_release$ensg_gene_name_combined_accumulated) == TRUE, ]
 
-if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) == 0 ) {
-  list_accumulated_data$tibble_previous_release <- tibble_next_release
-  list_accumulated_data$tibble_previous_release_with_universal_ensg_number <- dplyr::left_join(tibble_next_release, tibble_universal_ensg_number_mapping)
-} else if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) > 0 ) {
-  # add new ENSG_gene_names to the universal ensg id mapping table
-  list_accumulated_data$tibble_universal_ensg_number_mapping <- dplyr::bind_rows(list_accumulated_data$tibble_universal_ensg_number_mapping, tibble("ensg_gene_name_combined" = tibble_next_release_unmatched_universal_ENSG_gene_names$ensg_gene_name_combined %>% unique %>% mixedsort))
-  list_accumulated_data$tibble_universal_ensg_number_mapping$universal_ensg_number <- 1:nrow(list_accumulated_data$tibble_universal_ensg_number_mapping)
-  
-}
 
-  return(list_accumulated_data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -189,17 +176,75 @@ if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) == 0 ) {
 # un-nest.?
 options(mc.cores = 32)
 
-list_all_releases_universal_mapping_grouped_by_ENSG_id <- list_all_GTFs %>%
-  rbindlist(use.names = TRUE, fill = TRUE) %>%
-  as_tibble %>%
+list_all_releases_universal_mapping_grouped_by_ENSG_id <- tibble_all_GTFs %>%
   .[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>%
+  unique %>%
   dplyr::group_split(gene_id)
+
+# only keep the one-ENSG-to-many-universal elements
+list_all_releases_universal_mapping_grouped_by_ENSG_id_one_to_many <- list_all_releases_universal_mapping_grouped_by_ENSG_id[purrr::map(.x = list_all_releases_universal_mapping_grouped_by_ENSG_id, .f = ~.x$ensg_gene_name_combined %>% unique %>% length) %>% unlist > 1]
+  
+# loop thru each element of list. put entries with the same ensembl_release_version and same ensg_gene_name_combined in the same tibble
+
+list_all_releases_universal_mapping_grouped_by_ENSG_id_for_looping <- list_all_releases_universal_mapping_grouped_by_ENSG_id
+
+index <- 1
+
+options(mc.cores = 8)
+
+while ( index < length(list_all_releases_universal_mapping_grouped_by_ENSG_id) ) {
+  
+  print(index)
+  
+  # get the unique combined names + ensembl_release_versions to be checked
+  tibble_combined_names_and_release_versions_to_be_checked <- list_all_releases_universal_mapping_grouped_by_ENSG_id[[index]][, c("ensg_gene_name_combined", "ensembl_release_version")] %>% unique
+  
+  # list-ify
+  list_tibble_combined_names_and_release_versions_to_be_checked <- tibble_combined_names_and_release_versions_to_be_checked %>% dplyr::rowwise() %>% dplyr::group_split()
+  
+  # loop thru the list. for each sub-element, find any L1 list elements which have the desired combined name + ensembl_release_versions
+  
+  list_indices_matched_by_combined_name_and_release_versions <- purrr::map(
+    .x = list_tibble_combined_names_and_release_versions_to_be_checked,
+    .f = function(a1) {
+      
+      # DEBUG ###
+      # a1 <- list_tibble_combined_names_and_release_versions_to_be_checked[[1]]
+      ###########
+      
+      vector_row_index_matched <- purrr::imap(
+        .x = list_all_releases_universal_mapping_grouped_by_ENSG_id_for_looping, 
+        .f = function(b1, b2) {
+          
+          # print(b2)
+          
+          any(b1$ensg_gene_name_combined == a1$ensg_gene_name_combined & b1$ensembl_release_version == a1$ensembl_release_version) %>%
+            return
+          
+        } ) %>% unlist %>% which %>% return
+      
+    } )
+  
+  vector_L1_indices_matched_by_combined_name_and_release_versions <- list_indices_matched_by_combined_name_and_release_versions %>% unlist %>% .[. != index]
+  
+  list_tibbles_matched_by_combined_name_and_release_versions <- 
+  
+}
+  
   
 
 
 
 
 
+
+
+# keep on joining by combined name and ensembl_release_version until the tibble doesn't grow anymore.
+tibble_joined_by_combined_name_and_ensembl_release_version <- dplyr::full_join(
+  tibble_all_GTFs[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>% unique,
+  tibble_all_GTFs[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>% unique,
+  by = c("ensg_gene_name_combined", "ensembl_release_version")
+)
 
 
 
