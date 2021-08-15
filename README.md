@@ -1,12 +1,14 @@
 # Extended Delta Notation generator
 
-![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](https://img.shields.io/badge/known%20issues-none-success) <img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="200" height="200" />
+![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](https://img.shields.io/badge/known%20issues-none-success) 
 
 Generates the Extended Delta Notation for human RNA splice events based on HGNC gene symbols. Currently in pre-publication testing.
 
 Matches splice co-ordinates to the latest Ensembl GTF release.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
+
+<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="200" height="200" />
 
 ## Standalone apps
 
