@@ -1,6 +1,6 @@
 # Extended Delta Notation generator
 
-![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](https://img.shields.io/badge/known%20issues-none-success) 
+![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](/github/issues-raw/:user/:repo) 
 
 Generates the Extended Delta Notation for human RNA splice events based on HGNC gene symbols. Currently in pre-publication testing.
 
