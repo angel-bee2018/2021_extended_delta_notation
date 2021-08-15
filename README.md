@@ -8,6 +8,8 @@ Matches splice co-ordinates to the latest Ensembl GTF release.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
 
+<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="400" height="400" />
+
 ## Standalone apps
 
 ### Windows
@@ -60,5 +62,5 @@ NOTE2: The Delta symbol is not available in the Windows standalone app. The prog
 
 Created using R Shiny/Electron.
 
-<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="100" height="100" /> <img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
+<img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
 
