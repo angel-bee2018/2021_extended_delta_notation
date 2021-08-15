@@ -1,5 +1,4 @@
-# Extended Delta Notation generator
-ersfdf (https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png "EDN Suite")
+# Extended Delta Notation generator <img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="200" height="200" />
 
 ![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](https://img.shields.io/badge/known%20issues-none-success) 
 
