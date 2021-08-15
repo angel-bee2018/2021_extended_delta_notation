@@ -1,4 +1,5 @@
 
+scri
 script_description <- "# CREATE HGNC VARIANT MAPPING FILE ###
 This script should be run in the folder that contains all historical GTFs.
 Input: multiple GTFs
@@ -146,13 +147,13 @@ list_all_GTFs <- purrr::map(
 
 list_accumulated_data <- list(
   "tibble_previous_release" = list_all_GTFs[[1]],
-  "tibble_universal_ensg_number" = tibble(
+  "tibble_universal_ensg_number_mapping" = tibble(
     "ensg_gene_name_combined" = list_all_GTFs[[1]]$ensg_gene_name_combined %>% unique %>% mixedsort
   ) %>% 
     dplyr::mutate(
       "universal_ensg_number" = 1:nrow(.)
     ),
-  "tibble_previous_release_with_universal_ensg_number" = dplyr::left_join(list_all_GTFs[[1]], tibble_universal_ensg_number)
+  "tibble_previous_release_with_universal_ensg_number" = dplyr::left_join(list_all_GTFs[[1]], tibble_universal_ensg_number_mapping)
 )
 
 tibble_next_release <- list_all_GTFs[[3]]
@@ -170,12 +171,31 @@ tibble_next_release_unmatched_universal_ENSG_gene_names <- tibble_table_join_ont
 
 if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) == 0 ) {
   list_accumulated_data$tibble_previous_release <- tibble_next_release
-  list_accumulated_data$tibble_previous_release_with_universal_ensg_number <- dplyr::left_join(tibble_next_release, tibble_universal_ensg_number)
+  list_accumulated_data$tibble_previous_release_with_universal_ensg_number <- dplyr::left_join(tibble_next_release, tibble_universal_ensg_number_mapping)
 } else if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) > 0 ) {
+  # add new ENSG_gene_names to the universal ensg id mapping table
+  list_accumulated_data$tibble_universal_ensg_number_mapping <- dplyr::bind_rows(list_accumulated_data$tibble_universal_ensg_number_mapping, tibble("ensg_gene_name_combined" = tibble_next_release_unmatched_universal_ENSG_gene_names$ensg_gene_name_combined %>% unique %>% mixedsort))
+  list_accumulated_data$tibble_universal_ensg_number_mapping$universal_ensg_number <- 1:nrow(list_accumulated_data$tibble_universal_ensg_number_mapping)
   
 }
 
   return(list_accumulated_data)
+
+
+
+
+# for each release, subset only the ENSG ID and the combined ENSG/gene_name.
+# then group by combined name for EACH release. 
+# un-nest.?
+options(mc.cores = 32)
+
+list_all_releases_universal_mapping_grouped_by_ENSG_id <- list_all_GTFs %>%
+  rbindlist(use.names = TRUE, fill = TRUE) %>%
+  as_tibble %>%
+  .[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>%
+  dplyr::group_split(gene_id)
+  
+
 
 
 
@@ -234,7 +254,6 @@ tibble_HGNC_stable_variant_IDs <- furrr::future_map(
       dplyr::mutate("gene_name2" = `gene_name`)
     
     # IN THE CASE OF BLANK gene_ids - USE THE ENSG. jeez.
-    sorted_tibble[is.na(sorted_tibble$gene_name2), "gene_name2"] <- sorted_tibble[is.na(sorted_tibble$gene_name2), "gene_id"]
     
     # add HGNC_stable_variant_ID
     output_tibble <- sorted_tibble %>%
