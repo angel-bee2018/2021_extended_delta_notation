@@ -8,7 +8,7 @@ Matches splice co-ordinates to the latest Ensembl GTF release.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
 
-<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="400" height="400" />
+<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.png" width="200" height="200" />
 
 ## Standalone apps
 
