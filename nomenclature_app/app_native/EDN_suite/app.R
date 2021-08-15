@@ -176,7 +176,7 @@ extract_junction.flanking.exons <- function(query_chr, query_start, query_end, q
 ## tibble_gtf_table: rtracklayer::import(...) %>% as_tibble. can be any GTF. reconstructed or reference.
 ## index: loop progress marker to be used with imap
 
-extract_overlapping_features <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 0, right_tolerance = 0, return_type) {
+extract_overlapping_features <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 0, right_tolerance = 0, return_type = NULL) {
     
     # DEBUG ###################
     # index <- 1
@@ -207,17 +207,21 @@ extract_overlapping_features <- function(query_chr, query_start, query_end, quer
         
         # +/- 1 nt tolerance
         tibble_gtf_subset_matching_exons <- tibble_gtf_table[tibble_gtf_table$seqnames == query_chr %>% trimws, ] %>% 
-            .[which(.$end >= ((query_start %>% as.numeric) + left_query_shift - left_tolerance) & .$start <= ((query_end %>% as.numeric) + right_query_shift + right_tolerance)), ] %>% 
-            .[which(.$type %in% return_type), ]
+            .[which(.$end >= ((query_start %>% as.numeric) + left_query_shift - left_tolerance) & .$start <= ((query_end %>% as.numeric) + right_query_shift + right_tolerance)), ]
         
     } else if (query_strand == "+" | query_strand == "-") {
         
         # +/- 1 nt tolerance
         tibble_gtf_subset_matching_exons <- tibble_gtf_table[tibble_gtf_table$seqnames == query_chr %>% trimws &
                                                                  tibble_gtf_table$strand == query_strand %>% trimws, ] %>% 
-            .[which(.$end >= ((query_start %>% as.numeric) + left_query_shift - left_tolerance) & .$start <= ((query_end %>% as.numeric) + right_query_shift + right_tolerance)), ] %>% 
-            .[which(.$type %in% return_type), ]
+            .[which(.$end >= ((query_start %>% as.numeric) + left_query_shift - left_tolerance) & .$start <= ((query_end %>% as.numeric) + right_query_shift + right_tolerance)), ]
         
+    }
+    
+    if (is.null(return_type) == FALSE) {
+        return(tibble_gtf_subset_matching_exons[tibble_gtf_subset_matching_exons$type %in% return_type, ])
+    } else if (is.null(return_type) == TRUE) {
+        return(tibble_gtf_subset_matching_exons)
     }
     
     return(tibble_gtf_subset_matching_exons)
@@ -1494,7 +1498,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     # Also, all LIS coords must be in between the VSR coords. or it wont work. Triage will take care of this.
     list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
     tibble_gtf_table <- tibble_ref_gtf
-    
+
     left_query_shift <- 0
     right_query_shift <- 0
     left_tolerance <- 1
@@ -1553,6 +1557,9 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             }
             
             output_tibble[output_tibble$left_end_of_VSR == TRUE & output_tibble$right_end_of_VSR == TRUE, "logical_is_IR"] <- TRUE
+            
+            output_tibble[output_tibble$logical_is_IR == TRUE, "left_end_of_VSR"] <- FALSE
+            output_tibble[output_tibble$logical_is_IR == TRUE, "right_end_of_VSR"] <- FALSE
             
             return(output_tibble)
             
@@ -1780,7 +1787,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
                                     )
                             },
                             "effective_VSR_matches" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
-                                name_a_single_junction(query_chr = b1$chr, query_start = b1$effective_VSR_start, query_end = b1$effective_VSR_end, query_strand = query_strand, tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = tibble_gtf_table, right_tolerance = right_tolerance) %>% 
+                                name_a_single_junction(query_chr = b1$chr, query_start = b1$effective_VSR_start_magnetised, query_end = b1$effective_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = tibble_gtf_table, right_tolerance = right_tolerance) %>% 
                                     tibble::add_column(
                                         "query_start" = b1$effective_VSR_start,
                                         "query_end" = b1$effective_VSR_end
@@ -1799,56 +1806,64 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
         } )
     
     # NAME EACH LIS and combine with VSR data. ###
-    list_LIS_VSR_named_records <- purrr::map(
+    list_LIS_VSR_named_records <- purrr::imap(
         .x = list_LIS_exons_named,
-        .f = function(a1) {
+        .f = function(a1, a2) {
+            
+            print(a2)
             
             # DEBUG ###
-            # a1 <- list_LIS_exons_named[[3]]
+            a1 <- list_LIS_exons_named[[1]]
             ###########
             
-            # deal with exonic matches.
-            tibble_LIS_exonic_matches <- purrr::map2(
-                .x = a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist],
-                .y = 1:length(a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist]),
-                .f = function(b1, b2) {
-                    
-                    # DEBUG ###
-                    # b1 <- a1[[1]]
-                    # b2 <- 1:length(a1) %>% .[[1]]
-                    ###########
-                    
-                    # add the exon numbers within the LIS and rbind into long tibble
-                    if ( is.null(b1$exonic_matches) == FALSE ) {
-                        long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
-                            dplyr::mutate("number_in_LIS" = b2)
-                    } else if ( is.null(b1$exonic_matches) == TRUE ) {
-                        long_tibble_named_exons_in_LIS <- tibble()
-                    }
-                    
-                    
-                } ) %>% dplyr::bind_rows() %>% 
-                dplyr::group_by(variant_ID_slot) %>%
-                dplyr::mutate("number_of_LIS_exons_matched_to_variant" = n(),
-                              "match_type" = "exonic")
+            if ( a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist] %>% length > 0 ) {
+                
+                # deal with exonic matches.
+                tibble_LIS_exonic_matches <- purrr::map2(
+                    .x = a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist],
+                    .y = 1:length(a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist]),
+                    .f = function(b1, b2) {
+                        
+                        # DEBUG ###
+                        # b1 <- a1[[1]]
+                        # b2 <- 1:length(a1) %>% .[[1]]
+                        ###########
+                        
+                        # add the exon numbers within the LIS and rbind into long tibble
+                        if ( is.null(b1$exonic_matches) == FALSE ) {
+                            long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
+                                dplyr::mutate("number_in_LIS" = b2)
+                        } else if ( is.null(b1$exonic_matches) == TRUE ) {
+                            long_tibble_named_exons_in_LIS <- tibble()
+                        }
+                        
+                        
+                    } ) %>% dplyr::bind_rows() %>% 
+                    dplyr::group_by(variant_ID_slot) %>%
+                    dplyr::mutate("number_of_LIS_exons_matched_to_variant" = n(),
+                                  "match_type" = "exonic")
+                
+            } else {
+                tibble_LIS_exonic_matches <- tibble()
+            }
             
             # deal with A3/5SS matches.
             # the A3/5SS junction is the effective VSR and everything splits up.
             # the effective VSR is the same for the ENTIRE LIS, because the A3/5SS event has already defined the bounds of the VSR.
             # if there are any A3/5SS events, then we match them together with the other exons in the LIS.
             # if not, then continue with the global VSR as usual.
-            if (any(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == TRUE)) {
+            if ( any(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == TRUE) ) {
                 
                 tibble_A35SS_effective_VSR_matches <- a1[[1]]$effective_VSR_matches %>%
-                    dplyr::mutate("number_in_LIS" = (max(tibble_LIS_exonic_matches$number_in_LIS) + 1),
+                    dplyr::mutate("number_in_LIS" = if ( nrow(tibble_LIS_exonic_matches) > 0 ) {max(tibble_LIS_exonic_matches$number_in_LIS) + 1} else {1},
                                   "vector_vertex_differences" = `query_start_match_distance` + `query_end_match_distance`,
                                   "number_of_ref_elements_to_describe_exon" = 0,
                                   "match_type" = "effective_VSR")
                 
                 tibble_LIS_match_entries <- dplyr::bind_rows(tibble_LIS_exonic_matches, tibble_A35SS_effective_VSR_matches)
                 
-            # feed into global VSR if there are no A3/5SS events
-            } else if (all(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == FALSE)) {
+                # feed into global VSR if there are no A3/5SS events
+            } else if ( all(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == FALSE) ) {
                 
                 tibble_LIS_match_entries <- tibble_LIS_exonic_matches
                 
@@ -1856,64 +1871,64 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             
             # for each LIS match entry, subset by matched HGNC stable variant ID 
             list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID <- tibble_LIS_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
-           
-                # add in the VSR matches for each HGNC stable variant ID. 
-                # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
-                # we take the first match with the lowest delta
-                list_VSR_possible_names_split_by_hgnc_stable_variant_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+            
+            # add in the VSR matches for each HGNC stable variant ID. 
+            # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
+            # we take the first match with the lowest delta
+            list_VSR_possible_names_split_by_hgnc_stable_variant_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+            
+            # commonise the lists 
+            vector_hgnc_stable_variant_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_variant_ID %>% names)
+            
+            if (length(vector_hgnc_stable_variant_IDs_in_common) > 0) {
                 
-                # commonise the lists 
-                vector_hgnc_stable_variant_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_variant_ID %>% names)
+                list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID <- purrr::map2(
+                    .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
+                    .y = list_VSR_possible_names_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
+                    .f = ~list(
+                        "LIS" = .x,
+                        "VSR" = .y)
+                )
                 
-                if (length(vector_hgnc_stable_variant_IDs_in_common) > 0) {
-                    
-                    list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID <- purrr::map2(
-                        .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
-                        .y = list_VSR_possible_names_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
-                        .f = ~list(
-                            "LIS" = .x,
-                            "VSR" = .y)
-                    )
-                    
-                    # find the transcript variant with the lowest delta
-                    list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID %>% 
-                        (function(x) {
-                            
-                            # DEBUG ###
-                            # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID
-                            ###########
-                            
-                            # whole LIS matches take priority
-                            vector_metric <- purrr::map(.x = x, .f = ~nrow(.x$LIS)) %>% unlist
-                            list_output <- x[which(vector_metric == max(vector_metric))]
-                            
-                            # full matches take priority
-                            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
-                            list_output <- list_output[which(vector_metric == max(vector_metric))]
-                            
-                            # followed by half matches
-                            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
-                            list_output <- list_output[which(vector_metric == max(vector_metric))]
-                            
-                            # followed by deltas
-                            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
-                            list_output <- list_output[which(vector_metric == min(vector_metric))]
-                            
-                            # followed by number of ref exons needed to describe
-                            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
-                            list_output <- list_output[which(vector_metric == min(vector_metric))]
-                            
-                            # and finally lowest hgnc_stable+_variant_ID
-                            list_output <- list_output[names(list_output) == (mixedsort(names(list_output)) %>% .[1])] %>% .[[1]]
-                            
-                            return(list_output)
-                            
-                        } )
-                    
-                } else {
-                    list_LIS_VSR_record <- list()
-                }
+                # find the transcript variant with the lowest delta
+                list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID %>% 
+                    (function(x) {
+                        
+                        # DEBUG ###
+                        # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID
+                        ###########
+                        
+                        # whole LIS matches take priority
+                        vector_metric <- purrr::map(.x = x, .f = ~nrow(.x$LIS)) %>% unlist
+                        list_output <- x[which(vector_metric == max(vector_metric))]
+                        
+                        # full matches take priority
+                        vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
+                        list_output <- list_output[which(vector_metric == max(vector_metric))]
+                        
+                        # followed by half matches
+                        vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
+                        list_output <- list_output[which(vector_metric == max(vector_metric))]
+                        
+                        # followed by deltas
+                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
+                        list_output <- list_output[which(vector_metric == min(vector_metric))]
+                        
+                        # followed by number of ref exons needed to describe
+                        vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
+                        list_output <- list_output[which(vector_metric == min(vector_metric))]
+                        
+                        # and finally lowest hgnc_stable+_variant_ID
+                        list_output <- list_output[names(list_output) == (mixedsort(names(list_output)) %>% .[1])] %>% .[[1]]
+                        
+                        return(list_output)
+                        
+                    } )
                 
+            } else {
+                list_LIS_VSR_record <- list()
+            }
+            
             # organise LIS matching without taking into account the global VSR. 
             # whole LIS matches take priority
             if ( length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID) > 0 ) {
@@ -2018,7 +2033,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             .[.$delta_sum == min(.$delta_sum), ] %>% 
             .[.$number_of_ref_elements_sum == min(.$number_of_ref_elements_sum), ] %>% 
             .[.$variant_ID_slot == (mixedsort(.$variant_ID_slot %>% .[1])), ] %>% 
-            .$variant_ID_slot
+            .$variant_ID_slot %>% .[1]
         
         # retrieve list indices of LISs which have VSR override as a result
         # these are the LISs which have been matched to the same hgnc_stable_variant_ID as the VSR variant ID
@@ -2046,7 +2061,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             .[(.$query_start_match_distance + .$query_end_match_distance) == min(.$query_start_match_distance + .$query_end_match_distance), ] %>% 
             .[.$variant_ID_slot == (mixedsort(.$variant_ID_slot %>% .[1])), ] 
             
-        global_VSR_variant_ID_slot <- tibble_global_VSR_final_naming$variant_ID_slot
+        global_VSR_variant_ID_slot <- tibble_global_VSR_final_naming$variant_ID_slot %>% .[1]
         
         if (tibble_global_VSR_final_naming$matched_strand == "+") {
             global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
@@ -2071,14 +2086,18 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     # finalise LIS naming
     ## IF VSR override present: don't explicitly specify the variant ID.
     ## NOTE: there will never be mixed variant IDs whenever there is VSR authority because we only considered VSR authority if there was an exact LIS match to the variant ID.
+    
     list_final_LIS_name <- purrr::pmap(
         .l = list(
             "a1" = list_LIS_VSR_named_records,
             "a2" = logical_indices_LIS_with_global_VSR_override,
-            "a3" = logical_LIS_containing_A35SS
+            "a3" = logical_LIS_containing_A35SS,
+            "a4" = 1:length(logical_LIS_containing_A35SS)
         ),
-        .f = function(a1, a2, a3) {
-            
+        .f = function(a1, a2, a3, a4) {
+        
+            print(a4)
+                
             # DEBUG ###
             # a1 <- list_LIS_VSR_named_records[[1]]
             # a2 <- logical_indices_LIS_with_global_VSR_override[[1]]
@@ -2106,27 +2125,33 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
                 effective_VSR_right_slot <- tibble_effective_VSR_records$exon_slot_query_start
             }
             
-            # detect majority strand and sort tibble by strand
-            ## + strand
-            if ( length(which(tibble_exonic_records$matched_strand == "+")) > length(which(tibble_exonic_records$matched_strand == "-")) ) {
-                flag_main_strand <- "+"
-                tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(query_start)
-            ## - strand
-            } else if ( length(which(tibble_exonic_records$matched_strand == "+")) < length(which(tibble_exonic_records$matched_strand == "-")) ) {
-                flag_main_strand <- "-"
-                tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(desc(query_start))
-            }
-            
-            tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"] <- paste("OS(", tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"], ")", sep = "")
-            
-            # test whether the HGNC stable variant ID is the same for the effective VSR and exonic slots. if they are, then we can factorise.
-            ## we have to show the exonic variant ID no matter what if the effective VSR (A35SS) exists AND the variant matches are not consistent with the exonic match.
-            ## also if there is no override.
-            if ( (length(setdiff(c(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot), intersect(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot))) > 0 & nrow(tibble_effective_VSR_records) > 0) | (nrow(tibble_effective_VSR_records) == 0 & a2 == FALSE) ) {
-                exonic_slot <- paste("(", tibble_exonic_records$variant_ID_slot %>% unique, " ", paste(tibble_exonic_records$exon_slot, collapse = " "), ")", sep = "")
-            ## don't have to show the exonic variant only if either the effective VSR variant is consistent with exonic, or if there are no A3/5SS events and there is override.
+            if ( nrow(tibble_exonic_records) > 0 ) {
+                
+                # detect majority strand and sort tibble by strand
+                ## + strand
+                if ( length(which(tibble_exonic_records$matched_strand == "+")) > length(which(tibble_exonic_records$matched_strand == "-")) ) {
+                    flag_main_strand <- "+"
+                    tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(query_start)
+                    ## - strand
+                } else if ( length(which(tibble_exonic_records$matched_strand == "+")) < length(which(tibble_exonic_records$matched_strand == "-")) ) {
+                    flag_main_strand <- "-"
+                    tibble_exonic_records <- tibble_exonic_records %>% dplyr::arrange(desc(query_start))
+                }
+                
+                tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"] <- paste("OS(", tibble_exonic_records[tibble_exonic_records$matched_strand != flag_main_strand, "exon_slot"], ")", sep = "")
+                
+                # test whether the HGNC stable variant ID is the same for the effective VSR and exonic slots. if they are, then we can factorise.
+                ## we have to show the exonic variant ID no matter what if the effective VSR (A35SS) exists AND the variant matches are not consistent with the exonic match.
+                ## also if there is no override.
+                if ( (length(setdiff(c(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot), intersect(tibble_exonic_records$variant_ID_slot, tibble_effective_VSR_records$variant_ID_slot))) > 0 & nrow(tibble_effective_VSR_records) > 0) | (nrow(tibble_effective_VSR_records) == 0 & a2 == FALSE) ) {
+                    exonic_slot <- paste("(", tibble_exonic_records$variant_ID_slot %>% unique, " ", paste(tibble_exonic_records$exon_slot, collapse = " "), ")", sep = "")
+                    ## don't have to show the exonic variant only if either the effective VSR variant is consistent with exonic, or if there are no A3/5SS events and there is override.
+                } else {
+                    exonic_slot <- paste(tibble_exonic_records$exon_slot, collapse = " ")
+                }
+                
             } else {
-                exonic_slot <- paste(tibble_exonic_records$exon_slot, collapse = " ")
+                exonic_slot <- ""
             }
             
             # if no global VSR override AND there is A3/5SS event, then we bracket off the effective VSR variant ID.
@@ -2458,10 +2483,10 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     # left_tolerance <- 1
     # right_tolerance <- 1
     
-    # query_chr <- "7"
-    # query_start <- 153399920
-    # query_end <- 153405491
-    # query_strand <- "*"
+    # query_chr <- b1$chr
+    # query_start <- b1$query_start_magnetised
+    # query_end <- b1$query_end_magnetised
+    # query_strand <- b1$strand
     # return_all_possibilities <- TRUE
     # premagnetised <- TRUE
     
@@ -2513,6 +2538,9 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
         
     } else if (nrow(tibble_overlapping_reference_transcripts) > 0) {
         
+        # return ALL elements belonging to the overlapping reference transcripts. this will be the only table we use from now on.
+        tibble_gtf_table <- tibble_gtf_table[which(tibble_gtf_table$transcript_id %in% tibble_overlapping_reference_transcripts$transcript_id), ]
+        
         # check whether query exon overlaps with reference exons, as the transcript with exon with the highest overlap takes priority.
         tibble_overlapping_reference_exons <- extract_overlapping_features(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
         # calculate euclidean distances between the query exon and each overlapped ref exon.
@@ -2533,7 +2561,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                 print(a2)
                 
                 # DEBUG ###
-                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[4]]
+                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[32]]
                 ###########
                 
                 tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_variant_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
@@ -2676,17 +2704,6 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                     # in that case, we have to be careful to make sure that the end's exon is always a truncation if it lies to the left of the leftmost end
                 } else if (nrow(tibble_entry_overlapping_query_start) == 0 & nrow(tibble_entry_overlapping_query_end) > 0) {
                     
-                    # QUERY START ###
-                    # find the lowest end coord larger than the left query end
-                    leftmost_exon_start <- tibble_subset_ref_exons$start %>% min
-                    
-                    query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == leftmost_exon_start), ] %>% .$exon_number
-                    
-                    query_start_distance_to_vertex <- leftmost_exon_start - query_start
-                    
-                    # get distance modifier
-                    query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
-                    
                     # QUERY END ###
                     logical_query_end_is_further_than_50_pct <- query_end >= 0.5*(tibble_entry_overlapping_query_end$start + tibble_entry_overlapping_query_end$end)
                     # test for leftmost end
@@ -2763,6 +2780,25 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                         
                     }
                     
+                } # elif
+                
+                if (nrow(tibble_entry_overlapping_query_start) == 0) {
+                    
+                    # QUERY START ###
+                    # find the lowest end coord larger than the left query end
+                    leftmost_exon_start <- tibble_subset_ref_exons$start %>% min
+                    
+                    query_start_exon_number <- tibble_subset_ref_exons[which(tibble_subset_ref_exons$start == leftmost_exon_start), ] %>% .$exon_number
+                    
+                    query_start_distance_to_vertex <- leftmost_exon_start - query_start
+                    
+                    # get distance modifier
+                    query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+                    
+                }
+                
+                if (nrow(tibble_entry_overlapping_query_end) == 0) {
+                    
                     # QUERY END ###
                     # find the lowest end coord larger than the left query end
                     rightmost_exon_end <- tibble_subset_ref_exons$end %>% max
@@ -2774,7 +2810,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                     # get distance modifier
                     query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
                     
-                } # elif
+                }
                 
                 list_exon_slot <- purrr::pmap(
                     .l = list(
@@ -2919,6 +2955,9 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
         )
         
     } else if (nrow(tibble_overlapping_reference_transcripts) > 0) {
+        
+        # return ALL elements belonging to the overlapping reference transcripts. this will be the only table we use from now on.
+        tibble_gtf_table <- tibble_gtf_table[which(tibble_gtf_table$transcript_id %in% tibble_overlapping_reference_transcripts$transcript_id), ]
         
         # check whether query exon overlaps with reference exons, as the transcript with exon with the highest overlap takes priority.
         # tibble_overlapping_reference_exons <- extract_overlapping_features(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
@@ -4018,13 +4057,16 @@ server <- function(input, output, session) {
             # automator_input_alternative_event_region <- "4:82425668-82426036:*"
             # list_of_VSR_exon_genome_relative_coordinates <- list("4:82425668-82426036:*", "4:82424884-82426036:*", "4:82424884-82425562:*")
             
-            automator_input_alternative_event_region <- "7:153405599-153413612:*"
-            list_of_VSR_exon_genome_relative_coordinates <- list(c("7:153406960-153407090:*", "7:153399920-153405492:*"), "7:153400547-153401340:*", c("7:153405599-153406000:*", "7:153410612-153413612:*", "7:153406964-153407086:*"))
+            # automator_input_alternative_event_region <- "7:153405599-153413612:*"
+            # list_of_VSR_exon_genome_relative_coordinates <- list(c("7:153406960-153407090:*", "7:153399920-153405492:*"), "7:153400547-153401340:*", c("7:153405599-153406000:*", "7:153410612-153413612:*", "7:153406964-153407086:*"))
             
-            # automator_input_left_query_end_shift <- 0
-            # automator_input_right_query_end_shift <- 0
-            # automator_input_left_match_tolerance <- 1
-            # automator_input_right_match_tolerance <- 1
+            automator_input_alternative_event_region <- "1:235380150-235414432:*"
+            list_of_VSR_exon_genome_relative_coordinates <- list("1:235401503-235401587:*")
+            
+            automator_input_left_query_end_shift <- 0
+            automator_input_right_query_end_shift <- 0
+            automator_input_left_match_tolerance <- 1
+            automator_input_right_match_tolerance <- 1
             ###########
             
             triage_input_coordinates(vector_input_coordinates = automator_input_alternative_event_region, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE) 
@@ -4237,7 +4279,7 @@ server <- function(input, output, session) {
     
     workshop_reactive_temp_imported_annotation_tibble <- eventReactive(workshop_reactive_button_import_annotation_file(), {
         
-        # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_workshop/data/annotated_ensembl_gtf_release_102.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+        # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
         
         if (input$workshop_import_file_type_selection == "Ensembl") {
             

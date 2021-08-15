@@ -121,6 +121,77 @@ list_all_GTFs <- purrr::pmap(
     
   } )
 
+list_all_GTFs <- list_all_GTFs[names(list_all_GTFs) %>% mixedsort]
+
+# ADD IN STABLE UNIVERSAL ensg NUMBER
+## SOMETIMES A GENE NAME CAN HAVE MORE THAN ONE ENSG ID
+## we MUST know how to group ENSG and gene names together in order to create the HGNC stable variant IDs.
+## in other words, we have to know which genes are the same
+## go up the releases by ENSG IDs. match each ENSG ID to the next release. for each release, assign the same universal ENSG number to the ENSG IDs that are attributed to the same gene name. if there is no gene name, use the ENSG ID.
+
+# Return values: 1. each release annotated with the universal_ensg_number, 2. the tibble that maps ALL ensg_gene_name_combined IDs to the gene_name and ENSG ID (can be done later)
+
+## add a dummy column specifying the dummy gene name = HGNC gene name + ENSG ID if gene name is not available.
+list_all_GTFs <- purrr::map(
+  .x = list_all_GTFs,
+  .f = function(a1) {
+    
+    a1$ensg_gene_name_combined <- a1$gene_name
+    
+    a1[is.na(a1$ensg_gene_name_combined), "ensg_gene_name_combined"] <- a1[is.na(a1$ensg_gene_name_combined), "gene_id"]
+    
+    return(a1)
+    
+  } )
+
+list_accumulated_data <- list(
+  "tibble_previous_release" = list_all_GTFs[[1]],
+  "tibble_universal_ensg_number" = tibble(
+    "ensg_gene_name_combined" = list_all_GTFs[[1]]$ensg_gene_name_combined %>% unique %>% mixedsort
+  ) %>% 
+    dplyr::mutate(
+      "universal_ensg_number" = 1:nrow(.)
+    ),
+  "tibble_previous_release_with_universal_ensg_number" = dplyr::left_join(list_all_GTFs[[1]], tibble_universal_ensg_number)
+)
+
+tibble_next_release <- list_all_GTFs[[3]]
+
+# start loop ###
+## master table
+tibble_table_join_onto_next_release <- dplyr::left_join(
+  tibble_next_release,
+  list_accumulated_data$tibble_previous_release_with_universal_ensg_number[, c("gene_id", "ensg_gene_name_combined", "universal_ensg_number")] %>% unique %>% dplyr::rename("ensg_gene_name_combined_accumulated" = "ensg_gene_name_combined"),
+  by = "gene_id"
+)
+
+# find the missing unjoined ENSG IDs (they're the ones that may potentially be novel in the current release), group by the ensg + gene_name column in the CURRENT release, and fill in the missing universal_ensg_numbers
+tibble_next_release_unmatched_universal_ENSG_gene_names <- tibble_table_join_onto_next_release[is.na(tibble_table_join_onto_next_release$ensg_gene_name_combined_accumulated) == TRUE, ]
+
+if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) == 0 ) {
+  list_accumulated_data$tibble_previous_release <- tibble_next_release
+  list_accumulated_data$tibble_previous_release_with_universal_ensg_number <- dplyr::left_join(tibble_next_release, tibble_universal_ensg_number)
+} else if ( nrow(tibble_next_release_unmatched_universal_ENSG_gene_names) > 0 ) {
+  
+}
+
+  return(list_accumulated_data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 tibble_all_GTFs <- list_all_GTFs %>% rbindlist(fill = TRUE, use.names = TRUE) %>% as_tibble
 
 # tibble_all_GTFs[tibble_all_GTFs$transcript_version %>% is.na == FALSE, ] %>% .$ensembl_release_version %>% min
