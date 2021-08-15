@@ -60,5 +60,5 @@ NOTE2: The Delta symbol is not available in the Windows standalone app. The prog
 
 Created using R Shiny/Electron.
 
-<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/hex_sticker.png" width="100" height="100" /> <img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
+<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/hex_sticker.png" width="80" height="100" /> <img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
 
