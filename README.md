@@ -8,7 +8,7 @@ Matches splice co-ordinates to the latest Ensembl GTF release.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
 
-## Standalone apps
+## Standalone app
 
 ### Windows
 
