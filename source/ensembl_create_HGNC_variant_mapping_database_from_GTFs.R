@@ -1,5 +1,3 @@
-
-scri
 script_description <- "# CREATE HGNC VARIANT MAPPING FILE ###
 This script should be run in the folder that contains all historical GTFs.
 Input: multiple GTFs
@@ -56,9 +54,9 @@ output_dir <- input_args$output_dir
 ncores <- input_args$ncores
 
 # DEBUG ########
-#input_GTF_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ensembl_GTF_dump/"
-#output_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ENST_to_HGNC_stable_variant_mapping/"
-#ncores <- "8x4"
+# input_GTF_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ensembl_GTF_dump/"
+# output_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ENST_to_HGNC_stable_variant_mapping/"
+# ncores <- "6x4"
 ################
 
 cat("input_GTF_dir:", input_GTF_dir, "\n")
@@ -91,7 +89,7 @@ if (grepl(x = ncores, pattern = "x") == FALSE) {
 # BEGIN EXECUTION ###
 
 plan(multiprocess)
-options(mc.cores = 72)
+options(mc.cores = 66)
 
 # import all GTFs
 list_all_GTFs <- furrr::future_map(
@@ -147,127 +145,108 @@ list_all_GTFs <- purrr::map(
 
 tibble_all_GTFs <- list_all_GTFs %>% rbindlist(fill = TRUE, use.names = TRUE) %>% as_tibble
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# for each release, subset only the ENSG ID and the combined ENSG/gene_name.
-# then group by combined name for EACH release. 
-# un-nest.?
-options(mc.cores = 32)
-
-list_all_releases_universal_mapping_grouped_by_ENSG_id <- tibble_all_GTFs %>%
-  .[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>%
-  unique %>%
-  dplyr::group_split(gene_id)
-
-# only keep the one-ENSG-to-many-universal elements
-list_all_releases_universal_mapping_grouped_by_ENSG_id_one_to_many <- list_all_releases_universal_mapping_grouped_by_ENSG_id[purrr::map(.x = list_all_releases_universal_mapping_grouped_by_ENSG_id, .f = ~.x$ensg_gene_name_combined %>% unique %>% length) %>% unlist > 1]
-  
-# loop thru each element of list. put entries with the same ensembl_release_version and same ensg_gene_name_combined in the same tibble
-
-list_all_releases_universal_mapping_grouped_by_ENSG_id_for_looping <- list_all_releases_universal_mapping_grouped_by_ENSG_id
-
-index <- 1
-
-options(mc.cores = 8)
-
-while ( index < length(list_all_releases_universal_mapping_grouped_by_ENSG_id) ) {
-  
-  print(index)
-  
-  # get the unique combined names + ensembl_release_versions to be checked
-  tibble_combined_names_and_release_versions_to_be_checked <- list_all_releases_universal_mapping_grouped_by_ENSG_id[[index]][, c("ensg_gene_name_combined", "ensembl_release_version")] %>% unique
-  
-  # list-ify
-  list_tibble_combined_names_and_release_versions_to_be_checked <- tibble_combined_names_and_release_versions_to_be_checked %>% dplyr::rowwise() %>% dplyr::group_split()
-  
-  # loop thru the list. for each sub-element, find any L1 list elements which have the desired combined name + ensembl_release_versions
-  
-  list_indices_matched_by_combined_name_and_release_versions <- purrr::map(
-    .x = list_tibble_combined_names_and_release_versions_to_be_checked,
-    .f = function(a1) {
-      
-      # DEBUG ###
-      # a1 <- list_tibble_combined_names_and_release_versions_to_be_checked[[1]]
-      ###########
-      
-      vector_row_index_matched <- purrr::imap(
-        .x = list_all_releases_universal_mapping_grouped_by_ENSG_id_for_looping, 
-        .f = function(b1, b2) {
-          
-          # print(b2)
-          
-          any(b1$ensg_gene_name_combined == a1$ensg_gene_name_combined & b1$ensembl_release_version == a1$ensembl_release_version) %>%
-            return
-          
-        } ) %>% unlist %>% which %>% return
-      
-    } )
-  
-  vector_L1_indices_matched_by_combined_name_and_release_versions <- list_indices_matched_by_combined_name_and_release_versions %>% unlist %>% .[. != index]
-  
-  list_tibbles_matched_by_combined_name_and_release_versions <- 
-  
-}
-  
-  
-
-
-
-
-
-
-
-# keep on joining by combined name and ensembl_release_version until the tibble doesn't grow anymore.
+# join by combined name and ensembl_release_version because that's the only known commonality between apparently unrelated ENSG ids
 tibble_joined_by_combined_name_and_ensembl_release_version <- dplyr::full_join(
   tibble_all_GTFs[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>% unique,
   tibble_all_GTFs[, c("ensg_gene_name_combined", "gene_id", "ensembl_release_version")] %>% unique,
   by = c("ensg_gene_name_combined", "ensembl_release_version")
 )
 
+# this freezes interactions between apparently unrelated ENSG IDs, as their only point of contact is same combined names in the same assembly version.
+# all we have to do now is pull out each ENSG ID from the list and collapse. 
+# we should get a list of vectors - each element corresponds to all the ENSG IDs that describes the same underlying gene.
 
+# equivalent to hard thresholding cluster detection problem
+## do not unique-ify because you'll miss out on the well-behaved ENSG IDs
+tibble_edge_table <- tibble_joined_by_combined_name_and_ensembl_release_version[, c("gene_id.x", "gene_id.y")] %>% unique %>% setNames(nm = c("a", "b"))
 
+# iterative grow from each node 
+vector_all_available_nodes <- c(tibble_edge_table$a, tibble_edge_table$b) %>% unique
 
+# create logical signifying whether all nodes have been considered
+logical_all_nodes_considered <- FALSE
 
+# work through the list of all availbble nodes
+vector_nodes_remaining <- vector_all_available_nodes
 
+# pre-allocate a tibble with seed value and members of association
+tibble_association_table <- tibble("seed" = character(0),
+                                   "members_of_association" = character(0),
+                                   "association_size" = integer(0))
 
+temp_tibble_edge_table <- tibble_edge_table
 
+while (logical_all_nodes_considered == FALSE) {
+  
+  current_node <- vector_nodes_remaining[1]
+  
+  cat("current_node: ", current_node, "\n")
+  
+  # iteratively grow an association out from the current node until it can't get any bigger
+  iteration_difference <- 1
+  # the list of association members grows as the tree moves outwards
+  vector_current_association_members <- current_node
+  while (iteration_difference > 0 & nrow(temp_tibble_edge_table) > 0) {
+    
+    previous_number_of_members_in_association <- vector_current_association_members %>% length
+    
+    # check source nodes
+    vector_logical_temp_tibble_indices_source_node_hit <- temp_tibble_edge_table$a %in% vector_current_association_members
+    
+    # check target nodes
+    vector_logical_temp_tibble_indices_target_node_hit <- temp_tibble_edge_table$b %in% vector_current_association_members
+    
+    # find all interactors of current association members
+    vector_all_interactors_of_current_association_members <- c(
+      temp_tibble_edge_table[vector_logical_temp_tibble_indices_source_node_hit, "b"] %>% unlist,
+      temp_tibble_edge_table[vector_logical_temp_tibble_indices_target_node_hit, "a"] %>% unlist)
+    
+    # remove already traversed edges from the temp edge table
+    temp_tibble_edge_table <- temp_tibble_edge_table[!vector_logical_temp_tibble_indices_source_node_hit & !vector_logical_temp_tibble_indices_target_node_hit, ]
+    
+    cat("temp tibble rows: ", nrow(temp_tibble_edge_table), "\n")
+    
+    vector_current_association_members <- c(vector_current_association_members, vector_all_interactors_of_current_association_members) %>% unique
+    
+    current_number_of_members_in_association <- vector_current_association_members %>% length
+    
+    iteration_difference <- current_number_of_members_in_association - previous_number_of_members_in_association
+    
+    cat("iteration_difference: ", iteration_difference, "\n")
+    
+  }
+  
+  tibble_association_table <- tibble_association_table %>% 
+    tibble::add_row(tibble("seed" = current_node %>% as.character, "members_of_association" = vector_current_association_members %>% paste(collapse = ",") %>% as.character, "association_size" = current_number_of_members_in_association))
+  
+  vector_nodes_remaining <- vector_nodes_remaining[!vector_nodes_remaining %in% vector_current_association_members]
+  
+  cat("number of nodes remaining: ", length(vector_nodes_remaining), "\n")
+  
+  logical_all_nodes_considered <- length(vector_nodes_remaining) == 0
+  
+  flush.console() 
+  
+}
 
+# retrieve unique gene mapping 
+tibble_tracked_ENSG_id_trees <- tibble_association_table %>% 
+  tibble::add_column("universal_ensg_number" = 1:nrow(.))
 
+tibble_tracked_ENSG_id_trees <- tibble_tracked_ENSG_id_trees %>% dplyr::mutate("members_of_association" = strsplit(x = members_of_association, split = ","))
 
+## unnest
+tibble_tracked_ENSG_id_trees <- tibble_tracked_ENSG_id_trees %>% unnest(cols = members_of_association)
 
-tibble_all_GTFs <- list_all_GTFs %>% rbindlist(fill = TRUE, use.names = TRUE) %>% as_tibble
+# tack on the universal ENSG number to the master tibble
+tibble_all_GTFs_universal_ensg_id <- dplyr::left_join(tibble_all_GTFs, tibble_tracked_ENSG_id_trees %>% dplyr::rename("gene_id" = "members_of_association") %>% dplyr::select(-seed, -association_size))
 
-# tibble_all_GTFs[tibble_all_GTFs$transcript_version %>% is.na == FALSE, ] %>% .$ensembl_release_version %>% min
-
-# to record the historical development of ENST IDs, retirement status of ENST ID as well as the latest ENST ID it occurs in, split by ENST ID
-
+# Major analysis point no.1: Record the historical development of ENST IDs, retirement status of ENST ID as well as the latest ENST ID it occurs in, split by ENST ID
 ## detect latest release
-latest_release_number <- tibble_all_GTFs$ensembl_release_version %>% max
+latest_release_number <- tibble_all_GTFs_universal_ensg_id$ensembl_release_version %>% max
 
 ## ENST TRACKING TABLE: filter table for ENST ID and version 
-tibble_ENST_ID_version_tracked_by_release <- tibble_all_GTFs[, c("gene_name", "transcript_id", "ensembl_release_version", "genome_assembly")] %>% dplyr::distinct()
+tibble_ENST_ID_version_tracked_by_release <- tibble_all_GTFs_universal_ensg_id[, c("gene_name", "transcript_id", "ensembl_release_version", "genome_assembly", "universal_ensg_number")] %>% dplyr::distinct()
 
 ## ENST RETIREMENT TABLE: last release + retirement status
 tibble_ENST_retirement_status <- tibble_ENST_ID_version_tracked_by_release %>% 
@@ -276,37 +255,62 @@ tibble_ENST_retirement_status <- tibble_ENST_ID_version_tracked_by_release %>%
   dplyr::summarise("release_last_seen" = max(ensembl_release_version), 
                    "retirement_status" = if (max(ensembl_release_version) == latest_release_number) {"active"} else if (max(ensembl_release_version) < latest_release_number) {"retired"} )
 
-# to enumerate the HGNC stable variant ID, split by ENSG ID
-list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs %>% 
-  dplyr::distinct(gene_id, transcript_id, gene_name, transcript_version) %>% 
-  .[!is.na(.$gene_id) & !is.na(.$transcript_id), ] %>%
-  dplyr::group_split(gene_id) %>%
-  set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$gene_id %>% unique) %>% unlist)
+# Major analysis point no.2: Write down the ENSG tree, as well as the associated gene_name, combined gene_name and the release version
+tibble_historical_ENSG_tree_and_gene_names <- tibble_all_GTFs_universal_ensg_id[, c("universal_ensg_number", "gene_id", "gene_name", "ensg_gene_name_combined", "ensembl_release_version", "genome_assembly")] %>% dplyr::distinct() %>% dplyr::arrange(universal_ensg_number)
+
+# Major analysis point no.3: HGNC STABLE VARIANT ID MAPPING.
+## to enumerate the HGNC stable variant ID, split by UNIVERSAL ensg number
+## if multiple gene names have been assigned to the gene tree in the past, then we take the most recent gene name used (that's why we need the ensembl_release_version.)
+## IMPORTANT NOTE: as of ensembl_104, there does not exist ENST IDs which have been attributed to more than one HGNC gene name in the same version, which is very good news for us. in the future, we still have to check:
+# test <- tibble_all_GTFs_universal_ensg_id %>% .[!is.na(.$universal_ensg_number) & !is.na(.$transcript_id), ] %>%
+#   dplyr::distinct(transcript_id, gene_name, ensembl_release_version)
+# test2 <- test %>% dplyr::group_by(transcript_id, ensembl_release_version) %>% dplyr::summarise("tally" = n()) %>% dplyr::arrange(desc(tally))
+
+# unfortunately, *different* ENST IDs in the same gene tree can have different HGNC gene names in the same ensembl release.
+# WE CAN LITERALLY JUST PUT IT IN.
+# the HGNC_stable_variant_ID will still be completely correct for the gene tree - just different ENST IDs will have their own HGNC gene symbol.
+list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs_universal_ensg_id %>% 
+  .[!is.na(.$universal_ensg_number) & !is.na(.$transcript_id), ] %>%
+  dplyr::distinct(universal_ensg_number, transcript_id, ensg_gene_name_combined, transcript_version, ensembl_release_version) %>% 
+  dplyr::group_split(universal_ensg_number) %>%
+  set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$universal_ensg_number %>% unique) %>% unlist)
 
 options(mc.cores = 16)
 
-# HGNC STABLE VARIANT ID MAPPING TABLE: create HGNC stable variant IDs
-tibble_HGNC_stable_variant_IDs <- furrr::future_map(
+# create HGNC stable variant IDs
+tibble_HGNC_stable_variant_IDs <- furrr::future_imap(
   .x = list_tibble_all_ENST_IDs_split_by_ENSG_ID,
-  .f = function(a1) {
+  .f = function(a1, a2) {
     
     # DEBUG ###
-    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$ENSG00000229425
+    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$`1`
     ###########
     
-    # sort by ENST ID
-    sorted_tibble <- a1[mixedorder(a1$transcript_id), ] %>% 
-      dplyr::mutate("gene_name2" = `gene_name`)
+    cat(a2, "\n")
     
-    # IN THE CASE OF BLANK gene_ids - USE THE ENSG. jeez.
+    # sort by ENST ID
+    sorted_tibble <- a1[mixedorder(a1$transcript_id), ]
     
     # add HGNC_stable_variant_ID
+    ## first group by ENST ID
+    ## then add a column for the ensg_gene_name_combined that is found in the latest release
     output_tibble <- sorted_tibble %>%
-      dplyr::group_by(gene_id, transcript_id) %>% 
+      dplyr::group_by(transcript_id) %>%
+      dplyr::mutate("release_last_seen" = max(ensembl_release_version))
+    
+    output_tibble <- dplyr::left_join(output_tibble,
+                                      output_tibble[output_tibble$ensembl_release_version == output_tibble$release_last_seen, c("transcript_id", "ensg_gene_name_combined")] %>% dplyr::rename("latest_ensg_gene_name_combined" = "ensg_gene_name_combined")
+                                      )
+    
+    output_tibble <- output_tibble[mixedorder(output_tibble$transcript_id), ]
+    
+    # finally add in the stable variant number
+    output_tibble <- output_tibble %>% 
       tibble::add_column("stable_variant_number" = group_indices(.)) %>%
       dplyr::ungroup() %>%
-      dplyr::mutate("hgnc_stable_variant_ID" = paste(sorted_tibble$gene_name2, "-enst", stable_variant_number, ".", sorted_tibble$transcript_version, sep = "")) %>%
-      dplyr::select(-gene_name2)
+      dplyr::mutate("hgnc_stable_variant_ID" = paste(latest_ensg_gene_name_combined, "-enst", stable_variant_number, ".", transcript_version, sep = ""))
+    
+    return(output_tibble)
     
   }, .progress = TRUE ) %>% rbindlist %>% as_tibble
 
@@ -316,10 +320,14 @@ tibble_HGNC_stable_variant_IDs <- tibble_HGNC_stable_variant_IDs %>%
 
 # TOTAL MAPPING TABLE
 ## we are going to combine the information from all 3 tables into one
-tibble_total_mapping_table <- dplyr::left_join(tibble_HGNC_stable_variant_IDs, tibble_ENST_retirement_status, by = c("transcript_id"))
+tibble_total_mapping_table <- dplyr::left_join(tibble_HGNC_stable_variant_IDs, tibble_ENST_retirement_status)
+
+if (nrow(tibble_total_mapping_table) != nrow(tibble_HGNC_stable_variant_IDs)) {
+  stop("imperfect join. check whether there may be some ENST IDs that have been assigned to more than one ENSG ID in the past.")
+}
 
 # ANNOTATE ALL RELEASES
-tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs, tibble_total_mapping_table)
+tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs_universal_ensg_id, tibble_total_mapping_table)
 
 # list-ify and save
 list_all_annotated_releases <- tibble_all_annotated_releases %>%
@@ -333,7 +341,13 @@ furrr::future_map2(
   .f = ~write.table(x = .x, file = paste(output_dir, "annotated_ensembl_gtf_release_", .y, ".txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE), 
   .progress = TRUE )
 
-# save mapping table
+# 1. save ENST retirement tracking
+write.table(x = tibble_ENST_retirement_status, file = paste(output_dir, "latest_ENST_retirement_status.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
+# 2. save gene tree tracking
+write.table(x = tibble_historical_ENSG_tree_and_gene_names, file = paste(output_dir, "latest_gene_tree_tracking.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
+# 3. save HGNC stable variant mapping table
 write.table(x = tibble_total_mapping_table, file = paste(output_dir, "latest_mapping_table.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
 # add information about latest update
