@@ -2,9 +2,10 @@
 
 ![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues](https://img.shields.io/badge/issues-a%20fucktonne-critical) 
 
-Generates the Extended Delta Notation for human RNA splice events based on HGNC gene symbols. Currently in pre-publication testing.
+A collection of 4 tools that enable researchers to generate and interpret the Extended Delta notation for alternative splicing. Currently in pre-publication testing.
 
-Matches splice co-ordinates to the latest Ensembl GTF release.
+EDN Automator: Auomatically generates publication-ready Extended Delta Notation to describe human RNA splice events.
+EDN Workshop: An extremely powerful tool to visualise the location and consequences of alternative splicing. Plots distances from user exons/junctions to the nearest reference exon and feature vertices. This also includes protein domains from BioMart, Interpro and PTM sites from dbPTM. Users can also upload custom feature tracks.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
 
