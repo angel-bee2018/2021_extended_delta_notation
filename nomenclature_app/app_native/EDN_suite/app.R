@@ -1813,7 +1813,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             print(a2)
             
             # DEBUG ###
-            a1 <- list_LIS_exons_named[[1]]
+            # a1 <- list_LIS_exons_named[[1]]
             ###########
             
             if ( a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist] %>% length > 0 ) {
@@ -2179,7 +2179,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
         
     # if no A3/5SS events at all, then simply apply the global VSR as usual   
     } else if ( all(logical_LIS_containing_A35SS == FALSE) ) {
-        final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
+        final_nomenclature <- paste(global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", paste(list_final_LIS_name, collapse = "/"), " ", global_VSR_right_slot, sep = "")
     }
     
     return(final_nomenclature)
