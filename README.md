@@ -1,14 +1,16 @@
-# Extended Delta Notation generator
+# The EDN Suite <img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/hex_sticker.png" align="right" height="200" />
 
-![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues_none](https://img.shields.io/badge/known%20issues-none-success) 
+![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues](https://img.shields.io/badge/issues-a%20fucktonne-critical) 
 
-Generates the Extended Delta Notation for human RNA splice events based on HGNC gene symbols. Currently in pre-publication testing.
+A collection of 4 tools that enable researchers to generate and interpret the Extended Delta notation for alternative splicing. Currently in pre-publication testing.
 
-Matches splice co-ordinates to the latest Ensembl GTF release.
+EDN Automator: Auomatically generates publication-ready Extended Delta Notation to describe human RNA splice events.
+
+EDN Workshop: An extremely powerful tool to visualise the location and consequences of alternative splicing. Plots distances from user exons/junctions to the nearest reference exon and feature vertices. This also includes protein domains from BioMart, Interpro and PTM sites from dbPTM. Users can also upload custom feature tracks.
 
 Available in native R Shiny app (any operating system) or standalone Windows application.
 
-## Standalone apps
+## Standalone app
 
 ### Windows
 
@@ -60,5 +62,5 @@ NOTE2: The Delta symbol is not available in the Windows standalone app. The prog
 
 Created using R Shiny/Electron.
 
-<img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/EDN_suite_hex_sticker.svg" width="100" height="100" /> <img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
+<img src="https://github.com/rstudio/hex-stickers/blob/master/SVG/shiny.svg" width="100" height="100" /> <img src="https://upload.wikimedia.org/wikipedia/commons/9/91/Electron_Software_Framework_Logo.svg" width="100" height="100" /> 
 
