@@ -3264,6 +3264,50 @@ triage_input_coordinates <- function(vector_input_coordinates, vector_of_expecte
     
 }
 
+# SHINY: ALTERNATIVE FUNCTION TO SCREEN INPUT COORDINATES
+## based on IGV behaviour. 
+parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromosomes) {
+    
+    # DEBUG ###
+    # vector_input_coordinates <- c(
+    #     "16:89740100-89740803:8",
+    #     "16:89738975-89739477:+",
+    #     "16:89739267-89739993:*",
+    #     "16:89739290-89739477:0",
+    #     "16:89739554-89739993:.",
+    #     "8:89738975-89739137",
+    #     "89738975-89739132",
+    #     "16:89738975-89739128:-",
+    #     "16:89738709:89738881"
+    # )
+    
+    # vector_input_coordinates <- c(
+    #     "1:2-3:+"
+    # )
+    # expect_stranded <- TRUE
+    # tibble_gtf_table <- tibble_ref_gtf
+    
+    ###########
+    
+    # split into vector of chr start end strand.
+    vector_chr_start_end_strand <- input_coordinates %>% trimws() %>% gsub(pattern = "[^0-9]", replacement = " ") %>% stringr::str_squish() %>% strsplit(split = " ") %>% unlist %>% type.convert
+    
+    # if length is 2, then it's a single nt. do a +/- 50nt window
+    if (vector_chr_start_end_strand %>% length == 2) {
+        output <- c(vector_chr_start_end_strand[1], vector_chr_start_end_strand[2] - 50, vector_chr_start_end_strand[2] + 50)
+    # if length is 3, then it's a geniune range.
+    } else if (vector_chr_start_end_strand %>% length == 3) {
+        output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
+    } else if (vector_chr_start_end_strand %>% length == 4) {
+        output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
+    } else {
+        output <- "non_coord"
+    }
+    
+    return(output)
+    
+}
+
 
 ### SHINY ####
 
@@ -4808,66 +4852,52 @@ server <- function(input, output, session) {
         # enable interactivity automatically
         updateMaterialSwitch(session, inputId = "workshop_plot_is_active", value = TRUE)
         
-        # check input coords, double triage
-        triage_result <- triage_input_coordinates(vector_input_coordinates = input$workshop_jump_to_coords, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"), expect_stranded = TRUE)
+        # parse input coords
+        parse_result <- parse_input_coordinates(input_coordinates = input$workshop_jump_to_coords, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
         
-        if (triage_result == "triage fail") {
+        print("input$workshop_jump_to_coords")
+        print(input$workshop_jump_to_coords)
+        
+        print("parse_result")
+        print(parse_result)
+        
+        # this is the case when the jump-to coords aren't coords - we have to search the HGNC variant ID, HGNC gene symbol, gene_id, transcript_id and protein_id.
+        if (parse_result == "non_coord" & length(workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
             
-            triage_result_2 <- triage_input_coordinates(vector_input_coordinates = input$workshop_jump_to_coords, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"), expect_stranded = FALSE)
+            # rbind all the annotation files together
+            long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
             
-            if (triage_result_2 == "triage successful") {
+            # list-ify by column
+            long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_variant_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
+            list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
+            
+            # grep each column
+            list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~which(.x == input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
+            
+            if (length(list_grep_result_per_column) > 0) {
                 
-                input_chr <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
-                input_start <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\2") %>% type.convert
-                input_end <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\3") %>% type.convert
-                input_strand <- "*"
+                # get the first match and only consider the annotation table associated with the first result
+                tibble_matches <- long_tibble_all_annotation_files[list_grep_result_per_column[[1]], ] %>% .[.$panel == (long_tibble_all_annotation_files[list_grep_result_per_column[[1]][1], ] %>% .$panel), ]
                 
-                workshop_reactiveValues_current_plot_range$chr <- input_chr
-                workshop_reactiveValues_current_plot_range$start <- input_start
-                workshop_reactiveValues_current_plot_range$end <- input_end
-                
-                triage_result <- triage_result_2
-                
-                # this is the case when the jump-to coords aren't coords - we have to search the HGNC variant ID, HGNC gene symbol, gene_id, transcript_id and protein_id.
-            } else if (length(workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
-                
-                # rbind all the annotation files together
-                long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
-                
-                # list-ify by column
-                long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_variant_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
-                list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
-                
-                # grep each column
-                list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~which(.x == input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
-                
-                if (length(list_grep_result_per_column) > 0) {
-                    
-                    # get the first match and only consider the annotation table associated with the first result
-                    tibble_matches <- long_tibble_all_annotation_files[list_grep_result_per_column[[1]], ] %>% .[.$panel == (long_tibble_all_annotation_files[list_grep_result_per_column[[1]][1], ] %>% .$panel), ]
-                    
-                    workshop_reactiveValues_current_plot_range$chr <- tibble_matches$seqnames %>% unique %>% .[1]
-                    workshop_reactiveValues_current_plot_range$start <- tibble_matches$start %>% min
-                    workshop_reactiveValues_current_plot_range$end <- tibble_matches$start %>% max
-                    
-                } 
+                workshop_reactiveValues_current_plot_range$chr <- tibble_matches$seqnames %>% unique %>% .[1]
+                workshop_reactiveValues_current_plot_range$start <- tibble_matches$start %>% min
+                workshop_reactiveValues_current_plot_range$end <- tibble_matches$start %>% max
                 
             }
             
-        } else if (triage_result == "triage successful") {
+        } else {
             
-            input_chr <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-            input_start <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
-            input_end <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
-            input_strand <- gsub(x = input$workshop_jump_to_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+            input_chr <- parse_result[1]
+            input_start <- parse_result[2]
+            input_end <- parse_result[3]
+            input_strand <- "*"
             
             workshop_reactiveValues_current_plot_range$chr <- input_chr
             workshop_reactiveValues_current_plot_range$start <- input_start
             workshop_reactiveValues_current_plot_range$end <- input_end
-            
         }
         
-        output$workshop_nomenclature_output <- renderText({triage_result})
+        # output$workshop_nomenclature_output <- renderText({triage_result})
         
     } )
     
@@ -5067,8 +5097,8 @@ server <- function(input, output, session) {
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
             
             # DEBUG ###
-            # global_list_tibbles_track_features_visible_flattened_1 <<- list_tibbles_track_features_visible_flattened
-            # global_list_tibbles_track_features_all_flattened_1 <<- list_tibbles_track_features_all_flattened
+            global_list_tibbles_track_features_visible_flattened_1 <<- list_tibbles_track_features_visible_flattened
+            global_list_tibbles_track_features_all_flattened_1 <<- list_tibbles_track_features_all_flattened
             ###########
             
             ## having determined the plot window, calculate distances to every exon in the plot range
@@ -5437,12 +5467,12 @@ server <- function(input, output, session) {
                     },
                     
                     # FACETS 
-                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
                         ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y")
                     },
                     
                     # adaptive facet aspect ratio
-                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
                         ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
                                                     (function(x) {
                                                         if (sum(x) != 0) {
@@ -5453,7 +5483,7 @@ server <- function(input, output, session) {
                     },
                     
                     # facet-specific brush resizing (y)
-                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 & nrow(tibble_user_ranges_visible) > 0) {
+                    if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
                         ggh4x::facetted_pos_scales(
                             y = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% purrr::map(~scale_y_discrete(limits = .x, breaks = .x, labels = .x))
                         )
@@ -5506,9 +5536,10 @@ server <- function(input, output, session) {
         
         # print("input$workshop_plot_output_brush")
         # print(input$workshop_plot_output_brush %>% head)
-        # test_workshop_plot_output_brush <<- input$workshop_plot_output_brush
-        
         brush <- input$workshop_plot_output_brush
+        
+        global_brush <<- brush
+        
         if (!is.null(brush)) {
             workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
             workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
