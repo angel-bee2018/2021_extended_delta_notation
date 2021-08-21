@@ -4652,37 +4652,19 @@ server <- function(input, output, session) {
     # deal with user adding range values
     observeEvent(input$workshop_add_user_range, {
         
-        triage_result <- triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"), expect_stranded = TRUE)
+        # parse input coords
+        parse_result <- parse_input_coordinates(input_coordinates = input$workshop_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
         
-        if (triage_result == "triage fail") {
+        if (parse_result == "non_coord") {
             
-            triage_result_2 <- triage_input_coordinates(vector_input_coordinates = input$workshop_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"), expect_stranded = FALSE)
+            output$workshop_nomenclature_output <- renderText({"triage fail"})
             
-            if (triage_result_2 == "triage successful") {
+        } else {
                 
-                input_chr <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
-                input_start <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\2") %>% type.convert
-                input_end <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\3") %>% type.convert
-                input_strand <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)([\\:])?", replacement = "\\4") %>% gsub(pattern = "\\:", replacement = "")
-                
-                workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
-                workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
-                workshop_reactiveValues_user_ranges$start <- c(workshop_reactiveValues_user_ranges$start, input_start)
-                workshop_reactiveValues_user_ranges$end <- c(workshop_reactiveValues_user_ranges$end, input_end)
-                workshop_reactiveValues_user_ranges$strand <- c(workshop_reactiveValues_user_ranges$strand, input_strand)
-                workshop_reactiveValues_user_ranges$range_type <- c(workshop_reactiveValues_user_ranges$range_type, input$workshop_range_type)
-                workshop_reactiveValues_user_ranges$panel <- c(workshop_reactiveValues_user_ranges$panel, "user_ranges")
-                
-                triage_result <- triage_result_2
-                
-            }
-            
-        } else if (triage_result == "triage successful") {
-            
-            input_chr <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-            input_start <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
-            input_end <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
-            input_strand <- gsub(x = input$workshop_input_range, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+            input_chr <- parse_result[1]
+            input_start <- parse_result[2]
+            input_end <- parse_result[3]
+            input_strand <- "*"
             
             workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
             workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
@@ -4692,28 +4674,28 @@ server <- function(input, output, session) {
             workshop_reactiveValues_user_ranges$range_type <- c(workshop_reactiveValues_user_ranges$range_type, input$workshop_range_type)
             workshop_reactiveValues_user_ranges$panel <- c(workshop_reactiveValues_user_ranges$panel, "user_ranges")
             
+            output$workshop_nomenclature_output <- renderText({"triage successful"})
+            
+            # automatically select the one that was added
+            workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[length(workshop_reactiveValues_user_ranges$id)]
+            
+            updateRadioButtons(session, inputId = "workshop_user_range_id_selection", selected = workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)])
+            
+            print("workshop_reactiveValues_selected_user_range$id outside")
+            print(workshop_reactiveValues_selected_user_range$id)
+            
+            # autojump to selected range
+            workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
+            workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
+            workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
+            
         }
-        
-        output$workshop_nomenclature_output <- renderText({triage_result})
-        
-        # automatically select the one that was added
-        workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[length(workshop_reactiveValues_user_ranges$id)]
-        
-        updateRadioButtons(session, inputId = "workshop_user_range_id_selection", selected = workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)])
-        
-        print("workshop_reactiveValues_selected_user_range$id outside")
-        print(workshop_reactiveValues_selected_user_range$id)
-        
-        # autojump to selected range
-        workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-        workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-        workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
         
     } )
     
