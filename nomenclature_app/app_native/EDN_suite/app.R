@@ -1489,20 +1489,20 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     #     )
     # ) 
     
-    VSR_coordinates <- automator_input_alternative_event_region
+    # VSR_coordinates <- automator_input_alternative_event_region
     # NOTE: we will deliberately choose to exclude rev() sequences which means that it won't mean anything to input reversed start/end coords.
     # This is because we decided that this VSR matching program has to automate strand matching (often users aren't given strand info for input). Also it's because we can fix the user input + start/end has meaning.
     # also, most DS tools output the LIS coords out of strand order. Therefore, we actually can't assume the user actually knows the sequence of matches. Have to consult the matched strand for that.
     # So that means we have to report the most common strand - **all elements which are on the oppoosite strand are made to be OS(), meaning the reverse complement.**
     # ALSO: We also require the user to know the exact exon connectivity of each LIS. This allows us to be able to give a more general description of heterogeneous LISs, such as those derived from multiple transcripts - ordering by exon number is meaningless between transcripts.
     # Also, all LIS coords must be in between the VSR coords. or it wont work. Triage will take care of this.
-    list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
-    tibble_gtf_table <- tibble_ref_gtf
+    # list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
+    # tibble_gtf_table <- tibble_ref_gtf
 
-    left_query_shift <- 0
-    right_query_shift <- 0
-    left_tolerance <- 1
-    right_tolerance <- 1
+    # left_query_shift <- 0
+    # right_query_shift <- 0
+    # left_tolerance <- 1
+    # right_tolerance <- 1
     
     # left_query_shift <- left_query_shift %>% paste %>% type.convert
     # right_query_shift <- right_query_shift %>% paste %>% type.convert
@@ -2179,7 +2179,21 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
         
     # if no A3/5SS events at all, then simply apply the global VSR as usual   
     } else if ( all(logical_LIS_containing_A35SS == FALSE) ) {
-        final_nomenclature <- paste(global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", paste(list_final_LIS_name, collapse = "/"), " ", global_VSR_right_slot, sep = "")
+        
+        # we do the splitting up thing if we have just a few alternative events that have a mix of variant override and no override
+        if ( any(logical_indices_LIS_with_global_VSR_override == FALSE) ) {
+            
+            list_final_LIS_name[logical_indices_LIS_with_global_VSR_override] <- purrr::map(
+                .x = list_final_LIS_name[logical_indices_LIS_with_global_VSR_override],
+                .f = ~paste("(", global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", .x, " ", global_VSR_right_slot, ")", sep = "")
+            )
+            
+            final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
+            
+        } else {
+            final_nomenclature <- paste(global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", if ( length(list_final_LIS_name) > 1 ) { paste("(", paste(list_final_LIS_name, collapse = "/"), ")", sep = "") } else { paste(list_final_LIS_name, collapse = "/") }, " ", global_VSR_right_slot, sep = "")
+        }
+        
     }
     
     return(final_nomenclature)
@@ -4060,13 +4074,13 @@ server <- function(input, output, session) {
             # automator_input_alternative_event_region <- "7:153405599-153413612:*"
             # list_of_VSR_exon_genome_relative_coordinates <- list(c("7:153406960-153407090:*", "7:153399920-153405492:*"), "7:153400547-153401340:*", c("7:153405599-153406000:*", "7:153410612-153413612:*", "7:153406964-153407086:*"))
             
-            automator_input_alternative_event_region <- "1:235380150-235414432:*"
-            list_of_VSR_exon_genome_relative_coordinates <- list("1:235401503-235401587:*")
+            # automator_input_alternative_event_region <- "X:11759402-11759875:*"
+            # list_of_VSR_exon_genome_relative_coordinates <- list("X:11759713-11759792:*", "X:11759402-11759875:*")
             
-            automator_input_left_query_end_shift <- 0
-            automator_input_right_query_end_shift <- 0
-            automator_input_left_match_tolerance <- 1
-            automator_input_right_match_tolerance <- 1
+            # automator_input_left_query_end_shift <- 0
+            # automator_input_right_query_end_shift <- 0
+            # automator_input_left_match_tolerance <- 1
+            # automator_input_right_match_tolerance <- 1
             ###########
             
             triage_input_coordinates(vector_input_coordinates = automator_input_alternative_event_region, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE) 
@@ -4212,11 +4226,11 @@ server <- function(input, output, session) {
                 triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
                 
                 # DEBUG ###
-                vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
-                automator_input_left_query_end_shift <- 0
-                automator_input_right_query_end_shift <- 0
-                automator_input_left_match_tolerance <- 1
-                automator_input_right_match_tolerance <- 1
+                # vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
+                # automator_input_left_query_end_shift <- 0
+                # automator_input_right_query_end_shift <- 0
+                # automator_input_left_match_tolerance <- 1
+                # automator_input_right_match_tolerance <- 1
                 ###########
                 
                 LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
@@ -4920,6 +4934,11 @@ server <- function(input, output, session) {
         selected_user_range_end <- workshop_reactiveValues_selected_user_range$end
         selected_user_range_strand <- workshop_reactiveValues_selected_user_range$strand
         
+        global_selected_user_range_chr <<- selected_user_range_chr
+        global_selected_user_range_start <<- selected_user_range_start
+        global_selected_user_range_end <<- selected_user_range_end
+        global_selected_user_range_strand <<- selected_user_range_strand
+        
         if (selected_user_range_strand == "*") {
             selected_user_range_strand <- c("+", "-")
         }
@@ -5047,7 +5066,10 @@ server <- function(input, output, session) {
             # flatten the original full GTF table
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
             
-            # global_list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened
+            # DEBUG ###
+            # global_list_tibbles_track_features_visible_flattened_1 <<- list_tibbles_track_features_visible_flattened
+            # global_list_tibbles_track_features_all_flattened_1 <<- list_tibbles_track_features_all_flattened
+            ###########
             
             ## having determined the plot window, calculate distances to every exon in the plot range
             list_distance_annotation_data_flattened <- purrr::pmap(
@@ -5059,12 +5081,12 @@ server <- function(input, output, session) {
                 .f = function(a1, a2, a3) {
                     
                     # DEBUG ###
-                    # a1 <- list_tibbles_track_features_visible_flattened[[1]]
-                    # a2 <- names(list_tibbles_track_features_visible_flattened)[[1]]
-                    # a3 <- list_tibbles_track_features_all_flattened[[1]]
-                    # selected_user_range_chr <- "7"
-                    # selected_user_range_start <- 7157427
-                    # selected_user_range_end <- 7234302
+                    # a1 <- global_list_tibbles_track_features_visible_flattened_1[[1]]
+                    # a2 <- names(global_list_tibbles_track_features_visible_flattened_1)[[1]]
+                    # a3 <- global_list_tibbles_track_features_all_flattened_1[[1]]
+                    # selected_user_range_chr <- global_selected_user_range_chr
+                    # selected_user_range_start <- global_selected_user_range_start
+                    # selected_user_range_end <- global_selected_user_range_end
                     ###########
                     
                     # determine visible transcript ids overlapped by user range
@@ -5097,10 +5119,10 @@ server <- function(input, output, session) {
                                 vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
                                 
                                 # strategy: grow left and right ends of the user vertices until it touches a vertex. 
-                                left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices < selected_user_range_start] %>% max
-                                right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices > selected_user_range_start] %>% min
-                                left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices < selected_user_range_end] %>% max
-                                right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices > selected_user_range_end] %>% min
+                                left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
+                                right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_start] %>% min
+                                left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_end] %>% max
+                                right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
                                 
                                 tibble_vertices_with_distances <- tibble(
                                     "transcript_id" = a1$transcript_id %>% unique,
@@ -5119,7 +5141,7 @@ server <- function(input, output, session) {
                                 
                                 return(tibble_vertices_with_distances)
                                 
-                            } ) %>% dplyr::bind_rows()
+                            } ) %>% dplyr::bind_rows() %>% unique
                         
                         # make the distances directional
                         tibble_distance_annotations_based_on_user_query <- tibble_distance_annotations_based_on_user_query %>% 
@@ -5129,6 +5151,8 @@ server <- function(input, output, session) {
                                     return(paste(abs(x), ">", sep = ""))
                                 } else if (x > 0) {
                                     return(paste("<", abs(x), sep = ""))
+                                } else {
+                                    return(x)
                                 }
                                 
                             } ) %>% unlist  )
@@ -5304,12 +5328,12 @@ server <- function(input, output, session) {
             
             # DEBUG ###
             print("plot debug")
-            # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
-            # global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
-            # global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
-            # global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
-            # global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
-            # global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+            global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
+            global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
             
             print("tibble_user_ranges_visible")
             print(tibble_user_ranges_visible)
@@ -5403,7 +5427,7 @@ server <- function(input, output, session) {
                                 
                                 list(
                                     
-                                    geom_segment(data = a3, colour = "red", arrow = arrow(angle = 45), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
+                                    geom_segment(data = a3[a3$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
                                     geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
                                     
                                 )
