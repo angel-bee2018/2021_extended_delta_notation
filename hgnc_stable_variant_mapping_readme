@@ -8,9 +8,9 @@ ENSG IDs are considered to be part of the same gene tree if:
 HGNC gene symbols are considered to belong to the same gene tree if:
   - they are linked through the same ENSG ID through different releases. 
 
-We assign a unique ID to each gene tree. For each gene tree, the *order* in which ENSG IDs are historically folded into each tree is thus invariant.
+We assign a unique ID to each gene tree. For each gene tree, the *order* in which ENSG IDs are historically joined into each tree is thus invariant.
 These "nexus" points are defined as the first release in which an ENSG ID possessed a common HGNC gene symbol in the same release. 
-We thus number the historical ENSG folding order starting from 1. This the number, when not equal to 1, will be placed between hyphen and "enst".
+We thus number the historical ENSG join order starting from 1. This the number, when not equal to 1, will be placed between hyphen and "enst".
 
 For transcript variant numbers, we subset each gene tree.
 For genes such as mitochondrial tRNA, different ENST IDs can have their own gene name, despite being from the same ENSG ID.
@@ -31,3 +31,8 @@ e.g. RUNX2-2enst1.7
 # GENE-CENTRIC (DOGMA) NAMING - HGNC STABLE PROTEIN ID
 1.  Use the *idmapping.dat file from the Uniprot FTP server to map each protein to an ENSG ID
 2.  Because this is for generation of EDN only, we then look up the gene tree for the latest HGNC gene symbol associated with the ENSG ID.
+3.  Go to Uniparc archive of ALL sequences, and order each ID in increasing order of Uniparc ID. This will always be stable.
+4.  Thus the final EDN will be:
+    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
+    - The historical ENSG join order
+    - 
