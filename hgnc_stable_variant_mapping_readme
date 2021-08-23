@@ -16,7 +16,8 @@ For transcript variant numbers, we subset each gene tree.
 For genes such as mitochondrial tRNA, different ENST IDs can have their own gene name, despite being from the same ENSG ID.
 Therefore, for each combination of ENSG + ENST ID + their versions, we find their gene name in the latest release. 
 This will be the HGNC gene symbol used. 
-After that, we create the stable variant number *FOR EACH ENSG ID SEPARATELY*. The transcript version is simply tacked on after the fact.
+After that, we create the stable variant number *FOR EACH ENSG ID SEPARATELY*. IMPORTANT. This is because now ENST IDs are ALWAYS the highest for each *ENSG ID*, but there is nothing stopping unrelated ENSG IDs from being folded into the same gene tree, which jams a bunch of ENST IDs into the middle of the existing ENST ID roster of the gene tree. I can confirm that this HAS happened before and will happen again. 
+The transcript version is simply tacked on after the fact.
 
 e.g. RUNX2-2enst1.7
 
