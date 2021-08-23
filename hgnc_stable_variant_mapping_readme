@@ -35,4 +35,8 @@ e.g. RUNX2-2enst1.7
 4.  Thus the final EDN will be:
     - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
     - The historical ENSG join order
-    - 
+    - The "u" suffix
+    - Uniparc ascending order *PER ENSG ID*
+    - no version
+    
+e.g. EEF1A1-2u1
