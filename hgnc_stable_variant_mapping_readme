@@ -19,3 +19,13 @@ This will be the HGNC gene symbol used.
 After that, we create the stable variant number *FOR EACH ENSG ID SEPARATELY*. The transcript version is simply tacked on after the fact.
 
 e.g. RUNX2-2enst1.7
+
+*Uniprot proteins*
+
+# In order to remain agnostic due to the current independence of the proteomics and transcriptomics communities, we must cater for BOTH RNA and protein-centric naming in order to achieve best results for standardisation.
+# Thus we have two methods to name a protein:
+#   1. Gene (dogma)-centric: applicable for multiomics, predicted proteome consequences of RNA splicing and when the originating RNA of a protein product is known.
+#   2. Protein-centric: for protein-centric studies such as pure protein splicing, where they currently just draw out protein schematics. 
+
+# GENE-CENTRIC (DOGMA) NAMING - HGNC STABLE PROTEIN ID
+use the *idmapping.dat file from the Uniprot FTP server to map each protein to t
