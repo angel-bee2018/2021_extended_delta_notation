@@ -40,3 +40,8 @@ e.g. RUNX2-2enst1.7
     - no version
     
 e.g. EEF1A1-2u1
+
+# PROTEIN-CENTRIC NAMING - UNIPROTKB_ID
+1. Group every entry by uniprotkb_ID.
+2. For each version of the same entry, sort by uniparc ID
+3. Done
