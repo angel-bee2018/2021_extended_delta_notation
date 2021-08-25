@@ -1,0 +1,47 @@
+Here is how the HGNC stable variant IDs are created/generated:
+
+*Ensembl transcripts*
+
+Create discrete gene trees to combat the many-to-many relationship between ENSG IDs and HGNC gene symbols. 
+ENSG IDs are considered to be part of the same gene tree if: 
+  - at some point they had the same HGNC gene symol in the same release.
+HGNC gene symbols are considered to belong to the same gene tree if:
+  - they are linked through the same ENSG ID through different releases. 
+
+We assign a unique ID to each gene tree. For each gene tree, the *order* in which ENSG IDs are historically joined into each tree is thus invariant.
+These "nexus" points are defined as the first release in which an ENSG ID possessed a common HGNC gene symbol in the same release. 
+We thus number the historical ENSG join order starting from 1. This the number, when not equal to 1, will be placed between hyphen and "enst".
+
+For transcript variant numbers, we subset each gene tree.
+For genes such as mitochondrial tRNA, different ENST IDs can have their own gene name, despite being from the same ENSG ID.
+Therefore, for each combination of ENSG + ENST ID + their versions, we find their gene name in the latest release. 
+This will be the HGNC gene symbol used. 
+After that, we create the stable variant number *FOR EACH ENSG ID SEPARATELY*. IMPORTANT. This is because now ENST IDs are ALWAYS the highest for each *ENSG ID*, but there is nothing stopping unrelated ENSG IDs from being folded into the same gene tree, which jams a bunch of ENST IDs into the middle of the existing ENST ID roster of the gene tree. I can confirm that this HAS happened before and will happen again. 
+The transcript version is simply tacked on after the fact.
+
+e.g. RUNX2-2enst1.7
+
+*Uniprot proteins*
+
+# In order to remain agnostic due to the current independence of the proteomics and transcriptomics communities, we must cater for BOTH RNA and protein-centric naming in order to achieve best results for standardisation.
+# Thus we have two methods to name a protein:
+#   1. Gene (dogma)-centric: applicable for multiomics, predicted proteome consequences of RNA splicing and when the originating RNA of a protein product is known.
+#   2. Protein-centric: for protein-centric studies such as pure protein splicing, where they currently just draw out protein schematics. 
+
+# GENE-CENTRIC (DOGMA) NAMING - HGNC STABLE PROTEIN ID
+1.  Use the *idmapping.dat file from the Uniprot FTP server to map each protein to an ENSG ID
+2.  Because this is for generation of EDN only, we then look up the gene tree for the latest HGNC gene symbol associated with the ENSG ID.
+3.  Go to Uniparc archive of ALL sequences, and order each ID in increasing order of Uniparc ID. This will always be stable.
+4.  Thus the final EDN will be:
+    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
+    - The historical ENSG join order
+    - The "u" suffix
+    - Uniparc ascending order *PER ENSG ID*
+    - no version
+    
+e.g. EEF1A1-2u1
+
+# PROTEIN-CENTRIC NAMING - UNIPROTKB_ID
+1. Group every entry by uniprotkb_ID.
+2. For each version of the same entry, sort by uniparc ID
+3. Done
