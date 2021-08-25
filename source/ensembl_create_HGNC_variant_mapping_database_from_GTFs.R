@@ -267,50 +267,105 @@ tibble_historical_ENSG_tree_and_gene_names <- tibble_all_GTFs_universal_ensg_id[
 # test2 <- test %>% dplyr::group_by(transcript_id, ensembl_release_version) %>% dplyr::summarise("tally" = n()) %>% dplyr::arrange(desc(tally))
 
 # unfortunately, *different* ENST IDs in the same gene tree can have different HGNC gene names in the same ensembl release.
-# WE CAN LITERALLY JUST PUT IT IN.
-# the HGNC_stable_variant_ID will still be completely correct for the gene tree - just different ENST IDs will have their own HGNC gene symbol.
-list_tibble_all_ENST_IDs_split_by_ENSG_ID <- tibble_all_GTFs_universal_ensg_id %>% 
+## there's no guarantee that two ENSG IDs with unrelated histories may be merged into the same gene tree sometime in the future, thus destroying the ascending ENST order
+## therefore we have to enumerate ENST IDs by ENSG IDs, *AND ADD A NUMBER BEFORE "enst" THAT INDICATES THE HISTORICAL ORDER IN WHICH THE ENSG ID HAS BEEN ADDED TO THE GENE TREE.*
+list_tibble_all_ENST_IDs_split_by_gene_tree <- tibble_all_GTFs_universal_ensg_id %>% 
   .[!is.na(.$universal_ensg_number) & !is.na(.$transcript_id), ] %>%
-  dplyr::distinct(universal_ensg_number, transcript_id, ensg_gene_name_combined, transcript_version, ensembl_release_version) %>% 
+  dplyr::distinct(gene_id, universal_ensg_number, transcript_id, ensg_gene_name_combined, transcript_version, ensembl_release_version, .keep_all = FALSE) %>% 
   dplyr::group_split(universal_ensg_number) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$universal_ensg_number %>% unique) %>% unlist)
 
-options(mc.cores = 16)
+plan(list(tweak(multiprocess, workers = 48),
+          tweak(multiprocess, workers = 1)))
+
+# fetch the table join data for each gene tree
+# list_ENSG_ID_table_join_per_gene_tree <- purrr::imap(
+#   .x = list_tibble_all_ENST_IDs_split_by_gene_tree %>% purrr::map(~.x$gene_id %>% unique),
+#   .f = function(a1) {
+#     
+#     # DEBUG ###
+#     # a1 <- list_tibble_all_ENST_IDs_split_by_gene_tree %>% purrr::map(~.x$gene_id %>% unique) %>% .[[1]]
+#     ###########
+#     
+#     tibble_joined_by_combined_name_and_ensembl_release_version[tibble_joined_by_combined_name_and_ensembl_release_version$gene_id.x %in% a1 | tibble_joined_by_combined_name_and_ensembl_release_version$gene_id.y %in% a1, ]
+#     
+#   } )
 
 # create HGNC stable variant IDs
 tibble_HGNC_stable_variant_IDs <- furrr::future_imap(
-  .x = list_tibble_all_ENST_IDs_split_by_ENSG_ID,
+  .x = list_tibble_all_ENST_IDs_split_by_gene_tree,
   .f = function(a1, a2) {
     
     # DEBUG ###
-    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID$`1`
+    # a2 <- list_tibble_all_ENST_IDs_split_by_gene_tree[[17819]]
+    # a1 <- list_tibble_all_ENST_IDs_split_by_gene_tree[[76616]]
+    # a1 <- list_tibble_all_ENST_IDs_split_by_gene_tree[[24]]
+    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID[[32]]
+    # a1 <- list_tibble_all_ENST_IDs_split_by_ENSG_ID[[1]]
     ###########
     
     cat(a2, "\n")
     
-    # sort by ENST ID
-    sorted_tibble <- a1[mixedorder(a1$transcript_id), ]
+    # generate historical order of ENSG IDs joining the gene tree.
+    ## rejoin each ENSG ID, ensembl_release_version by the ensg_gene_name_combined. 
+    ## This will help us determine the historical order in which each ENSG ID joined the gene tree.
+    tibble_gene_tree_join_order0 <- dplyr::inner_join(
+      a1[, c("gene_id", "ensembl_release_version", "ensg_gene_name_combined")],
+      a1[, c("gene_id", "ensembl_release_version", "ensg_gene_name_combined")],
+      by = c("ensg_gene_name_combined", "ensembl_release_version")
+    ) %>% .[.$`gene_id.x` != .$`gene_id.y`, ]
+    
+    # for each ENSG ID, get the earliest release version where it joined the gene tree (due to common gene symbol)
+    if (nrow(tibble_gene_tree_join_order0) > 0) {
+      tibble_gene_tree_join_order1 <- tibble_gene_tree_join_order0 %>% dplyr::group_by(ensembl_release_version) %>% dplyr::summarise("gene_id" = c(gene_id.x, gene_id.y) %>% unique) %>% dplyr::group_by(gene_id) %>% dplyr::summarise("first_release_ENSG_joined" = min(ensembl_release_version)) %>% .[mixedorder(.$gene_id), ] %>% dplyr::arrange(first_release_ENSG_joined) %>% tibble::add_column("ENSG_historical_tree_order" = 1:nrow(.))
+    } else if (nrow(tibble_gene_tree_join_order0) == 0) {
+      tibble_gene_tree_join_order1 <- a1[, c("gene_id", "ensembl_release_version", "ensg_gene_name_combined")] %>% dplyr::group_by(gene_id) %>% dplyr::summarise("first_release_ENSG_joined" = min(ensembl_release_version)) %>% tibble::add_column("ENSG_historical_tree_order" = 1:nrow(.))
+    }
+    
+    output_tibble0 <- dplyr::left_join(
+      a1, 
+      tibble_gene_tree_join_order1
+    )
     
     # add HGNC_stable_variant_ID
-    ## first group by ENST ID
+    ## first group by ENST ID + ENSG_historical_tree_order
     ## then add a column for the ensg_gene_name_combined that is found in the latest release
-    output_tibble <- sorted_tibble %>%
-      dplyr::group_by(transcript_id) %>%
-      dplyr::mutate("release_last_seen" = max(ensembl_release_version))
+    ## this makes it resistant to changes in ENST to ENSG mapping, i.e. in the event that and ENST ID gets moved to another ENSG ID.
+    output_tibble1 <- output_tibble0 %>%
+      dplyr::group_by(transcript_id, ENSG_historical_tree_order) %>%
+      dplyr::mutate("last_release_seen" = max(ensembl_release_version))
     
-    output_tibble <- dplyr::left_join(output_tibble,
-                                      output_tibble[output_tibble$ensembl_release_version == output_tibble$release_last_seen, c("transcript_id", "ensg_gene_name_combined")] %>% dplyr::rename("latest_ensg_gene_name_combined" = "ensg_gene_name_combined")
-                                      )
-    
-    output_tibble <- output_tibble[mixedorder(output_tibble$transcript_id), ]
+    output_tibble0 <- dplyr::left_join(
+      output_tibble1,
+      output_tibble1[output_tibble1$ensembl_release_version == output_tibble1$last_release_seen, c("gene_id", "transcript_id", "ensg_gene_name_combined")] %>% dplyr::rename("latest_ensg_gene_name_combined" = "ensg_gene_name_combined")
+    )
     
     # finally add in the stable variant number
-    output_tibble <- output_tibble %>% 
-      tibble::add_column("stable_variant_number" = group_indices(.)) %>%
+    output_tibble1 <- output_tibble0 %>% 
+      ungroup() %>% 
+      group_split(gene_id) %>%
+      purrr::imap(
+        .x = .,
+        .f = function(b1, b2) {
+          
+          # DEBUG ###
+          # b1 <- output_tibble1 %>% ungroup() %>% group_split(gene_id) %>% .[[1]]
+          ###########
+          
+          print(b2)
+          
+          output <- b1[mixedorder(b1$transcript_id), ]
+          
+          output %>% 
+            dplyr::group_by(transcript_id) %>% 
+            tibble::add_column("stable_variant_number" = group_indices(.)) %>% 
+            return
+          
+        } ) %>% dplyr::bind_rows() %>%
       dplyr::ungroup() %>%
-      dplyr::mutate("hgnc_stable_variant_ID" = paste(latest_ensg_gene_name_combined, "-enst", stable_variant_number, ".", transcript_version, sep = ""))
-    
-    return(output_tibble)
+      dplyr::mutate("hgnc_stable_variant_ID" = paste(latest_ensg_gene_name_combined, "-", ENSG_historical_tree_order, "enst", stable_variant_number, ".", transcript_version, sep = "") %>% gsub(pattern = "\\-1enst", replacement = "-enst"))
+      
+    return(output_tibble1)
     
   }, .progress = TRUE ) %>% rbindlist %>% as_tibble
 
@@ -327,6 +382,7 @@ if (nrow(tibble_total_mapping_table) != nrow(tibble_HGNC_stable_variant_IDs)) {
 }
 
 # ANNOTATE ALL RELEASES
+# tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs_universal_ensg_id %>% dplyr::mutate("id" = 1:nrow(.), .before = 1), tibble_total_mapping_table)
 tibble_all_annotated_releases <- dplyr::left_join(tibble_all_GTFs_universal_ensg_id, tibble_total_mapping_table)
 
 # list-ify and save
@@ -334,10 +390,68 @@ list_all_annotated_releases <- tibble_all_annotated_releases %>%
   dplyr::group_split(ensembl_release_version) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$ensembl_release_version %>% unique) %>% unlist)
 
+plan(list(tweak(multiprocess, workers = 16),
+          tweak(multiprocess, workers = 4)))
+
+# for each table in the list, if there is no "transcript" in the column type, we add it in
+list_all_annotated_releases_fixed <- furrr::future_map(
+  .x = list_all_annotated_releases,
+  .f = function(a1) {
+    
+    # DEBUG ###
+    # a1 <- list_all_annotated_releases$Homo_sapiens.GRCh38.76.gtf
+    ###########
+    
+    if ("transcript" %in% (a1$type %>% unique)) {
+      
+      return(a1)
+      
+    } else {
+      
+      # list-ify the tibble by transcript_id
+      list_a1_split_by_transcript_id <- a1 %>% 
+        dplyr::group_split(transcript_id) %>%
+        set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist)
+      
+      # create entries for all transcript_ids
+      tibble_transcript_entries <- furrr::future_map2(
+        .x = list_a1_split_by_transcript_id,
+        .y = names(list_a1_split_by_transcript_id),
+        .f = function(b1, b2) {
+          
+          # DEBUG ###
+          # b1 <- list_a1_split_by_transcript_id[[1]]
+          # b2 <- names(list_a1_split_by_transcript_id)[[1]]
+          ###########
+          
+          return(
+            
+            dplyr::bind_rows(
+              b1,
+              b1[1, ] %>% dplyr::mutate(
+                "start" = min(`start`),
+                "end" = max(`end`),
+                "width" = max(`end`) - min(`start`) + 1,
+                "type" = "transcript",
+                "exon_number" = NA,
+                "protein_id" = NA
+              )
+            )
+            
+          )
+          
+        } )
+      
+      return(tibble_transcript_entries %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble)
+      
+    }
+    
+  }, .progress = TRUE )
+
 # save ALL annotated releases
 furrr::future_map2(
-  .x = list_all_annotated_releases,
-  .y = names(list_all_annotated_releases),
+  .x = list_all_annotated_releases_fixed,
+  .y = names(list_all_annotated_releases_fixed),
   .f = ~write.table(x = .x, file = paste(output_dir, "annotated_ensembl_gtf_release_", .y, ".txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE), 
   .progress = TRUE )
 

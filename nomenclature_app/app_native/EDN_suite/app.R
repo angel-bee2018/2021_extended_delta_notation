@@ -5107,7 +5107,6 @@ server <- function(input, output, session) {
                     print("tibble_ref_transcripts_overlapped_by_user_query")
                     print(tibble_ref_transcripts_overlapped_by_user_query)
                     
-                    
                     # check if the selected transcript overlaps a ref transcript
                     if (tibble_ref_transcripts_overlapped_by_user_query %>% nrow > 0) {
                         
