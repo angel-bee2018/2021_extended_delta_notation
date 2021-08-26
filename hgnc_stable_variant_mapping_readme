@@ -43,10 +43,9 @@ e.g. EEF1A1-2u1
 1. Group every entry by uniprotkb_ID.
 2. For each version of the same entry, sort by uniparc ID
 3. Thus the final EDN will be:
-    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
-    - The historical ENSG join order
+    - gene symbol slot: uniprotkb_id    
     - The "u" suffix
-    - Uniparc ascending order *PER ENSG ID*
+    - Uniparc ascending order/uniprotkb_entry ascending order *PER UNIPROTKB_ID*
     - no version
 
 === ORGANISATION OF SCRIPTS AND CODE ===
