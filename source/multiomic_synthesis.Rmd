@@ -640,6 +640,11 @@ uniprot_dir <- "/mnt/LTS/reference_data/uniprotswissprot/"
 
 ```{r}
 
+# UNIPARC
+data.table::setDTthreads(threads = 16)
+## import mapping of uniparc to uniprotkb_entry accession
+tibble_uniparc_mapping_complete <- data.table::fread(file = paste(uniprot_dir, "uniparc_uniprotkb_entry_mapping_complete.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE) %>% as_tibble %>% setNames(c("uniparc_accession", "uniprotkb_entry"))
+
 # import ensembl HGNC stable variant name mapping
 tibble_hgnc_stable_variant_mapping <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "latest_mapping_table.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
 
@@ -655,13 +660,45 @@ tibble_ENSG_to_latest_ensg_gene_name_combined_mapping0 <- dplyr::left_join(
   tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1[tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1$ensembl_release_version == tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1$last_release_seen, c("gene_id", "ensg_gene_name_combined")] %>% dplyr::rename("latest_ensg_gene_name_combined" = "ensg_gene_name_combined")
 )
 
-tibble_ENSG_to_latest_ensg_gene_name_combined_mapping <- tibble_hgnc_stable_variant_mapping[, c("gene_id", "latest_ensg_gene_name_combined")] %>% unique
+tibble_ENSG_to_latest_ensg_gene_name_combined_mapping <- tibble_hgnc_stable_variant_mapping[, c("gene_id", "ENSG_historical_tree_order", "latest_ensg_gene_name_combined")] %>% unique
 
-# UNIPARC
-data.table::setDTthreads(threads = 66)
-## we will order UNIPROT proteins with conflicting ENSG IDs/uniprotkb_id by UNIPARC order.
-## IT'S SUPER MASSIVE
-list_uniparc_
+# uniprotkb_entry mapping using ENSG ###
+tibble_uniprotkb_entry_to_ENSG <- dplyr::bind_rows(
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE),
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE)
+) %>% as_tibble %>% setNames(c("uniprotkb_entry", "gene_id")) %>% unique
+
+# join uniparc info onto the ENSG mapping table
+tibble_uniparc_uniprotkb_entry_ENSG <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_ENSG) %>% 
+  dplyr::left_join(., tibble_ENSG_to_latest_ensg_gene_name_combined_mapping)
+
+options(mc.cores = 16)
+# group by ENSG id and assign uniprotkb_entry accessions in ascending uniparc order
+tibble_ENSG_ids_numbered_by_uniparc <- tibble_uniparc_uniprotkb_entry_ENSG %>% 
+  dplyr::group_split(gene_id, latest_ensg_gene_name_combined) %>% 
+  furrr::future_map(~.x %>% dplyr::arrange(uniprotkb_entry) %>% dplyr::arrange(uniparc_accession) %>% tibble::add_column("stable_uniprotkb_entry_number" = 1:nrow(.x))) %>% rbindlist %>% as_tibble
+
+write.table(x = tibble_ENSG_ids_numbered_by_uniparc, file = paste(results_dir, "tibble_ENSG_ids_numbered_by_uniparc.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+  
+# uniprotkb_entry mapping using uniprotkb_id ###
+tibble_uniprotkb_entry_to_uniprotkb_id <- dplyr::bind_rows(
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE),
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE)
+) %>% as_tibble %>% setNames(c("uniprotkb_entry", "uniprotkb_id")) %>% unique
+
+# join uniparc info onto the ENSG mapping table
+tibble_uniparc_uniprotkb_entry_ENSG <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_uniprotkb_id)
+
+options(mc.cores = 16)
+# group by ENSG id and assign uniprotkb_entry accessions in ascending uniparc order
+tibble_ENSG_ids_numbered_by_uniparc <- tibble_uniparc_uniprotkb_entry_ENSG %>% 
+  dplyr::group_split(gene_id, latest_ensg_gene_name_combined) %>% 
+  head %>%
+  furrr::future_map(~.x %>% dplyr::arrange(uniprotkb_entry) %>% dplyr::arrange(uniparc_accession) %>% tibble::add_column("stable_uniprotkb_entry_number" = 1:nrow(.x))) %>% rbindlist %>% as_tibble
+
+
+
+
 
 # fix interpro annotation before and including release 63
 # furrr::future_imap(
