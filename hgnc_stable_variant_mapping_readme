@@ -29,19 +29,29 @@ e.g. RUNX2-2enst1.7
 #   2. Protein-centric: for protein-centric studies such as pure protein splicing, where they currently just draw out protein schematics. 
 
 # GENE-CENTRIC (DOGMA) NAMING - HGNC STABLE PROTEIN ID
-1.  Use the *idmapping.dat file from the Uniprot FTP server to map each protein to an ENSG ID
-2.  Because this is for generation of EDN only, we then look up the gene tree for the latest HGNC gene symbol associated with the ENSG ID.
-3.  Go to Uniparc archive of ALL sequences, and order each ID in increasing order of Uniparc ID. This will always be stable.
-4.  Thus the final EDN will be:
-    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
+1.  Do the same as ENST IDs but for ENSP IDs.
+2.  Thus the final EDN will be:
+    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID + ENSP ID
     - The historical ENSG join order
-    - The "u" suffix
-    - Uniparc ascending order *PER ENSG ID*
-    - no version
+    - The "ensp" suffix
+    - ENSP ascending order *PER ENSG ID*
+    - ENSP version
     
 e.g. EEF1A1-2u1
 
 # PROTEIN-CENTRIC NAMING - UNIPROTKB_ID
 1. Group every entry by uniprotkb_ID.
 2. For each version of the same entry, sort by uniparc ID
-3. Done
+3. Thus the final EDN will be:
+    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID
+    - The historical ENSG join order
+    - The "u" suffix
+    - Uniparc ascending order *PER ENSG ID*
+    - no version
+
+=== ORGANISATION OF SCRIPTS AND CODE ===
+  - ensembl_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (Ensembl ENST) + Protein - gene-centric (Ensembl ENSP)
+  - refseq_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (RefSeq NM/XM) + Protein - gene-centric (RefSeq NP/XP)
+  - lrg_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (LRG t)
+  - generate_uniparc_uniprotkb_entry_stable_mapping: Protein - protein-centric (uniprotkb_entry accessions, just the mapping)
+  - multiomic_synthesis: both gene and protein-centric dbPTM, interpro and biomart (uniprotkb_entry accessions) 
