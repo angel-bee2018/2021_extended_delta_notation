@@ -53,5 +53,5 @@ e.g. EEF1A1-2u1
   - ensembl_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (Ensembl ENST) + Protein - gene-centric (Ensembl ENSP)
   - refseq_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (RefSeq NM/XM) + Protein - gene-centric (RefSeq NP/XP)
   - lrg_generate_HGNC_variant_mapping_database_from_GTFs.R: Transcripts (LRG t)
-  - generate_uniparc_uniprotkb_entry_stable_mapping: Protein - protein-centric (uniprotkb_entry accessions, just the mapping)
+  - generate_uniparc_uniprotkb_id_stable_mapping: Protein - protein-centric (uniprotkb_entry accessions, just the mapping)
   - multiomic_synthesis: both gene and protein-centric dbPTM, interpro and biomart (uniprotkb_entry accessions) 
