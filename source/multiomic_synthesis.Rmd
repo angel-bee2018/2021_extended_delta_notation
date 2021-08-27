@@ -640,123 +640,26 @@ uniprot_dir <- "/mnt/LTS/reference_data/uniprotswissprot/"
 
 ```{r}
 
-# UNIPARC
-data.table::setDTthreads(threads = 16)
-## import mapping of uniparc to uniprotkb_entry accession
-tibble_uniparc_mapping_complete <- data.table::fread(file = paste(uniprot_dir, "uniparc_uniprotkb_entry_mapping_complete.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE) %>% as_tibble %>% setNames(c("uniparc_accession", "uniprotkb_entry"))
+# import ensembl HGNC stable protein id mapping (gene-centric naming)
+tibble_hgnc_stable_protein_id_mapping <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "total_mapping_table_proteins.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
 
-# import ensembl HGNC stable variant name mapping
-tibble_hgnc_stable_variant_mapping <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "latest_mapping_table.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
-
-# get ENSG to latest combined gene name mappings
-tibble_ENSG_to_latest_ensg_gene_name_combined_mapping0 <- tibble_hgnc_stable_variant_mapping[, c("gene_id", "ensembl_release_version", "ensg_gene_name_combined")] %>% unique
-
-tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1 <- tibble_ENSG_to_latest_ensg_gene_name_combined_mapping0 %>%
-      dplyr::group_by(gene_id) %>%
-      dplyr::mutate("last_release_seen" = max(ensembl_release_version))
-
-tibble_ENSG_to_latest_ensg_gene_name_combined_mapping0 <- dplyr::left_join(
-  tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1,
-  tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1[tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1$ensembl_release_version == tibble_ENSG_to_latest_ensg_gene_name_combined_mapping1$last_release_seen, c("gene_id", "ensg_gene_name_combined")] %>% dplyr::rename("latest_ensg_gene_name_combined" = "ensg_gene_name_combined")
-)
-
-tibble_ENSG_to_latest_ensg_gene_name_combined_mapping <- tibble_hgnc_stable_variant_mapping[, c("gene_id", "ENSG_historical_tree_order", "latest_ensg_gene_name_combined")] %>% unique
-
-# uniprotkb_entry mapping using ENSG ###
-tibble_uniprotkb_entry_to_ENSG <- dplyr::bind_rows(
-  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE),
-  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE)
-) %>% as_tibble %>% setNames(c("uniprotkb_entry", "gene_id")) %>% unique
-
-# join uniparc info onto the ENSG mapping table
-tibble_uniparc_uniprotkb_entry_ENSG <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_ENSG) %>% 
-  dplyr::left_join(., tibble_ENSG_to_latest_ensg_gene_name_combined_mapping)
-
-options(mc.cores = 16)
-# group by ENSG id and assign uniprotkb_entry accessions in ascending uniparc order
-tibble_ENSG_ids_numbered_by_uniparc <- tibble_uniparc_uniprotkb_entry_ENSG %>% 
-  dplyr::group_split(gene_id, latest_ensg_gene_name_combined) %>% 
-  furrr::future_map(~.x %>% dplyr::arrange(uniprotkb_entry) %>% dplyr::arrange(uniparc_accession) %>% tibble::add_column("stable_uniprotkb_entry_number" = 1:nrow(.x))) %>% rbindlist %>% as_tibble
-
-write.table(x = tibble_ENSG_ids_numbered_by_uniparc, file = paste(results_dir, "tibble_ENSG_ids_numbered_by_uniparc.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
-  
-# uniprotkb_entry mapping using uniprotkb_id ###
-tibble_uniprotkb_entry_to_uniprotkb_id <- dplyr::bind_rows(
-  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE),
-  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE)
-) %>% as_tibble %>% setNames(c("uniprotkb_entry", "uniprotkb_id")) %>% unique
-
-# join uniparc info onto the ENSG mapping table
-tibble_uniparc_uniprotkb_entry_ENSG <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_uniprotkb_id)
-
-options(mc.cores = 16)
-# group by ENSG id and assign uniprotkb_entry accessions in ascending uniparc order
-tibble_ENSG_ids_numbered_by_uniparc <- tibble_uniparc_uniprotkb_entry_ENSG %>% 
-  dplyr::group_split(gene_id, latest_ensg_gene_name_combined) %>% 
-  head %>%
-  furrr::future_map(~.x %>% dplyr::arrange(uniprotkb_entry) %>% dplyr::arrange(uniparc_accession) %>% tibble::add_column("stable_uniprotkb_entry_number" = 1:nrow(.x))) %>% rbindlist %>% as_tibble
-
-
-
-
-
-# fix interpro annotation before and including release 63
-# furrr::future_imap(
-#   .x = dir(path = interpro_archive_dir, pattern = "\\d+\\.\\d+", full.names = TRUE) %>% .[1:21],
-#   .f = function(a1, a2) {
-#     
-#     # DEBUG ###
-#     # a1 <- dir(path = interpro_archive_dir, pattern = "\\d+\\.\\d+", full.names = TRUE) %>% .[1:21] %>% .[[1]]
-#     ###########
-#     
-#     print(a2)
-#     
-#     vector_input <- read.delim(file = paste(a1, "/entry.list", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
-#     
-#     # detect the lines where there is no "IPR". these are the heading rows.
-#     vector_indices_headers <- which(!grepl(x = vector_input$V1, pattern = "^IPR\\d+"))
-#     # accordingly, get the segment starts and ends and make tibble
-#     vector_indices_segment_starts <- vector_indices_headers + 1
-#     vector_indices_segment_ends <- c(vector_indices_headers[2:length(vector_indices_headers)] - 1, vector_input$V1 %>% length)
-#     
-#     tibble_output <- purrr::pmap(
-#       .l = list(
-#         "b1" = vector_indices_headers,
-#         "b2" = vector_indices_segment_starts,
-#         "b3" = vector_indices_segment_ends
-#       ),
-#       .f = function(b1, b2, b3) {
-#         
-#         # DEBUG ###
-#         # b1 <- vector_indices_headers[1]
-#         # b2 <- vector_indices_segment_starts[1]
-#         # b3 <- vector_indices_segment_ends[1]
-#         ###########
-#         
-#         tibble(
-#           "ENTRY_AC" = vector_input$V1 %>% .[b2:b3] %>% gsub(pattern = "^([^ ]+) +(.*)", replacement = "\\1"),
-#           "ENTRY_TYPE" = vector_input$V1 %>% .[b1],
-#           "ENTRY_NAME" = vector_input$V1 %>% .[b2:b3] %>% gsub(pattern = "^([^ ]+) +(.*)", replacement = "\\2")
-#         )
-#         
-#       } ) %>% dplyr::bind_rows()
-#     
-#     write.table(tibble_output, file = paste(a1, "/entry.fixed.list", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
-#     
-#   }, .progress = TRUE)
+# import human uniprotkb_id to uniprot (uniparc) stable protein id mapping (protein-centric naming)
+tibble_uniprot_stable_protein_id_mapping <- data.table::fread(file = paste(uniprot_dir, "uniprot_stable_protein_id_uniprotkb_entry_uniparc_mapping_human.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
 
 # retrieve ALL ensembl GTFs in order to get a map for protein IDs.
-options(mc.cores = 24)
+# options(mc.cores = 24)
+# 
+# list_all_tibble_ref_gtf <- furrr::future_map(
+#   .x = list.files(path = ensembl_GTF_dump_dir, pattern = "annotated_ensembl_gtf_release", full.names = TRUE),
+#   .f = ~read.delim(file = .x, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
+# ) %>% set_names(nm = list.files(path = ensembl_GTF_dump_dir, pattern = "annotated_ensembl_gtf_release", full.names = FALSE))
+# 
+# tibble_all_ref_gtfs <- list_all_tibble_ref_gtf %>% rbindlist(use.names = TRUE, fill = FALSE) %>% as_tibble
 
-list_all_tibble_ref_gtf <- furrr::future_map(
-  .x = list.files(path = ensembl_GTF_dump_dir, pattern = "annotated_ensembl_gtf_release", full.names = TRUE),
-  .f = ~read.delim(file = .x, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
-) %>% set_names(nm = list.files(path = ensembl_GTF_dump_dir, pattern = "annotated_ensembl_gtf_release", full.names = FALSE))
+# 38.98 only for now
+# tibble_ref_gtf <- list_all_tibble_ref_gtf$annotated_ensembl_gtf_release_98.txt
 
-tibble_all_ref_gtfs <- list_all_tibble_ref_gtf %>% rbindlist(use.names = TRUE, fill = FALSE) %>% as_tibble
-
-# 38.98 only
-tibble_ref_gtf <- list_all_tibble_ref_gtf$annotated_ensembl_gtf_release_98.txt
+tibble_ref_gtf <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "annotated_ensembl_gtf_release_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
 
 options(mc.cores = 8)
 #### get all the genome-relative positions of CDS nucleotides for every ENSP id
@@ -767,39 +670,18 @@ tibble_ENSP_to_genome_relative_CDS_positions <- tibble_ref_gtf %>%
   future_map(.f = ~as_tibble(.x) %>% nest(data = "vec_all_parent_ENSP_CDS_positions_sorted") %>% dplyr::rename("vec_all_parent_ENSP_CDS_positions_sorted" = "data"), .progress = TRUE) %>%
   rbindlist %>% as_tibble
 
-# get ENSG to uniprotkb_entry mapping
-## fetch uniprotkb_entry to ENSG mapping
-tibble_ENSG_to_uniprotkb_entry <- dplyr::bind_rows(
-  read.delim(file = paste(uniprot_dir, "idmapping.dat_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE),
-  read.delim(file = paste(uniprot_dir, "idmapping.dat.2015_03_ENSG", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
+# retrieve uniprotkb_entry to ENSP mapping
+tibble_uniprotkb_entry_to_ENSP_mapping <- dplyr::bind_rows(
+  read.delim(file = paste(uniprot_dir, "idmapping.dat_ENSP", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE),
+  read.delim(file = paste(uniprot_dir, "idmapping.dat.2015_03_ENSP", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
 ) %>% as_tibble %>% 
-  setNames(c("uniprotkb_entry", "gene_id")) %>% unique
-## add the latest ensg_gene_name_combined
-## NOTE: this will yield more than one possible gene name for some uniprotkb_entries. we will have to pick the lowest one later on.
-tibble_ENSG_to_uniprotkb_entry <- dplyr::left_join(tibble_ENSG_to_uniprotkb_entry, tibble_ENSG_to_latest_ensg_gene_name_combined_mapping)
-
-# also import uniprotkb ID (NOT entry!) mappings
-tibble_ENSP_to_uniprotkb_id <- read.delim(file = paste(uniprot_dir, "HUMAN_9606_idmapping.uniprotkbid.dat", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE) %>% as_tibble %>% 
-  setNames(c("uniprotkb_entry", "uniprotkb_id")) 
-
-# map to uniprot to get uniprot variant number, and get the gene name from the hgnc stable variant ID.
-tibble_HGNC_ENSP_uniprotkb_entry_id0 <- dplyr::left_join(
-  tibble_ENSP_to_uniprotkb_entry %>% dplyr::rename("protein_id" = "ensembl_peptide_id"),
-  tibble_all_ref_gtfs[, c("protein_id", "protein_version", "ENSG_historical_tree_order", "latest_ensg_gene_name_combined")] %>% .[!is.na(.$protein_id) & !is.na(.$latest_ensg_gene_name_combined), ] %>% unique
-) 
-
-tibble_HGNC_ENSP_uniprotkb_entry_id <- dplyr::left_join(
-  tibble_HGNC_ENSP_uniprotkb_entry_id0,
-  tibble_ENSP_to_uniprotkb_id
-)
-
-# create hgnc_stable_variant_ID (uniprot-based)
-tibble_HGNC_ENSP_uniprotkb_entry_id <- tibble_HGNC_ENSP_uniprotkb_entry_id %>% 
+  setNames(c("uniprotkb_entry", "protein_id")) %>% unique %>% 
   dplyr::mutate(
-    "hgnc_stable_variant_ID" = paste(latest_ensg_gene_name_combined, "-u", uniprot_isoform_number, sep = ""),
-    "uniprot_stable_variant_ID" = paste(uniprotkb_id, "-u", uniprot_isoform_number, sep = ""))
+    "uniprot_isoform_number" = gsub(x = .$uniprotkb_entry, pattern = "^([^\\-]+)(\\-(.*))*", replacement = "\\2") %>% gsub(pattern = "\\-", replacement = "") %>% type.convert,
+    "uniprotkb_entry" = gsub(x = .$uniprotkb_entry, pattern = "^([^\\-]+)(\\-(.*))*", replacement = "\\1")
+  )
 
-write.table(x = tibble_HGNC_ENSP_uniprotkb_entry_id, file = paste(results_dir, "tibble_HGNC_ENSP_uniprotkb_entry_id.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+tibble_uniprotkb_entry_to_ENSP_mapping[is.na(tibble_uniprotkb_entry_to_ENSP_mapping$uniprot_isoform_number), "uniprot_isoform_number"] <- 1
 
 ```
 
@@ -852,7 +734,7 @@ write.table(x = tibble_HGNC_ENSP_uniprotkb_entry_id, file = paste(results_dir, "
 #     
 #   }, .progress = TRUE)
 
-options(mc.cores = 8)
+options(mc.cores = 4)
 
 list_all_tibble_interpro_entries <- furrr::future_imap(
   .x = dir(path = interpro_archive_dir, pattern = "\\d+\\.\\d+", full.names = TRUE),
@@ -976,7 +858,7 @@ list_biomart_features <- furrr::future_map(
   .f = ~getBM(attributes = .x, mart = ensembl_mart) %>% as_tibble,
   .progress = TRUE)
 
-list_biomart_features <- list_biomart_features %>% purrr::map(~.x %>% dplyr::mutate("ensembl_transcript_version" = gsub(x = `ensembl_transcript_id_version`, pattern = ".*\\.(.*)$", replacement = "\\1"), "ensembl_peptide_version" = gsub(x = `ensembl_peptide_id_version`, pattern = ".*\\.(.*)$", replacement = "\\1")) %>% dplyr::select(-ensembl_transcript_id_version, -ensembl_peptide_id_version) %>% na.omit)
+list_biomart_features <- list_biomart_features %>% purrr::map(~.x %>% dplyr::rename("protein_id" = "ensembl_peptide_id") %>% dplyr::mutate("protein_version" = gsub(x = `ensembl_peptide_id_version`, pattern = ".*\\.(.*)$", replacement = "\\1") %>% type.convert) %>% dplyr::select(-ensembl_peptide_id_version) %>% na.omit)
 
 # rename columns of each nested tibble to be consistent
 list_biomart_features <- list_biomart_features %>% purrr::map(.f = function(.x) {
@@ -996,15 +878,16 @@ list_biomart_features$interpro <- dplyr::left_join(
   tibble_interpro_entry_mapping %>% dplyr::rename("interpro" = "ENTRY_AC"))
 
 plan(list(tweak(multiprocess, workers = 6),
-          tweak(multiprocess, workers = 16))
+          tweak(multiprocess, workers = 8))
 )
 
+# add genome-relative coords
 list_of_tibbles_biomart_regions_cast_onto_genome <- furrr::future_imap(
   .x = list_biomart_features, 
   .f = function(a1, a2) {
     
     # DEBUG ###
-    # a1 <- list_biomart_features$interpro
+    # a1 <- list_biomart_features$ncoils %>% .[13769, ]
     ###########
     
     cat("\nnow processing: ", a2, "\n")
@@ -1012,7 +895,6 @@ list_of_tibbles_biomart_regions_cast_onto_genome <- furrr::future_imap(
     tibble_sorted_CDS_relative_positions <- a1 %>% 
       add_column("CDS_relative_coords_start" = ((3*.$start) - 2), "CDS_relative_coords_end" = (3*.$end)) %>% 
       dplyr::mutate("vec_all_CDS_relative_positions" = purrr::map2(.x = `CDS_relative_coords_start`, .y = `CDS_relative_coords_end`, .f = ~.x:.y)) %>%
-      dplyr::rename("protein_id" = "ensembl_peptide_id") %>%
       dplyr::left_join(., tibble_ENSP_to_genome_relative_CDS_positions) %>%
       # some ENSP ids from interpro are not in ensembl.
       dplyr::filter(is.na(seqnames) != TRUE) 
@@ -1020,31 +902,152 @@ list_of_tibbles_biomart_regions_cast_onto_genome <- furrr::future_imap(
     # the parent ENSP CDS positions are sorted already. we just retrieve the genome-relative positions using the CDS-relative positions. 
     # these are the regions casted onto the genome.
     vec_all_genome_relative_coords_of_item <- future_map2(
-        .x = tibble_sorted_CDS_relative_positions$`vec_all_CDS_relative_positions`, 
-        .y = tibble_sorted_CDS_relative_positions$`vec_all_parent_ENSP_CDS_positions_sorted`, 
-        .f = function(b1, b2) {
-            
-            # DEBUG ###
-            # b1 <- tibble_sorted_CDS_relative_positions$`vec_all_CDS_relative_positions` %>% .[[1]]
-            # b2 <- tibble_sorted_CDS_relative_positions$`vec_all_parent_ENSP_CDS_positions_sorted` %>% .[[1]]
-            ###########
-            
-            vec_parent_ENSP_CDS_positions <- b2 %>% unlist
-            
-            vec_parent_ENSP_CDS_positions[b1] %>% return
-            
-        }, .progress = TRUE)
+      .x = tibble_sorted_CDS_relative_positions$`vec_all_CDS_relative_positions`, 
+      .y = tibble_sorted_CDS_relative_positions$`vec_all_parent_ENSP_CDS_positions_sorted`, 
+      .f = function(b1, b2) {
+        
+        # DEBUG ###
+        # b1 <- tibble_sorted_CDS_relative_positions$`vec_all_CDS_relative_positions` %>% .[[1]]
+        # b2 <- tibble_sorted_CDS_relative_positions$`vec_all_parent_ENSP_CDS_positions_sorted` %>% .[[1]]
+        ###########
+        
+        vec_parent_ENSP_CDS_positions <- b2 %>% unlist
+        
+        vec_parent_ENSP_CDS_positions[b1] %>% na.omit %>% return
+        
+      }, .progress = TRUE)
     
     nucleotide_width <- purrr::map(.x = vec_all_genome_relative_coords_of_item, .f = ~length(.x)) %>% unlist
     
     # add the genome-relative coords and nucleotide width in
     final_tibble_with_genome_relative_coords <- tibble_sorted_CDS_relative_positions %>% 
-        add_column("vec_all_genome_relative_coords_of_item" = vec_all_genome_relative_coords_of_item,
-                   "nucleotide_width" = nucleotide_width)
+      tibble::add_column("vec_all_genome_relative_coords_of_item" = vec_all_genome_relative_coords_of_item,
+                         "nucleotide_width" = nucleotide_width) %>% 
+      dplyr::select(-vec_all_CDS_relative_positions, -vec_all_parent_ENSP_CDS_positions_sorted)
     
     return(final_tibble_with_genome_relative_coords)
     
-}, .progress = TRUE ) 
+  }, .progress = TRUE ) 
+
+# add in the column type, then rbind and tibblise
+tibble_biomart_regions_cast_onto_genome <- purrr::map2(
+  .x = list_of_tibbles_biomart_regions_cast_onto_genome,
+  .y = names(list_of_tibbles_biomart_regions_cast_onto_genome),
+  .f = ~.x %>% tibble::add_column("region_type" = .y)
+) %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
+
+# create GTF 
+## sample an exon row from the GTF
+# tibble_gtf_row_sample <- tibble_ref_gtf[tibble_ref_gtf$type == "exon", ] %>% .[1, ]
+
+list_biomart_regions_cast_onto_genome_split <- tibble_biomart_regions_cast_onto_genome %>% dplyr::group_split(seqnames, region_type, ENTRY_TYPE)
+
+plan(list(tweak(multiprocess, workers = 30),
+          tweak(multiprocess, workers = 4))
+)
+
+## subset by protein (+ version) in order to create a "transcript" of all its PTMs.
+suppressWarnings( suppressMessages( 
+  
+  list_biomart_regions_gtf <- furrr::future_imap(
+    .x = list_biomart_regions_cast_onto_genome_split,
+    .f = function(a1, a2) {
+      
+      # DEBUG ###
+      # a1 <- list_biomart_regions_cast_onto_genome_split[[1]]
+      ###########
+      
+      # cat(a2, "L1 \n")
+      
+      L1_split_list <- a1 %>% dplyr::rowwise() %>% dplyr::group_split()
+      
+      list_biomart_regions_gtf <- furrr::future_imap(
+        .x = L1_split_list,
+        .f = function(b1, b2) {
+          
+          # DEBUG ###
+          # b1 <- tibble_biomart_regions_cast_onto_genome %>% dplyr::rowwise() %>% dplyr::group_split() %>% .[[1]]
+          
+          # b1 <- list_biomart_regions_cast_onto_genome_split[[10]][411, ]
+          ###########
+          
+          # cat(b2, "L2 \n")
+          
+          vector_genome_relative_feature_positions <- b1$vec_all_genome_relative_coords_of_item %>% unlist %>% sort
+          
+          # convert the individual nt positions to a set of ranges
+          ## achieve this by comparing n to n + 1
+          ## for rows where diff > 1, the n represents the end of an exon. n.plus.1 represents the start of the exon right after the gap.
+          if (length(vector_genome_relative_feature_positions) == 1) {
+            
+            vec_starts <- vector_genome_relative_feature_positions
+            vec_ends <- vector_genome_relative_feature_positions
+            vec_widths <- 1
+            
+          } else {
+            
+            tibble_n_n.plus.1 <- tibble("n" = vector_genome_relative_feature_positions %>% head(n = length(vector_genome_relative_feature_positions) - 1),
+                                        "n.plus.1" = vector_genome_relative_feature_positions %>% .[2:length(vector_genome_relative_feature_positions)]) %>% 
+              add_column("difference" = .$n.plus.1 - .$n)
+            
+            ## if there are no gaps, then just take the genomic range as the start:end
+            if (tibble_n_n.plus.1$difference %>% unique %>% length == 1) {
+              
+              vec_starts <- min(vector_genome_relative_feature_positions)
+              vec_ends <- max(vector_genome_relative_feature_positions)
+              vec_widths <- vec_ends - vec_starts + 1
+              
+            } else if (tibble_n_n.plus.1$difference %>% unique %>% length > 1) {
+              
+              # vec_blockCount <- tibble_n_n.plus.1$difference %>% unique %>% length
+              vec_starts <- c(first(vector_genome_relative_feature_positions), 
+                              tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n.plus.1"] %>% unlist(use.names = FALSE))
+              vec_ends <- c(tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n"] %>% unlist(use.names = FALSE), 
+                            last(vector_genome_relative_feature_positions))
+              vec_widths <- vec_ends - vec_starts + 1
+              
+            }
+            
+          }
+          
+          tibble_gtf_entries <- b1 %>%
+            dplyr::select(-vec_all_genome_relative_coords_of_item, -nucleotide_width, -start, -end) %>%
+            dplyr::bind_cols(
+              .,
+              tibble(
+                "start" = vec_starts,
+                "end" = vec_ends,
+                "width" = vec_widths,
+                "type" = "exon") )
+          
+          # add exon number
+          if (b1$strand == "+") {
+            tibble_gtf_entries <- tibble_gtf_entries %>% dplyr::arrange(start) %>% tibble::add_column("exon_number" = 1:nrow(.))
+          } else if (b1$strand == "-") {
+            tibble_gtf_entries <- tibble_gtf_entries %>% dplyr::arrange(desc(start)) %>% tibble::add_column("exon_number" = 1:nrow(.))
+          }
+          
+          return(tibble_gtf_entries)
+          
+        } )
+      
+      return(list_biomart_regions_gtf)
+      
+    }, .progress = TRUE )
+  
+) )
+
+tibble_biomart_regions_gtf0 <- list_biomart_regions_gtf %>% flatten %>% rbindlist %>% as_tibble
+
+tibble_biomart_regions_gtf <- dplyr::left_join(
+  tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == 98, ],
+  tibble_biomart_regions_gtf0
+) %>% 
+  dplyr::left_join(., tibble_uniprotkb_entry_to_ENSP_mapping[grep(x = tibble_uniprotkb_entry_to_ENSP_mapping$protein_id, pattern = "ENSP\\d+"), ]) %>%
+  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
+  dplyr::select(-first_release_ENSG_joined, -ENSG_historical_tree_order, -last_release_seen_gene_protein_id, -latest_ensg_gene_name_combined, -stable_protein_number, -release_last_seen_protein_id, -CDS_relative_coords_start, -CDS_relative_coords_end, -uniprotkb_id, -uniprot_stable_protein_number)
+
+data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
 
@@ -1054,8 +1057,10 @@ list_of_tibbles_biomart_regions_cast_onto_genome <- furrr::future_imap(
 ```{r}
 
 # convert uniprotkb_entry into ENSP
-tibble_dbPTM_allhuman_annotations_with_ENSP <- dplyr::left_join(tibble_dbPTM_with_modified_residue, tibble_HGNC_ENSP_uniprotkb_entry_id, by = "uniprotkb_entry") %>% 
-  dplyr::filter(is.na(protein_id) != TRUE) %>% type_convert
+tibble_dbPTM_allhuman_annotations_with_ENSP <- dplyr::left_join(tibble_dbPTM_with_modified_residue, tibble_uniprotkb_entry_to_ENSP_mapping) %>% 
+  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$last_release_seen_gene_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
+  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
+  dplyr::filter(is.na(protein_id) != TRUE | is.na(uniprotkb_id) != TRUE) %>% type_convert
 
 # shorten the PTM type names
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Acetylation", "PTM_type"] <- "ac"
@@ -1084,13 +1089,13 @@ tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_wi
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Pyrrolidone carboxylic acid", "PTM_type"] <- "pca"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Pyruvate", "PTM_type"] <- "pyr"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == c("S-linked Glycosylation"), "PTM_type"] <- "s-gly"
-tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type %in% c("S-nitrosylation", "S-Nitrosylation"), "PTM_type"] <- "s-nitr"
+tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type %in% c("S-nitrosylation", "S-Nitrosylation"), "PTM_type"] <- "s-no"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Succinylation", "PTM_type"] <- "succ"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Sulfation", "PTM_type"] <- "sulf"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Sumoylation", "PTM_type"] <- "sumo"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Ubiquitination", "PTM_type"] <- "ub"
 
-plan(list(tweak(multiprocess, workers = 4),
+plan(list(tweak(multiprocess, workers = 6),
           tweak(multiprocess, workers = 1)))
 # cast onto genome.
 tibble_dbPTM_allhuman_annotations_cast_onto_genome <- tibble_dbPTM_allhuman_annotations_with_ENSP %>% 
@@ -1101,69 +1106,128 @@ tibble_dbPTM_allhuman_annotations_cast_onto_genome <- tibble_dbPTM_allhuman_anno
   dplyr::filter(is.na(seqnames) != TRUE) %>%
   # the parent ENSP CDS positions are sorted already. we just retrieve the genome-relative positions using the CDS-relative positions. 
   # these are the regions casted onto the genome.
-  dplyr::mutate("vec_all_genome_relative_coords_of_item" = furrr::future_map2(.x = .$vec_all_CDS_relative_positions, .y = .$vec_all_parent_ENSP_CDS_positions_sorted, .f = ~.y %>% unlist %>% .[.x], .progress = TRUE)) %>%
+  dplyr::mutate("vec_all_genome_relative_coords_of_item" = furrr::future_map2(.x = .$vec_all_CDS_relative_positions, .y = .$vec_all_parent_ENSP_CDS_positions_sorted, .f = ~.y %>% unlist %>% .[.x] %>% na.omit, .progress = TRUE)) %>%
   dplyr::mutate("nucleotide_width" = purrr::map(.x = .$vec_all_genome_relative_coords_of_item, .f = ~length(.x)) %>% unlist)
 
 # drop the columns of all ENSP positions. we dont need them anymore.
-tibble_dbPTM_allhuman_annotations_cast_onto_genome_subset <- tibble_dbPTM_allhuman_annotations_cast_onto_genome %>% dplyr::select(transcript_id, transcript_version, uniprotkb_entry, PTM_type, modified_residue_position, modified_residue, protein_id, protein_version, seqnames, strand, vec_all_genome_relative_coords_of_item, nucleotide_width)
+tibble_dbPTM_allhuman_annotations_cast_onto_genome_subset <- tibble_dbPTM_allhuman_annotations_cast_onto_genome %>% dplyr::select(-CDS_relative_coords_start, -CDS_relative_coords_end, -vec_all_CDS_relative_positions, -vec_all_parent_ENSP_CDS_positions_sorted)
 
 # create GTF 
 ## sample an exon row from the GTF
 # tibble_gtf_row_sample <- tibble_ref_gtf[tibble_ref_gtf$type == "exon", ] %>% .[1, ]
+list_dbPTM_allhuman_annotations_cast_onto_genome_split <- tibble_dbPTM_allhuman_annotations_cast_onto_genome_subset[tibble_dbPTM_allhuman_annotations_cast_onto_genome_subset$nucleotide_width > 0, ] %>% dplyr::group_split(seqnames, modified_residue, PTM_type) 
+
+# %>% purrr::map(~.x[!is.na(.x$PTM_type), ])
+
+plan(list(tweak(multiprocess, workers = 48),
+          tweak(multiprocess, workers = 3))
+)
 
 ## subset by protein (+ version) in order to create a "transcript" of all its PTMs.
-list_dbPTM_GTF_subset_by_transcript_id <- tibble_dbPTM_allhuman_annotations_cast_onto_genome_subset %>% 
-  dplyr::rowwise() %>%
-  dplyr::group_split()
+suppressWarnings( suppressMessages( 
+  
+  list_dbPTM_regions_gtf <- furrr::future_imap(
+    .x = list_dbPTM_allhuman_annotations_cast_onto_genome_split,
+    .f = function(a1, a2) {
+      
+      # DEBUG ###
+      # a1 <- list_dbPTM_allhuman_annotations_cast_onto_genome_split[[3]]
+      # plan(list(tweak(multiprocess, workers = 3),
+      #           tweak(multiprocess, workers = 1))
+      # )
+      ###########
+      
+      # cat(a2, "L1 \n")
+      
+      L1_split_list <- a1 %>% dplyr::rowwise() %>% dplyr::group_split()
+      
+      list_dbPTM_regions_gtf <- furrr::future_imap(
+        .x = L1_split_list,
+        .f = function(b1, b2) {
+          
+          # DEBUG ###
+          # b1 <- L1_split_list[[112]]
+          
+          # b1 <- list_dbPTM_allhuman_annotations_cast_onto_genome_split[[2]][112, ]
+          ###########
+          
+          # cat(b2, "L2 \n")
+          
+          vector_genome_relative_feature_positions <- b1$vec_all_genome_relative_coords_of_item %>% unlist %>% sort
+          
+          # convert the individual nt positions to a set of ranges
+          ## achieve this by comparing n to n + 1
+          ## for rows where diff > 1, the n represents the end of an exon. n.plus.1 represents the start of the exon right after the gap.
+          if (length(vector_genome_relative_feature_positions) == 1) {
+            
+            vec_starts <- vector_genome_relative_feature_positions
+            vec_ends <- vector_genome_relative_feature_positions
+            vec_widths <- 1
+            
+          } else {
+            
+            tibble_n_n.plus.1 <- tibble("n" = vector_genome_relative_feature_positions %>% head(n = length(vector_genome_relative_feature_positions) - 1),
+                                        "n.plus.1" = vector_genome_relative_feature_positions %>% .[2:length(vector_genome_relative_feature_positions)]) %>% 
+              add_column("difference" = .$n.plus.1 - .$n)
+            
+            ## if there are no gaps, then just take the genomic range as the start:end
+            if (tibble_n_n.plus.1$difference %>% unique %>% length == 1) {
+              
+              vec_starts <- min(vector_genome_relative_feature_positions)
+              vec_ends <- max(vector_genome_relative_feature_positions)
+              vec_widths <- vec_ends - vec_starts + 1
+              
+            } else if (tibble_n_n.plus.1$difference %>% unique %>% length > 1) {
+              
+              # vec_blockCount <- tibble_n_n.plus.1$difference %>% unique %>% length
+              vec_starts <- c(first(vector_genome_relative_feature_positions), 
+                              tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n.plus.1"] %>% unlist(use.names = FALSE))
+              vec_ends <- c(tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n"] %>% unlist(use.names = FALSE), 
+                            last(vector_genome_relative_feature_positions))
+              vec_widths <- vec_ends - vec_starts + 1
+              
+            }
+            
+          }
+          
+          tibble_gtf_entries <- b1 %>%
+            dplyr::select(-vec_all_genome_relative_coords_of_item) %>%
+            dplyr::bind_cols(
+              .,
+              tibble(
+                "start" = vec_starts,
+                "end" = vec_ends,
+                "width" = vec_widths,
+                "type" = "exon") )
+          
+          # add exon number
+          if (b1$strand == "+") {
+            tibble_gtf_entries <- tibble_gtf_entries %>% dplyr::arrange(start) %>% tibble::add_column("exon_number" = 1:nrow(.))
+          } else if (b1$strand == "-") {
+            tibble_gtf_entries <- tibble_gtf_entries %>% dplyr::arrange(desc(start)) %>% tibble::add_column("exon_number" = 1:nrow(.))
+          }
+          
+          return(tibble_gtf_entries)
+          
+        } )
+      
+      return(list_dbPTM_regions_gtf)
+      
+    }, .progress = TRUE )
+  
+) )
 
-list_dbPTM_GTF_subset_by_transcript_id <- purrr::map(
-  .x = list_dbPTM_GTF_subset_by_transcript_id,
-  .f = function(a1) {
-    
-    # DEBUG ###
-    a1 <- list_dbPTM_GTF_subset_by_transcript_id[[1]]
-    ###########
-    
-    vector_genome_relative_feature_positions <- a1$vec_all_genome_relative_coords_of_item %>% unlist %>% sort
-    
-    # convert the individual nt positions to a set of ranges
-    ## achieve this by comparing n to n + 1
-    ## for rows where diff > 1, the n represents the end of an exon. n.plus.1 represents the start of the exon right after the gap.
-    tibble_n_n.plus.1 <- tibble("n" = vector_genome_relative_feature_positions %>% head(n = length(vector_genome_relative_feature_positions) - 1),
-                                "n.plus.1" = vector_genome_relative_feature_positions %>% .[2:length(vector_genome_relative_feature_positions)]) %>% 
-      add_column("difference" = .$n.plus.1 - .$n)
-    
-    ## if there are no gaps, then just take the genomic range as the start:end
-    if (tibble_n_n.plus.1$difference %>% unique %>% length == 1) {
-      
-      vec_starts <- min(vector_genome_relative_feature_positions)
-      vec_ends <- max(vector_genome_relative_feature_positions)
-      vec_widths <- vec_end - vec_start + 1
-      
-    } else if (tibble_n_n.plus.1$difference %>% unique %>% length > 1) {
-      
-      # vec_blockCount <- tibble_n_n.plus.1$difference %>% unique %>% length
-      vec_starts <- c(first(vector_genome_relative_feature_positions), 
-                           tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n.plus.1"] %>% unlist(use.names = FALSE))
-      vec_ends <- c(tibble_n_n.plus.1[tibble_n_n.plus.1$difference > 1, "n"] %>% unlist(use.names = FALSE), 
-                         last(vector_genome_relative_feature_positions))
-      vec_widths <- vec_ends - vec_starts + 1
-      
-    }
-    
-    tibble_gtf_entries <- a1 %>%
-      dplyr::select(-vec_all_genome_relative_coords_of_item, -nucleotide_width) %>%
-      dplyr::bind_cols(
-        .,
-        tibble(
-        "start" = vec_starts,
-        "end" = vec_ends,
-        "width" = vec_widths,
-        "type" = "exon") )
-    
-  } )
+tibble_dbPTM_regions_gtf0 <- list_dbPTM_regions_gtf %>% flatten %>% rbindlist %>% as_tibble
 
+tibble_dbPTM_regions_gtf <- dplyr::left_join(
+  tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == 98, ],
+  tibble_dbPTM_regions_gtf0
+) %>% 
+  dplyr::left_join(., tibble_uniprotkb_entry_to_ENSP_mapping[grep(x = tibble_uniprotkb_entry_to_ENSP_mapping$protein_id, pattern = "ENSP\\d+"), ]) %>%
+  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
+  dplyr::select(-first_release_ENSG_joined, -ENSG_historical_tree_order, -last_release_seen_gene_protein_id, -latest_ensg_gene_name_combined, -stable_protein_number, -release_last_seen_protein_id, -uniprotkb_id, -uniprot_stable_protein_number)
 
+data.table::fwrite(x = tibble_dbPTM_regions_gtf, file = paste(results_dir, "dbPTM_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
 

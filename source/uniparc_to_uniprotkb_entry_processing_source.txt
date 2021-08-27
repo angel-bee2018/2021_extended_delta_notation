@@ -1,0 +1,84 @@
+# using the whole uniparc .xml file is probably more complete... unless if the idmapping.dat file has all retired IDs.
+cd /mnt/LTS/reference_data/uniprotswissprot
+
+# uniparc - extract human only
+LC_ALL=C grep -E "\<accession\>|uniprot" --ignore-case uniparc_all.xml | LC_ALL=C grep -E "\<accession\>|\<dbReference" > uniparc_all.xml_hsa_idtracking
+
+# aggregate the accession with dbrefs then pull them out - must simpler potentially.
+cat uniparc_all.xml_hsa_idtracking | awk 'RS="\>\n    <dbReference",ORS="&&&" {print $0}' | LC_ALL=C grep "\&\&\&" > uniparc_all.xml_hsa_idtracking_temp0
+
+mkdir split
+
+split -l 1000000 -d uniparc_all.xml_hsa_idtracking_temp0 split/uniparc_all.xml_hsa_idtracking_temp0
+
+# R - at the end of this, we generate a table with two columns - uniparc ID to uniprokb_entry mapping
+/usr/local/R_4.0.3/bin/R
+
+library(tidyverse)
+library(data.table)
+library(furrr)
+options(future.globals.maxSize = 30000000000, future.fork.enable = TRUE)
+plan(multiprocess)
+
+split_dir <- "/mnt/LTS/reference_data/uniprotswissprot/split/"
+
+tibble_output_dir <- "/mnt/LTS/reference_data/uniprotswissprot/split_tibbles/"
+dir.create(tibble_output_dir)
+
+options(mc.cores = 66)
+furrr::future_map2(
+.x = list.files(path = split_dir, full.names = TRUE),
+.y = list.files(path = split_dir, full.names = FALSE),
+.f = function(a1, a2) {
+
+# DEBUG ###
+# a1 <- list.files(path = split_dir, full.names = TRUE) %>% .[1]
+# a2 <- list.files(path = split_dir, full.names = FALSE) %>% .[1]
+###########
+
+cat(a2, "\n")
+
+tibble_import <- read.delim(file = a1, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
+
+list_uniprotkb_entry <- tibble_import$V1 %>% stringr::str_match_all(pattern = "id=([^ ]+)") %>% purrr::map(~.x[, 2])
+list_uniparc_accession <- tibble_import$V1 %>% stringr::str_match_all(pattern = "accession>([a-zA-Z0-9]+)<") %>% purrr::map(~.x[, 2])
+
+tibble_output <- tibble("uniparc_accession" = list_uniparc_accession, "uniprotkb_entry" = list_uniprotkb_entry) %>% unnest(cols = uniprotkb_entry) %>% unnest(cols = uniparc_accession)
+
+write.table(x = tibble_output, file = paste(tibble_output_dir, a2, sep = ""), sep = "\t", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+return(NULL)
+
+}, .progress = TRUE)
+
+# back to bash
+
+cd /mnt/LTS/reference_data/uniprotswissprot/split_tibbles/
+
+# combine file fragments and remove isoform numbers
+cat uniparc_all.xml* | sed 's/\(.*\)\-.*/\1/g' > uniparc_uniprotkb_entry_mapping.txt0
+
+# mixedsort
+sort --parallel 66 -T dfosighjoirg -S 400G -g -k 1 uniparc_uniprotkb_entry_mapping.txt0 > uniparc_uniprotkb_entry_mapping.txt1
+# unique-ify - this is the final mapping table.
+uniq uniparc_uniprotkb_entry_mapping.txt1 > /mnt/LTS/reference_data/uniprotswissprot/uniparc_uniprotkb_entry_mapping_complete.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

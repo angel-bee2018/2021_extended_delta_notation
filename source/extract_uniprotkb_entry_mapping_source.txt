@@ -1,0 +1,14 @@
+/mnt/LTS/reference_data/uniprotswissprot
+
+# ENSP
+LC_ALL=C grep "Ensembl_PRO" idmapping.dat | awk '{print $1 "\t" $3}' > idmapping.dat_ENSP &
+LC_ALL=C grep "Ensembl_PRO" idmapping.dat.2015_03 | awk '{print $1 "\t" $3}' > idmapping.dat.2015_03_ENSP &
+
+# uniprotkb_id
+LC_ALL=C grep "UniProtKB\-ID" idmapping.dat | awk '{print $1 "\t" $3}' > idmapping.dat_uniprotkb_id &
+LC_ALL=C grep "UniProtKB\-ID" idmapping.dat.2015_03 | awk '{print $1 "\t" $3}' > idmapping.dat.2015_03_uniprotkb_id &
+
+## human only
+LC_ALL=C grep "HUMAN" idmapping.dat_uniprotkb_id | awk '{print $1 "\t" $3}' > idmapping.dat_uniprotkb_id_human &
+LC_ALL=C grep "HUMAN" idmapping.dat.2015_03_uniprotkb_id | awk '{print $1 "\t" $3}' > idmapping.dat.2015_03_uniprotkb_id_human &
+

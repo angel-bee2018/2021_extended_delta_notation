@@ -93,21 +93,21 @@ options(mc.cores = 66)
 
 # import all GTFs
 list_all_GTFs <- furrr::future_map(
-  .x = list.files(input_GTF_dir),
+  .x = list.files(input_GTF_dir, pattern = "gtf", include.dirs = FALSE),
   .f = ~rtracklayer::import(paste(input_GTF_dir, .x, sep = "")) %>% as_tibble,
   .progress = TRUE )
 
 # get vector of pure release numbers
-vector_release_numbers <- gsub(x = list.files(input_GTF_dir), pattern = ".*\\.(\\d+)\\.gtf", replacement = "\\1") %>% type.convert
+vector_release_numbers <- gsub(x = list.files(input_GTF_dir, pattern = "gtf", include.dirs = FALSE), pattern = "^([^\\.]+)\\.([^\\.]+)\\.(\\d+)\\.(.*)", replacement = "\\3") %>% type.convert
 
 names(list_all_GTFs) <- vector_release_numbers
 
 # get vector of assembly numbers
-vector_assembly_numbers <- gsub(x = list.files(input_GTF_dir), pattern = ".*\\.(.*)\\.(\\d+)\\.gtf", replacement = "\\1")
+vector_assembly_numbers <- gsub(x = list.files(input_GTF_dir, pattern = "gtf", include.dirs = FALSE), pattern = "^([^\\.]+)\\.([^\\.]+)\\.(\\d+)\\.(.*)", replacement = "\\2") %>% type.convert
 
 setDTthreads(66)
 
-# add column to each GTF indicating assembly and release version and tibblise
+# add column to each GTF indicating assembly and release version
 list_all_GTFs <- purrr::pmap(
   .l = list(
     "a1" = list_all_GTFs,
@@ -503,7 +503,7 @@ tibble_HGNC_stable_protein_IDs <- tibble_HGNC_stable_protein_IDs %>%
 # TOTAL MAPPING TABLE
 ## we are going to combine the information from all 1 + 1 + 2 tables into one
 tibble_total_mapping_table_transcripts <- dplyr::left_join(tibble_HGNC_stable_transcript_IDs, tibble_ENST_retirement_status)
-tibble_total_mapping_table_proteins <- dplyr::left_join(tibble_HGNC_stable_protein_IDs, tibble_ENSP_retirement_status %>% dplyr::rename("release_last_seen_protein_id" = "release_last_seen", "retirement_status_protein_id" = "retirement_status"))
+tibble_total_mapping_table_proteins <- dplyr::left_join(tibble_HGNC_stable_protein_IDs, tibble_ENSP_retirement_status)
 
 if (nrow(tibble_total_mapping_table_transcripts) != nrow(tibble_HGNC_stable_transcript_IDs)) {
   stop("imperfect join. check whether there may be some ENST IDs that have been assigned to more than one ENSG ID in the past.")
@@ -589,13 +589,15 @@ furrr::future_map2(
   .progress = TRUE )
 
 # 1. save ENST retirement tracking
-write.table(x = tibble_ENST_retirement_status, file = paste(output_dir, "latest_ENST_retirement_status.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = tibble_ENST_retirement_status, file = paste(output_dir, "ENST_retirement_status.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = tibble_ENSP_retirement_status, file = paste(output_dir, "ENSP_retirement_status.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
 # 2. save gene tree tracking
 write.table(x = tibble_historical_ENSG_tree_and_gene_names, file = paste(output_dir, "latest_gene_tree_tracking.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
 # 3. save HGNC stable transcript mapping table
-write.table(x = tibble_total_mapping_table, file = paste(output_dir, "latest_mapping_table.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = tibble_total_mapping_table_transcripts, file = paste(output_dir, "total_mapping_table_transcripts.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = tibble_total_mapping_table_proteins, file = paste(output_dir, "total_mapping_table_proteins.txt", sep = ""), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 
 # add information about latest update
 cat(paste("Date of last update: ", date(), "\nLatest Ensembl release version: ", latest_release_number, "\n\nSystem info of machine that retrieved last update:\n\n", sep = ""), file = paste(output_dir, "latest_mapping_metadata.txt", sep = ""))

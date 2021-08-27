@@ -605,7 +605,7 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
         tibble_selected_transcript_entries <- tibble_gtf_table[which(tibble_gtf_table$transcript_id == selected_transcript_id), ]
         
         ## extract stable HGNC variant name
-        selected_hgnc_variant_name <- tibble_selected_transcript_entries$hgnc_stable_variant_ID %>% unique
+        selected_hgnc_variant_name <- tibble_selected_transcript_entries$hgnc_stable_transcript_ID %>% unique
         
         ## extract parent gene entries
         tibble_parent_gene_entries <- tibble_gtf_table[which(tibble_gtf_table$gene_id %in% (tibble_selected_transcript_entries$gene_id %>% unique)), ]
@@ -623,11 +623,11 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
                 tibble_overlapping <- extract_overlapping_features(query_chr = query_chr, query_start = a1, query_end = a2, query_strand = query_strand, tibble_gtf_table = tibble_parent_gene_entries, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
                 
                 if (tibble_matching %>% nrow != 0) {
-                    return(tibble_matching %>% .$hgnc_stable_variant_ID %>% mixedsort %>% .[1])
+                    return(tibble_matching %>% .$hgnc_stable_transcript_ID %>% mixedsort %>% .[1])
                 } else if (tibble_flanking %>% nrow != 0) {
-                    return(tibble_flanking %>% .$hgnc_stable_variant_ID %>% mixedsort %>% .[1])
+                    return(tibble_flanking %>% .$hgnc_stable_transcript_ID %>% mixedsort %>% .[1])
                 } else if (tibble_overlapping %>% nrow != 0) {
-                    return(tibble_overlapping %>% .$hgnc_stable_variant_ID %>% mixedsort %>% .[1])
+                    return(tibble_overlapping %>% .$hgnc_stable_transcript_ID %>% mixedsort %>% .[1])
                 }
                 
             } ) %>% unlist )
@@ -1323,7 +1323,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
         tibble_selected_transcript_entries <- tibble_gtf_table[which(tibble_gtf_table$transcript_id == selected_transcript_id), ]
         
         ## extract stable HGNC variant name
-        selected_hgnc_variant_name <- tibble_selected_transcript_entries$hgnc_stable_variant_ID %>% unique
+        selected_hgnc_variant_name <- tibble_selected_transcript_entries$hgnc_stable_transcript_ID %>% unique
         
         ## extract parent gene entries
         tibble_parent_gene_entries <- tibble_gtf_table[which(tibble_gtf_table$gene_id %in% (tibble_selected_transcript_entries$gene_id %>% unique)), ]
@@ -1419,7 +1419,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
         tibble_sorted_combined_nomenclature <- tibble("slots" = vector_combined_nomenclature, "exon_numbers" = vector_combined_exon_numbers_only) %>% dplyr::arrange(exon_numbers)
         
         # finally, extract the transcript version
-        variant_slot <- paste(list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, ".", tibble_selected_transcript_entries[tibble_selected_transcript_entries$hgnc_stable_variant_ID == list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
+        variant_slot <- paste(list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, ".", tibble_selected_transcript_entries[tibble_selected_transcript_entries$hgnc_stable_transcript_ID == list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
         
         final_VSR_nomenclature <- paste(variant_slot, "t ", tibble_sorted_combined_nomenclature$slots %>% paste(collapse = " "), sep = "") %>% 
             trimws
@@ -1595,7 +1595,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
         query_VSR_end_magnetised <- query_VSR_end
     }
     
-    vector_VSR_matched_hgnc_variant_names <- c(tibble_ref_entries_containing_magnetised_query_VSR_start$hgnc_stable_variant_ID, tibble_ref_entries_containing_magnetised_query_VSR_end$hgnc_stable_variant_ID) %>% na.omit %>% unique
+    vector_VSR_matched_hgnc_variant_names <- c(tibble_ref_entries_containing_magnetised_query_VSR_start$hgnc_stable_transcript_ID, tibble_ref_entries_containing_magnetised_query_VSR_end$hgnc_stable_transcript_ID) %>% na.omit %>% unique
     
     tibble_global_VSR_possible_names <- name_a_single_junction(query_chr = query_chr, query_start = query_VSR_start_magnetised, query_end = query_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
     
@@ -1709,7 +1709,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     #         
     #         a1 %>% 
     #             purrr::splice(
-    #                 "vector_hgnc_stable_variant_ids_matched_to_LIS_vertices" = list(purrr::map(
+    #                 "vector_hgnc_stable_transcript_ids_matched_to_LIS_vertices" = list(purrr::map(
     #                     .x = a1,
     #                     .f = function(b1) {
     #                         
@@ -1718,9 +1718,9 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     #                         ###########
     #                         
     #                         if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
-    #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end")] %>% purrr::map(~.x$hgnc_stable_variant_ID) %>% unlist %>% unique)
+    #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end")] %>% purrr::map(~.x$hgnc_stable_transcript_ID) %>% unlist %>% unique)
     #                         } else {
-    #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end", "tibble_ref_entries_containing_magnetised_effective_VSR_start", "tibble_ref_entries_containing_magnetised_effective_VSR_end")] %>% purrr::map(~.x$hgnc_stable_variant_ID) %>% unlist %>% unique)
+    #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end", "tibble_ref_entries_containing_magnetised_effective_VSR_start", "tibble_ref_entries_containing_magnetised_effective_VSR_end")] %>% purrr::map(~.x$hgnc_stable_transcript_ID) %>% unlist %>% unique)
     #                         }
     #                         
     #                         
@@ -1732,24 +1732,24 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     #     } )
     
     ## get list of the LIS-matched HGNC stable variant IDs
-    # list_LIS_matched_hgnc_stable_variant_IDs <- purrr::map(
+    # list_LIS_matched_hgnc_stable_transcript_IDs <- purrr::map(
     #     .x = list_tibble_exon_start_end_per_LIS_magnetised,
-    #     .f = ~.x$vector_hgnc_stable_variant_ids_matched_to_LIS_vertices
+    #     .f = ~.x$vector_hgnc_stable_transcript_ids_matched_to_LIS_vertices
     # )
     # 
     # tally up the HGNC stable variant IDs
-    # tibble_tally_hgnc_stable_variant_ids_matched_to_VSR_LIS_vertices <- c(list_LIS_matched_hgnc_stable_variant_IDs %>% unlist, vector_VSR_matched_hgnc_variant_names) %>% 
+    # tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices <- c(list_LIS_matched_hgnc_stable_transcript_IDs %>% unlist, vector_VSR_matched_hgnc_variant_names) %>% 
     #     table %>%
     #     as_tibble %>%
-    #     set_names(nm = c("hgnc_stable_variant_ID", "tally")) %>%
+    #     set_names(nm = c("hgnc_stable_transcript_ID", "tally")) %>%
     #     dplyr::arrange(desc(tally))
     
     # roll with the most commonly matched transcript IDs for now
-    # vector_vertex_matched_hgnc_stable_variant_IDs <- tibble_tally_hgnc_stable_variant_ids_matched_to_VSR_LIS_vertices[tibble_tally_hgnc_stable_variant_ids_matched_to_VSR_LIS_vertices$tally == max(tibble_tally_hgnc_stable_variant_ids_matched_to_VSR_LIS_vertices$tally), ] %>% .$hgnc_stable_variant_ID
+    # vector_vertex_matched_hgnc_stable_transcript_IDs <- tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices[tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices$tally == max(tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices$tally), ] %>% .$hgnc_stable_transcript_ID
     
     # NAME THE BODY EXONS ###
     ## loop through each LIS. in each LIS, loop through each exon and call `name_a_single_exon()`
-    ## variant override with the hgnc_stable_variant_ID tally, if any matches present.
+    ## variant override with the hgnc_stable_transcript_ID tally, if any matches present.
     list_LIS_exons_named <- purrr::map2(
         .x = list_tibble_exon_start_end_per_LIS_magnetised,
         .y = 1:length(list_tibble_exon_start_end_per_LIS_magnetised),
@@ -1870,32 +1870,32 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             }
             
             # for each LIS match entry, subset by matched HGNC stable variant ID 
-            list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID <- tibble_LIS_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+            list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID <- tibble_LIS_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
             
             # add in the VSR matches for each HGNC stable variant ID. 
             # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
             # we take the first match with the lowest delta
-            list_VSR_possible_names_split_by_hgnc_stable_variant_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+            list_VSR_possible_names_split_by_hgnc_stable_transcript_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
             
             # commonise the lists 
-            vector_hgnc_stable_variant_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_variant_ID %>% names)
+            vector_hgnc_stable_transcript_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_transcript_ID %>% names)
             
-            if (length(vector_hgnc_stable_variant_IDs_in_common) > 0) {
+            if (length(vector_hgnc_stable_transcript_IDs_in_common) > 0) {
                 
-                list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID <- purrr::map2(
-                    .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
-                    .y = list_VSR_possible_names_split_by_hgnc_stable_variant_ID[vector_hgnc_stable_variant_IDs_in_common],
+                list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID <- purrr::map2(
+                    .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID[vector_hgnc_stable_transcript_IDs_in_common],
+                    .y = list_VSR_possible_names_split_by_hgnc_stable_transcript_ID[vector_hgnc_stable_transcript_IDs_in_common],
                     .f = ~list(
                         "LIS" = .x,
                         "VSR" = .y)
                 )
                 
                 # find the transcript variant with the lowest delta
-                list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID %>% 
+                list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID %>% 
                     (function(x) {
                         
                         # DEBUG ###
-                        # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_variant_ID
+                        # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID
                         ###########
                         
                         # whole LIS matches take priority
@@ -1931,14 +1931,14 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             
             # organise LIS matching without taking into account the global VSR. 
             # whole LIS matches take priority
-            if ( length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID) > 0 ) {
+            if ( length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID) > 0 ) {
                 
                 # find the transcript variant with the lowest delta
-                tibble_LIS_record <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID %>% 
+                tibble_LIS_record <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% 
                     (function(x) {
                         
                         # DEBUG ###
-                        # x <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_variant_ID
+                        # x <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID
                         ###########
                         
                         # whole LIS matches take priority
@@ -2036,7 +2036,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             .$variant_ID_slot %>% .[1]
         
         # retrieve list indices of LISs which have VSR override as a result
-        # these are the LISs which have been matched to the same hgnc_stable_variant_ID as the VSR variant ID
+        # these are the LISs which have been matched to the same hgnc_stable_transcript_ID as the VSR variant ID
         logical_indices_LIS_with_global_VSR_override <- (1:length(list_LIS_VSR_named_records)) %in% (vector_segments_with_global_VSR_authority[purrr::map(.x = list_LIS_VSR_named_records[vector_segments_with_global_VSR_authority], .f = ~.x$list_LIS_VSR_record$VSR$variant_ID_slot == global_VSR_variant_ID_slot) %>% unlist])
         
         # retrieve VSR tibble from the first matching VSR table in the list
@@ -2277,7 +2277,7 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
         
         # MAIN SELECTED HGNC VARIANT NAME
         # retrieve stable HGNC variant ID and transcript version
-        selected_hgnc_variant_name <- tibble_exonic_overlapped_transcripts_parent_entries[tibble_exonic_overlapped_transcripts_parent_entries$transcript_id == selected_transcript_id, "hgnc_stable_variant_ID"] %>% unlist %>% unique 
+        selected_hgnc_variant_name <- tibble_exonic_overlapped_transcripts_parent_entries[tibble_exonic_overlapped_transcripts_parent_entries$transcript_id == selected_transcript_id, "hgnc_stable_transcript_ID"] %>% unlist %>% unique 
         
         # NAME THE CONSTITUENT JUNCTIONS
         # retrieve the gene name from selected transcript_id
@@ -2328,11 +2328,11 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
                         # generate junction nomenclature block
                         if (tibble_flanking_matches_in_another_transcript$strand %>% unique == LSV_strand) {
                             
-                            return(paste("(", tibble_flanking_matches_in_another_transcript$hgnc_stable_variant_ID %>% unique, " E", tibble_flanking_matches_in_another_transcript$exon_number %>% min, "^E", tibble_flanking_matches_in_another_transcript$exon_number %>% max, ")", sep = ""))
+                            return(paste("(", tibble_flanking_matches_in_another_transcript$hgnc_stable_transcript_ID %>% unique, " E", tibble_flanking_matches_in_another_transcript$exon_number %>% min, "^E", tibble_flanking_matches_in_another_transcript$exon_number %>% max, ")", sep = ""))
                             
                         } else {
                             
-                            return(paste("(", tibble_flanking_matches_in_another_transcript$hgnc_stable_variant_ID %>% unique, " E", tibble_flanking_matches_in_another_transcript$exon_number %>% max, "^E", tibble_flanking_matches_in_another_transcript$exon_number %>% min, ")", sep = ""))
+                            return(paste("(", tibble_flanking_matches_in_another_transcript$hgnc_stable_transcript_ID %>% unique, " E", tibble_flanking_matches_in_another_transcript$exon_number %>% max, "^E", tibble_flanking_matches_in_another_transcript$exon_number %>% min, ")", sep = ""))
                             
                         }
                         
@@ -2361,7 +2361,7 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
                             # extract exon entry
                             tibble_junction_start_selected_exon <- tibble_junction_start_overlapping_exons[tibble_junction_start_overlapping_exons$transcript_id == junction_start_selected_transcript_id, ]
                             
-                            start_slot <- paste("(", tibble_junction_start_selected_exon$hgnc_stable_variant_ID, " E", tibble_junction_start_selected_exon$exon_number, ")", sep = "")
+                            start_slot <- paste("(", tibble_junction_start_selected_exon$hgnc_stable_transcript_ID, " E", tibble_junction_start_selected_exon$exon_number, ")", sep = "")
                             if (tibble_junction_start_selected_exon$strand != LSV_strand) {
                                 start_slot <- paste(start_slot, "revcomp", sep = "")
                             }
@@ -2377,7 +2377,7 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
                             # extract exon entry
                             tibble_junction_end_selected_exon <- tibble_junction_end_overlapping_exons[tibble_junction_end_overlapping_exons$transcript_id == junction_start_selected_transcript_id, ]
                             
-                            end_slot <- paste("(", tibble_junction_end_selected_exon$hgnc_stable_variant_ID, " E", tibble_junction_end_selected_exon$exon_number, ")", sep = "")
+                            end_slot <- paste("(", tibble_junction_end_selected_exon$hgnc_stable_transcript_ID, " E", tibble_junction_end_selected_exon$exon_number, ")", sep = "")
                             if (tibble_junction_end_selected_exon$strand != LSV_strand) {
                                 end_slot <- paste(end_slot, "revcomp", sep = "")
                             }
@@ -2491,7 +2491,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     # query_end <- AE_query_end %>% type.convert
     # query_strand <- AE_query_strand
     # tibble_gtf_table <- tibble_ref_gtf
-    # variant_ID_override <- vector_vertex_matched_hgnc_stable_variant_IDs
+    # variant_ID_override <- vector_vertex_matched_hgnc_stable_transcript_IDs
     # left_query_shift <- 0
     # right_query_shift <- 0
     # left_tolerance <- 1
@@ -2562,23 +2562,23 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
         
         # if we don't use return_all_possibilities, then take the lowest ref. transcript that has the highest exonic overlap.
         if (return_all_possibilities == FALSE) {
-            best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_variant_ID == (.$hgnc_stable_variant_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_variant_ID
+            best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_transcript_ID == (.$hgnc_stable_transcript_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_transcript_ID
             # go back and select only the best matched overlapped reference transcript for feeding into the next steps
-            tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID == best_match_hgnc_variant_name, ]
+            tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID == best_match_hgnc_variant_name, ]
         }
         
         # loop thru each overlapped reference transcript and get the nomenclature
-        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID <- purrr::imap(
-            .x = tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort,
+        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_transcript_ID <- purrr::imap(
+            .x = tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort,
             .f = function(a1, a2) {
                 
                 print(a2)
                 
                 # DEBUG ###
-                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[32]]
+                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort %>% .[[32]]
                 ###########
                 
-                tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_variant_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
+                tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_transcript_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
                 
                 ## add in intronic entries
                 if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
@@ -2884,7 +2884,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
                 
             } ) # purrr::map
         
-        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID %>% 
+        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_transcript_ID %>% 
             rbindlist %>% as_tibble %>% 
             return
         
@@ -2909,7 +2909,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
     # query_end <- AE_query_end %>% type.convert
     # query_strand <- AE_query_strand
     # tibble_gtf_table <- tibble_ref_gtf
-    # variant_ID_override <- vector_vertex_matched_hgnc_stable_variant_IDs
+    # variant_ID_override <- vector_vertex_matched_hgnc_stable_transcript_IDs
     # left_query_shift <- 0
     # right_query_shift <- 0
     # left_tolerance <- 1
@@ -2980,23 +2980,23 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
         
         # if we don't use return_all_possibilities, then take the lowest ref. transcript that has the highest exonic overlap.
         # if (return_all_possibilities == FALSE) {
-        #     best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_variant_ID == (.$hgnc_stable_variant_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_variant_ID
+        #     best_match_hgnc_variant_name <- tibble_overlapping_reference_exons[vector_distance_between_query_and_overlapped_ref_exons == min(vector_distance_between_query_and_overlapped_ref_exons), ] %>% .[.$hgnc_stable_transcript_ID == (.$hgnc_stable_transcript_ID %>% mixedsort %>% .[1]), ] %>% .$hgnc_stable_transcript_ID
         #     # go back and select only the best matched overlapped reference transcript for feeding into the next steps
-        #     tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID == best_match_hgnc_variant_name, ]
+        #     tibble_overlapping_reference_transcripts <- tibble_overlapping_reference_transcripts[tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID == best_match_hgnc_variant_name, ]
         # }
         
         # loop thru each overlapped reference transcript and get the nomenclature
-        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID <- purrr::imap(
-            .x = tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort,
+        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_transcript_ID <- purrr::imap(
+            .x = tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort,
             .f = function(a1, a2) {
                 
                 print(a2)
                 
                 # DEBUG ###
-                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_variant_ID %>% mixedsort %>% .[[1]]
+                # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort %>% .[[1]]
                 ###########
                 
-                tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_variant_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
+                tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_transcript_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
                 
                 ## add in intronic entries
                 # if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
@@ -3175,7 +3175,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
                 
             } ) # purrr::map
         
-        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_variant_ID %>% 
+        list_tibble_parent_exons_introns_of_overlapped_ref_transcripts_split_by_hgnc_stable_transcript_ID %>% 
             rbindlist %>% as_tibble %>% 
             return
         
@@ -4850,7 +4850,7 @@ server <- function(input, output, session) {
             long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
             
             # list-ify by column
-            long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_variant_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
+            long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_transcript_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
             list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
             
             # grep each column
@@ -5316,7 +5316,7 @@ server <- function(input, output, session) {
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
                     
                     if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_variant_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
                     },
                     if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
                         list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
@@ -5382,7 +5382,7 @@ server <- function(input, output, session) {
                                 list(
                                     
                                     geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                                    geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_variant_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                                    geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                                     geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     
@@ -5480,8 +5480,8 @@ server <- function(input, output, session) {
             
             output$workshop_ref_table_output <- renderDataTable(
                 {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
-                        dplyr::select(contains("hgnc_stable_variant_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
-                        .[mixedorder(.$hgnc_stable_variant_ID), ] %>%
+                        dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
+                        .[mixedorder(.$hgnc_stable_transcript_ID), ] %>%
                         dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
                         dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
                         return},

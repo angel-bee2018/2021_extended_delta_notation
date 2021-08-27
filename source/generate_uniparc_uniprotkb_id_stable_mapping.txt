@@ -1,0 +1,98 @@
+# join onto uniprotkb_id 
+/usr/local/R_4.0.3/bin/R
+
+library(tidyverse)
+library(data.table)
+library(furrr)
+options(future.globals.maxSize = 30000000000, future.fork.enable = TRUE)
+plan(multiprocess)
+
+library(gtools)
+
+ensembl_GTF_dump_dir <- "/mnt/LTS/projects/2020_isoform_nomenclature/ENST_to_HGNC_stable_variant_mapping/"
+
+interpro_archive_dir <- "/mnt/LTS/reference_data/interpro/database/ftp.ebi.ac.uk/pub/databases/interpro/"
+
+uniprot_dir <- "/mnt/LTS/reference_data/uniprotswissprot/"
+
+
+# UNIPARC
+data.table::setDTthreads(threads = 16)
+
+## import mapping of uniparc to uniprotkb_entry accession
+tibble_uniparc_mapping_complete <- data.table::fread(file = paste(uniprot_dir, "uniparc_uniprotkb_entry_mapping_complete.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE) %>% as_tibble %>% setNames(c("uniparc_accession", "uniprotkb_entry"))
+
+# HUMAN ONLY ###
+
+# uniprotkb_entry mapping using uniprotkb_id 
+tibble_uniprotkb_entry_to_uniprotkb_id_human <- dplyr::bind_rows(
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE),
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_uniprotkb_id_human", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
+) %>% as_tibble %>% setNames(c("uniprotkb_entry", "uniprotkb_id")) %>% unique
+
+# join uniparc onto the uniprotkb_id mapping table
+tibble_uniparc_to_uniprotkb_id_human <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_uniprotkb_id_human) %>% unique
+
+options(mc.cores = 16)
+# enumerate redundant uniprotkb_ids by uniparc order, followed by uniprotkb_entry order
+list_uniprot_stable_protein_id_human <- furrr::future_map(
+.x = tibble_uniparc_to_uniprotkb_id_human %>% dplyr::group_split(uniprotkb_id),
+.f = function(a1) {
+
+# DEBUG ###
+#a1 <- tibble_uniparc_to_uniprotkb_id_human %>% dplyr::group_split(uniprotkb_id) %>% .[[103624]]
+###########
+
+a1 %>% 
+dplyr::arrange(uniprotkb_entry) %>%
+dplyr::arrange(uniparc_accession) %>% 
+tibble::add_column("uniprot_stable_protein_number" = 1:nrow(.)) %>%
+return
+
+}, .progress = TRUE )
+
+# rbindlist, tibblist and add in the final uniprot_stable_protein_id
+tibble_uniprot_stable_protein_id_human <- list_uniprot_stable_protein_id_human %>% rbindlist %>% as_tibble
+
+# NOTE: no isoform IDs for now.
+# %>% 
+#dplyr::mutate("uniprot_stable_protein_id" = paste(uniprotkb_id, "-u", gsub(x = uniprotkb_entry, pattern = "^([^\\-]+)(\\-#(.*))*", replacement = "\\2") %>% gsub(pattern = "\\-", replacement = "") %>% (function(x) {x[is.na(x)] <- 1; return(x)} ), #".", uniprot_stable_protein_number, sep = ""))
+
+data.table::fwrite(x = tibble_uniprot_stable_protein_id_human, file = paste(uniprot_dir, "uniprot_stable_protein_id_uniprotkb_entry_uniparc_mapping_human.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
+# ALL ENTRIES ###
+
+# uniprotkb_entry mapping using uniprotkb_id 
+tibble_uniprotkb_entry_to_uniprotkb_id <- dplyr::bind_rows(
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat_uniprotkb_id", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE),
+  data.table::fread(file = paste(uniprot_dir, "idmapping.dat.2015_03_uniprotkb_id", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = FALSE)
+) %>% as_tibble %>% setNames(c("uniprotkb_entry", "uniprotkb_id")) %>% unique
+
+# join uniparc onto the uniprotkb_id mapping table
+tibble_uniparc_to_uniprotkb_id <- dplyr::inner_join(tibble_uniparc_mapping_complete, tibble_uniprotkb_entry_to_uniprotkb_id) %>% unique
+
+options(mc.cores = 16)
+# enumerate redundant uniprotkb_ids by uniparc order, followed by uniprotkb_entry order
+list_uniprot_stable_protein_id <- furrr::future_map(
+.x = tibble_uniparc_to_uniprotkb_id %>% dplyr::group_split(uniprotkb_id),
+.f = function(a1) {
+
+# DEBUG ###
+#a1 <- tibble_uniparc_to_uniprotkb_id %>% dplyr::group_split(uniprotkb_id) %>% .[[103624]]
+###########
+
+a1 %>% 
+dplyr::arrange(uniprotkb_entry) %>%
+dplyr::arrange(uniparc_accession) %>% 
+tibble::add_column("uniprot_stable_protein_number" = 1:nrow(.)) %>%
+return
+
+}, .progress = TRUE )
+
+# rbindlist, tibblist and add in the final uniprot_stable_protein_id
+tibble_uniprot_stable_protein_id <- list_uniprot_stable_protein_id %>% rbindlist %>% as_tibble %>% 
+dplyr::mutate("uniprot_stable_protein_id" = paste(uniprotkb_id, "-u", uniprot_stable_protein_number, sep = ""))
+
+data.table::fwrite(x = tibble_uniprot_stable_protein_id, file = paste(uniprot_dir, "uniprot_stable_protein_id_uniprotkb_entry_uniparc_mapping.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
+
