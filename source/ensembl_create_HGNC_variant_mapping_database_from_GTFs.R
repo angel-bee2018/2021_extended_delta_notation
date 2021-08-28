@@ -523,8 +523,8 @@ list_all_annotated_releases <- tibble_all_annotated_releases %>%
   dplyr::group_split(ensembl_release_version) %>%
   set_names(x = ., nm = purrr::map(.x = ., .f = ~.x$ensembl_release_version %>% unique) %>% unlist)
 
-plan(list(tweak(multiprocess, workers = 16),
-          tweak(multiprocess, workers = 4)))
+plan(list(tweak(multiprocess, workers = 8),
+          tweak(multiprocess, workers = 8)))
 
 # for each table in the list, if there is no "transcript" in the column type, we add it in
 list_all_annotated_releases_fixed <- furrr::future_map(

@@ -1039,18 +1039,18 @@ suppressWarnings( suppressMessages(
 
 tibble_biomart_regions_gtf0 <- list_biomart_regions_gtf %>% flatten %>% rbindlist %>% as_tibble
 
-tibble_biomart_regions_gtf <- dplyr::left_join(
-  tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == 98, ],
-  tibble_biomart_regions_gtf0
-) %>% 
-  dplyr::left_join(., tibble_uniprotkb_entry_to_ENSP_mapping[grep(x = tibble_uniprotkb_entry_to_ENSP_mapping$protein_id, pattern = "ENSP\\d+"), ]) %>%
-  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
-  dplyr::select(-first_release_ENSG_joined, -ENSG_historical_tree_order, -last_release_seen_gene_protein_id, -latest_ensg_gene_name_combined, -stable_protein_number, -release_last_seen_protein_id, -CDS_relative_coords_start, -CDS_relative_coords_end, -uniprotkb_id, -uniprot_stable_protein_number)
+tibble_biomart_regions_gtf <- dplyr::left_join(tibble_biomart_regions_gtf0, tibble_uniprotkb_entry_to_ENSP_mapping) %>% 
+  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$last_release_seen_gene_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
+  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>% 
+  dplyr::mutate(
+    "uniprot_stable_protein_ID" = paste(uniprotkb_id, "-u", uniprot_isoform_number, ".", uniprot_stable_protein_number, sep = "")
+  )
+
+tibble_biomart_regions_gtf[is.na(tibble_biomart_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
 
 data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
-
 
 ### dbPTM
 
@@ -1219,13 +1219,13 @@ suppressWarnings( suppressMessages(
 
 tibble_dbPTM_regions_gtf0 <- list_dbPTM_regions_gtf %>% flatten %>% rbindlist %>% as_tibble
 
-tibble_dbPTM_regions_gtf <- dplyr::left_join(
-  tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == 98, ],
-  tibble_dbPTM_regions_gtf0
-) %>% 
-  dplyr::left_join(., tibble_uniprotkb_entry_to_ENSP_mapping[grep(x = tibble_uniprotkb_entry_to_ENSP_mapping$protein_id, pattern = "ENSP\\d+"), ]) %>%
-  dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
-  dplyr::select(-first_release_ENSG_joined, -ENSG_historical_tree_order, -last_release_seen_gene_protein_id, -latest_ensg_gene_name_combined, -stable_protein_number, -release_last_seen_protein_id, -uniprotkb_id, -uniprot_stable_protein_number)
+# create uniprot_stable_protein_id
+tibble_dbPTM_regions_gtf <- tibble_dbPTM_regions_gtf0 %>% 
+  dplyr::mutate(
+    "uniprot_stable_protein_ID" = paste(uniprotkb_id, "-u", uniprot_isoform_number, ".", uniprot_stable_protein_number, sep = "")
+  )
+
+tibble_dbPTM_regions_gtf[is.na(tibble_dbPTM_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
 
 data.table::fwrite(x = tibble_dbPTM_regions_gtf, file = paste(results_dir, "dbPTM_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
