@@ -349,13 +349,13 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
     # 2761023, 2761661
     # )
     
-    VSR_coordinates <- VSR_coordinates
-    tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_LIS[[1]]
-    left_query_shift <- 0
-    right_query_shift <- 0
-    left_tolerance <- 1
-    right_tolerance <- 1
-    tibble_gtf_table <- tibble_ref_gtf
+    # VSR_coordinates <- VSR_coordinates
+    # tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_LIS[[1]]
+    # left_query_shift <- 0
+    # right_query_shift <- 0
+    # left_tolerance <- 1
+    # right_tolerance <- 1
+    # tibble_gtf_table <- tibble_ref_gtf
     
     ###########
     
@@ -3367,7 +3367,7 @@ ui <- fluidPage(
                                    
                                    selectInput("automator_genome_assembly", 
                                                label = "Select the genome assembly to use (Ensembl release)", 
-                                               choices = list("GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character,
+                                               choices = list("GRCh38 (hg38)" = "104",
                                                               "GRCh37 (hg19)" = "75",
                                                               "NCBI36 (hg18)" = "54"
                                                ),
@@ -3541,15 +3541,16 @@ ui <- fluidPage(
                                    # Let user import a custom GTF
                                    selectInput(inputId = "workshop_import_file_type_selection", 
                                                label = "Choose the annotation files to import", 
-                                               choices = list("Reference GTF" = c("Ensembl"),
-                                                              "Custom GTF" = c("Upload custom GTF")),
+                                               choices = list("Reference transcripts" = c("Ensembl", "RefSeq", "LRG"),
+                                                              "Reference protein features" = c("Interpro + BioMart", "dbPTM"),
+                                                              "Upload custom GTF" = c("Upload custom GTF", "Upload custom BED file")),
                                                width = "200px"),
                                    
                                    conditionalPanel(
                                        condition = "input.workshop_import_file_type_selection == 'Ensembl'",
                                        selectInput("workshop_genome_assembly", 
                                                    label = "Select the genome assembly to use (Ensembl release)", 
-                                                   choices = list("GRCh38 (hg38)" = list.files("data") %>% gsub(pattern = "annotated_ensembl_gtf_release_(.*).txt", replacement = "\\1") %>% type.convert %>% max %>% as.character,
+                                                   choices = list("GRCh38 (hg38)" = "104",
                                                                   "GRCh37 (hg19)" = "75",
                                                                   "NCBI36 (hg18)" = "54"
                                                    ), 
@@ -4307,7 +4308,8 @@ server <- function(input, output, session) {
     ## create metadata
     workshop_reactiveValues_annotation_files <- reactiveValues( 
         "annotation_files" = list(
-            "reference_gtf" = list(),
+            "reference_transcripts" = list(),
+            "reference_protein_features" = list(),
             "custom_gtf" = list()
         )
     )
@@ -4327,6 +4329,14 @@ server <- function(input, output, session) {
             
             showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
             
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
+            
+            showModal(modalDialog(paste("Importing Interpro + BioMart. Please wait...\n", sep = ""), footer = NULL))
+            
+        } else if (input$workshop_import_file_type_selection == "dbPTM") {
+            
+            showModal(modalDialog(paste("Importing dbPTM. Please wait...\n", sep = ""), footer = NULL))
+            
         } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
             
             showModal(modalDialog(paste("Importing custom GTF. Please wait...\n", sep = ""), footer = NULL))
@@ -4341,46 +4351,73 @@ server <- function(input, output, session) {
         
         if (input$workshop_import_file_type_selection == "Ensembl") {
             
-            import_tibble_ref_gtf <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            import_tibble <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
             
             workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- paste("ensembl_", input$workshop_genome_assembly, sep = "")
             
-            return(import_tibble_ref_gtf)
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
+            
+            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart"
+            
+        } else if (input$workshop_import_file_type_selection == "dbPTM") {
+            
+            import_tibble <- data.table::fread(file = paste("data/dbPTM_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm"
             
         } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
             
-            # import_tibble_custom_gtf <- rtracklayer::import(con = "/mnt/LTS/projects/2019_hmsc_spliceome/Kassem_OB/analysis_strawberry/results_assemblyonly/merged/BM_MSC_to_OB_3d_denovo_reconstructed_stringtiemerged.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() 
+            # import_tibble <- rtracklayer::import(con = "/mnt/LTS/projects/2019_hmsc_spliceome/Kassem_OB/analysis_strawberry/results_assemblyonly/merged/BM_MSC_to_OB_3d_denovo_reconstructed_stringtiemerged.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() 
             
             workshop_path_recon_GTF <- input$workshop_path_to_custom_gtf$datapath
             
-            import_tibble_custom_gtf <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() %>% dplyr::rename("exon_number" = "exon_id")
+            import_tibble <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() %>% dplyr::rename("exon_number" = "exon_id")
             
             # remove chrX... etc if required
-            import_tibble_custom_gtf$seqnames <- gsub(x = import_tibble_custom_gtf$seqnames, pattern = "chr(.*)", replacement = "\\1")
+            import_tibble$seqnames <- gsub(x = import_tibble$seqnames, pattern = "chr(.*)", replacement = "\\1")
             # change chromosome M to MT.
-            import_tibble_custom_gtf[import_tibble_custom_gtf$seqnames == "M", "seqnames"] <- "MT"
-            
-            return(import_tibble_custom_gtf)
+            import_tibble[import_tibble$seqnames == "M", "seqnames"] <- "MT"
             
         }
+        
+        return(import_tibble)
         
     }, ignoreNULL = FALSE, ignoreInit = TRUE )
     
     observeEvent(workshop_reactive_temp_imported_annotation_tibble(), {
         
         # check if file has indeed been imported
-        if ((input$workshop_import_file_type_selection == "Ensembl") | 
-            (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE)) {
+        if (!(input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == TRUE)) {
             
             input_annotation_tibble <- workshop_reactive_temp_imported_annotation_tibble()
             
-            if (input$workshop_import_file_type_selection == "Ensembl" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)) {
-                workshop_reactiveValues_annotation_files$annotation_files$reference_gtf <- workshop_reactiveValues_annotation_files$annotation_files$reference_gtf %>% purrr::splice(
-                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference GTF: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+            # Reference transcripts
+            if (input$workshop_import_file_type_selection %in% c("Ensembl", "RefSeq", "LRG") & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts <- workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts %>% purrr::splice(
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference transcripts: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 )
-                names(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
                 # automatically checkbox the added GTF
-                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_gtf", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_transcripts", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                # Reference Interpro + BioMart
+            } else if (input$workshop_import_file_type_selection == "Interpro + BioMart" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+                # automatically checkbox the added GTF
+                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                # dbPTM
+            } else if (input$workshop_import_file_type_selection == "dbPTM" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+                # automatically checkbox the added GTF
+                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                # Custom GTF
             } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
                 workshop_reactiveValues_annotation_files$annotation_files$custom_gtf <- workshop_reactiveValues_annotation_files$annotation_files$custom_gtf %>% purrr::splice(
                     input_annotation_tibble %>% tibble::add_column("panel" = paste("Custom GTF: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
@@ -4390,8 +4427,7 @@ server <- function(input, output, session) {
                 workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("custom_gtf", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
             }
             
-            print(workshop_reactiveValues_annotation_files$annotation_files$reference_gtf)
-            print(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)
+            print(workshop_reactiveValues_annotation_files)
             
             output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
             
@@ -5102,7 +5138,7 @@ server <- function(input, output, session) {
                     ###########
                     
                     # determine visible transcript ids overlapped by user range
-                    tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = "*", tibble_gtf_table = a1, left_query_shift = input$workshop_left_query_end_shift %>% type.convert, right_query_shift = input$workshop_right_query_end_shift %>% type.convert, left_tolerance = input$workshop_left_match_tolerance %>% type.convert, right_tolerance = input$workshop_right_match_tolerance %>% type.convert, return_type = "transcript")
+                    tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = "*", tibble_gtf_table = a1, left_query_shift = input$workshop_left_query_end_shift %>% type.convert, right_query_shift = input$workshop_right_query_end_shift %>% type.convert, left_tolerance = input$workshop_left_match_tolerance %>% type.convert, right_tolerance = input$workshop_right_match_tolerance %>% type.convert, return_type = if (grepl(x = a2, pattern = "Reference protein") == TRUE) {"exon"} else {"transcript"})
                     
                     print("tibble_ref_transcripts_overlapped_by_user_query")
                     print(tibble_ref_transcripts_overlapped_by_user_query)
@@ -5193,7 +5229,7 @@ server <- function(input, output, session) {
             
             list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
             
-            # add back in the exons touched by the distance range
+            # add back in the exons touched by the distance range. this is so that the calculated distances can find a ref exon vertex even when it's not in view.
             list_tibbles_track_features_visible_flattened <- purrr::pmap(
                 .l = list(
                     "a1" = list_tibbles_track_features_visible_flattened,
@@ -5201,8 +5237,10 @@ server <- function(input, output, session) {
                     "a3" = names(list_tibbles_track_features_visible_flattened)
                 ), .f = function(a1, a2, a3) {
                     
-                    dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% 
+                    dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% unique %>%
                         return
+                    
+                    # a2 %>% dplyr::mutate("panel" = a3) %>% return
                     
                 } 
             ) %>% set_names(nm = names(list_tibbles_track_features_visible_flattened))
@@ -5266,9 +5304,6 @@ server <- function(input, output, session) {
         "list_distances_between_user_ranges_and_reference_annotations" = list()
     )
     
-    
-    
-    
     # Zoomable plot + ref table output
     observe( {
         
@@ -5315,8 +5350,11 @@ server <- function(input, output, session) {
                 ## get the y-axis values 
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
                     
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                    },
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein features")]) > 0) {
+                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein features")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$protein_id %>% unique %>% na.omit %>% rev)
                     },
                     if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
                         list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
@@ -5345,12 +5383,14 @@ server <- function(input, output, session) {
             global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
             global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
             global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            global_workshop_plot_brush_ranges <<- workshop_plot_brush_ranges
             
             print("tibble_user_ranges_visible")
             print(tibble_user_ranges_visible)
             
             print("list_distances_between_user_ranges_and_reference_annotations")
             print(list_distances_between_user_ranges_and_reference_annotations)
+            
             ###########
             
             # CREATE GGPLOT
@@ -5372,11 +5412,11 @@ server <- function(input, output, session) {
                 
                 purrr::splice(
                     
-                    # reference_gtf
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")]) > 0) {
+                    # reference_transcripts
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
                         
                         purrr::map(
-                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference GTF")], 
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")], 
                             .f = function(a1) {
                                 
                                 list(
@@ -5387,6 +5427,32 @@ server <- function(input, output, session) {
                                     geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     
                                 )
+                                
+                            } ) %>% purrr::flatten()
+                        
+                    },
+                    
+                    # reference_protein_features
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")]) > 0) {
+                        
+                        purrr::map(
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")], 
+                            .f = function(a1) {
+                                
+                                list(
+                                    
+                                    geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                                    geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
+                                    ggrepel::geom_label_repel(data = a1, nudge_y = 0.15, box.padding = 1, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
+                                    
+                                ) 
+                                # %>% purrr::splice(
+                                #     .,
+                                #     purrr::map(.x = a1 %>% dplyr::filter(type == "exon") %>% dplyr::rowwise() %>% group_split(),
+                                #                .f = function(b1) {
+                                #                    ggrepel::geom_label_repel(data = b1, colour = "black", angle = 90, force = 5, force_pull = 0, direction = "both", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = ""))) %>% return
+                                #                } )
+                                #     )
                                 
                             } ) %>% purrr::flatten()
                         
@@ -5438,7 +5504,9 @@ server <- function(input, output, session) {
                                 
                                 list(
                                     
-                                    geom_segment(data = a3[a3$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id)),
+                                    if (any(a3$ref_vertex_minus_query_vertex != 0)) {
+                                        geom_segment(data = a3[a3$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
+                                    },
                                     geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
                                     
                                 )
@@ -5539,6 +5607,8 @@ server <- function(input, output, session) {
             # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
             #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
         }
+        
+        # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
         
         print("workshop_plot_brush_ranges$logical_brush_zoom_on")
         print(workshop_plot_brush_ranges$logical_brush_zoom_on)

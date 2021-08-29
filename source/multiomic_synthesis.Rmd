@@ -1050,6 +1050,11 @@ tibble_biomart_regions_gtf[is.na(tibble_biomart_regions_gtf$uniprotkb_id), "unip
 
 data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
+# also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
+tibble_biomart_regions_gtf_gene_centric <- tibble_biomart_regions_gtf %>% dplyr::group_by(protein_id, protein_version, interpro, ENTRY_TYPE, ENTRY_NAME, transcript_id, transcript_version, seqnames, strand, region_type, start, end, width, type, exon_number, uniprotkb_entry, gene_id, hgnc_stable_protein_ID) %>% dplyr::summarise("uniprot_stable_protein_IDs" = `uniprot_stable_protein_ID` %>% paste(collapse = ";"))
+
+data.table::fwrite(x = tibble_biomart_regions_gtf_gene_centric, file = paste(results_dir, "biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
 ```
 
 ### dbPTM
@@ -1069,7 +1074,7 @@ tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_wi
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Carbamidation", "PTM_type"] <- "cbam"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Carboxylation", "PTM_type"] <- "coo"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Citrullination", "PTM_type"] <- "cit"
-tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Crotonylation", "PTM_type"] <- "ctn"
+tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Crotonylation", "PTM_type"] <- "cr"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Gamma-carboxyglutamic acid", "PTM_type"] <- "gla"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Glutarylation", "PTM_type"] <- "glu"
 tibble_dbPTM_allhuman_annotations_with_ENSP[tibble_dbPTM_allhuman_annotations_with_ENSP$PTM_type == "Glutathionylation", "PTM_type"] <- "gsh"
@@ -1225,9 +1230,14 @@ tibble_dbPTM_regions_gtf <- tibble_dbPTM_regions_gtf0 %>%
     "uniprot_stable_protein_ID" = paste(uniprotkb_id, "-u", uniprot_isoform_number, ".", uniprot_stable_protein_number, sep = "")
   )
 
-tibble_dbPTM_regions_gtf[is.na(tibble_dbPTM_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
+# tibble_dbPTM_regions_gtf[is.na(tibble_dbPTM_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
 
 data.table::fwrite(x = tibble_dbPTM_regions_gtf, file = paste(results_dir, "dbPTM_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+
+# also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
+tibble_dbPTM_regions_gtf_gene_centric <- tibble_dbPTM_regions_gtf %>% dplyr::group_by(uniprotkb_entry, modified_residue_position, PTM_type, modified_residue, protein_id, gene_id, hgnc_stable_protein_ID, transcript_id, transcript_version, protein_version, seqnames, strand, nucleotide_width, start, end, width, type, exon_number) %>% dplyr::summarise("uniprot_stable_protein_IDs" = `uniprot_stable_protein_ID` %>% paste(collapse = ";"))
+
+data.table::fwrite(x = tibble_dbPTM_regions_gtf_gene_centric, file = paste(results_dir, "dbPTM_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
 
