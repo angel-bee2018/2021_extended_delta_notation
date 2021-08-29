@@ -5151,44 +5151,89 @@ server <- function(input, output, session) {
                         print("tibble_all_exons_of_overlapped_parent_transcript")
                         print(tibble_all_exons_of_overlapped_parent_transcript)
                         
-                        tibble_distance_annotations_based_on_user_query <- purrr::map2(
-                            # overlapping transcript entries
-                            .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id),
-                            # exons belonging to the transcript
-                            .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist],
-                            .f = function(a1, a2) {
-                                
-                                # DEBUG ###
-                                # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% .[[2]]
-                                # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist] %>% .[[2]]
-                                ###########
-                                
-                                vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
-                                
-                                # strategy: grow left and right ends of the user vertices until it touches a vertex. 
-                                left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
-                                right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_start] %>% min
-                                left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_end] %>% max
-                                right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
-                                
-                                tibble_vertices_with_distances <- tibble(
-                                    "transcript_id" = a1$transcript_id %>% unique,
-                                    "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
-                                    "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
-                                ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
-                                
-                                # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
-                                if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
-                                    tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == left_ref_vertex_grown_from_user_query_end & tibble_vertices_with_distances$query_vertex == selected_user_range_end), ]
-                                }
-                                
-                                if (right_ref_vertex_grown_from_user_query_start > selected_user_range_end) {
-                                    tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == right_ref_vertex_grown_from_user_query_start & tibble_vertices_with_distances$query_vertex == selected_user_range_start), ]
-                                }
-                                
-                                return(tibble_vertices_with_distances)
-                                
-                            } ) %>% dplyr::bind_rows() %>% unique
+                        if (grepl(x = a2, pattern = "Reference protein") == TRUE) {
+                            
+                            tibble_distance_annotations_based_on_user_query <- purrr::map2(
+                                # overlapping transcript entries
+                                .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id),
+                                # exons belonging to the transcript
+                                .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist],
+                                .f = function(a1, a2) {
+                                    
+                                    # DEBUG ###
+                                    # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% .[[2]]
+                                    # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist] %>% .[[2]]
+                                    ###########
+                                    
+                                    vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
+                                    
+                                    # strategy: grow left and right ends of the user vertices until it touches a vertex. 
+                                    left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
+                                    right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_start] %>% min
+                                    left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_end] %>% max
+                                    right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
+                                    
+                                    tibble_vertices_with_distances <- tibble(
+                                        "protein_id" = a1$protein_id %>% unique,
+                                        "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
+                                        "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
+                                    ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                                    
+                                    # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
+                                    if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == left_ref_vertex_grown_from_user_query_end & tibble_vertices_with_distances$query_vertex == selected_user_range_end), ]
+                                    }
+                                    
+                                    if (right_ref_vertex_grown_from_user_query_start > selected_user_range_end) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == right_ref_vertex_grown_from_user_query_start & tibble_vertices_with_distances$query_vertex == selected_user_range_start), ]
+                                    }
+                                    
+                                    return(tibble_vertices_with_distances)
+                                    
+                                } ) %>% dplyr::bind_rows() %>% unique
+                            
+                        } else {
+                            
+                            tibble_distance_annotations_based_on_user_query <- purrr::map2(
+                                # overlapping transcript entries
+                                .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id),
+                                # exons belonging to the transcript
+                                .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist],
+                                .f = function(a1, a2) {
+                                    
+                                    # DEBUG ###
+                                    # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% .[[2]]
+                                    # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist] %>% .[[2]]
+                                    ###########
+                                    
+                                    vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
+                                    
+                                    # strategy: grow left and right ends of the user vertices until it touches a vertex. 
+                                    left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
+                                    right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_start] %>% min
+                                    left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_end] %>% max
+                                    right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
+                                    
+                                    tibble_vertices_with_distances <- tibble(
+                                        "transcript_id" = a1$transcript_id %>% unique,
+                                        "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
+                                        "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
+                                    ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                                    
+                                    # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
+                                    if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == left_ref_vertex_grown_from_user_query_end & tibble_vertices_with_distances$query_vertex == selected_user_range_end), ]
+                                    }
+                                    
+                                    if (right_ref_vertex_grown_from_user_query_start > selected_user_range_end) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == right_ref_vertex_grown_from_user_query_start & tibble_vertices_with_distances$query_vertex == selected_user_range_start), ]
+                                    }
+                                    
+                                    return(tibble_vertices_with_distances)
+                                    
+                                } ) %>% dplyr::bind_rows() %>% unique
+                            
+                        }
                         
                         # make the distances directional
                         tibble_distance_annotations_based_on_user_query <- tibble_distance_annotations_based_on_user_query %>% 
@@ -5443,7 +5488,7 @@ server <- function(input, output, session) {
                                     
                                     geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
-                                    ggrepel::geom_label_repel(data = a1, nudge_y = 0.15, box.padding = 1, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
+                                    ggrepel::geom_label_repel(data = a1, nudge_y = 0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
                                     
                                 ) 
                                 # %>% purrr::splice(
@@ -5498,18 +5543,34 @@ server <- function(input, output, session) {
                     # distance annotation
                     if (length(list_distances_between_user_ranges_and_reference_annotations) > 0) {
                         
-                        purrr::map(
+                        purrr::map2(
                             .x = list_distances_between_user_ranges_and_reference_annotations,
-                            .f = function(a3) {
+                            .y = names(list_distances_between_user_ranges_and_reference_annotations),
+                            .f = function(a1, a2) {
                                 
-                                list(
+                                if (grepl(x = a2, pattern = "Reference protein") == TRUE) {
                                     
-                                    if (any(a3$ref_vertex_minus_query_vertex != 0)) {
-                                        geom_segment(data = a3[a3$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
-                                    },
-                                    geom_label(data = a3, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
+                                    list(
+                                        
+                                        if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                                            geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = protein_id, yend = protein_id))
+                                        },
+                                        geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = ref_vertex_minus_query_vertex))
+                                        
+                                    ) %>% return
                                     
-                                )
+                                } else {
+                                    
+                                    list(
+                                        
+                                        if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                                            geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
+                                        },
+                                        geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
+                                        
+                                    ) %>% return
+                                    
+                                }
                                 
                             } ) %>% purrr::flatten()
                         
