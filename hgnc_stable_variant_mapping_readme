@@ -2,15 +2,23 @@ Here is how the HGNC stable variant IDs are created/generated:
 
 *Ensembl transcripts*
 
-Create discrete gene trees to combat the many-to-many relationship between ENSG IDs and HGNC gene symbols. 
+For each gene name, number ENSG IDs according to their historical order of assignment to the gene name. e.g. the first ever ENSG ID to refer to NFATC4 as NFATC4 will be called NFATC4-1.
+This ensures that any other ENSG ID which is decided to be also named NFATC4 will never enter in the middle of the ascending order.
+For each ENSG ID, the ENST ascending order will be stable. So the HGNC stable transcript ID will be:
+    - HGNC gene symbol slot: a gene symbol
+    - The historical ENSG-HGNC assignment order
+    - The "enst" suffix
+    - ENST ascending order *PER ENSG ID*
+    - ENST version
+
+Gene trees:
 ENSG IDs are considered to be part of the same gene tree if: 
   - at some point they had the same HGNC gene symol in the same release.
 HGNC gene symbols are considered to belong to the same gene tree if:
   - they are linked through the same ENSG ID through different releases. 
-
+  
 We assign a unique ID to each gene tree. For each gene tree, the *order* in which ENSG IDs are historically joined into each tree is thus invariant.
 These "nexus" points are defined as the first release in which an ENSG ID possessed a common HGNC gene symbol in the same release. 
-We thus number the historical ENSG join order starting from 1. This the number, when not equal to 1, will be placed between hyphen and "enst".
 
 For transcript variant numbers, we subset each gene tree.
 For genes such as mitochondrial tRNA, different ENST IDs can have their own gene name, despite being from the same ENSG ID.
@@ -31,8 +39,8 @@ e.g. RUNX2-2enst1.7
 # GENE-CENTRIC (DOGMA) NAMING - HGNC STABLE PROTEIN ID
 1.  Do the same as ENST IDs but for ENSP IDs.
 2.  Thus the final EDN will be:
-    - HGNC gene symbol slot: latest gene name associated with mapped ENSG ID + ENSP ID
-    - The historical ENSG join order
+    - HGNC gene symbol slot: a gene symbol
+    - The historical ENSG-HGNC assignment order
     - The "ensp" suffix
     - ENSP ascending order *PER ENSG ID*
     - ENSP version
