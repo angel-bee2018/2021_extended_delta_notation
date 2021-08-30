@@ -4357,7 +4357,7 @@ server <- function(input, output, session) {
             
         } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
             
-            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
             
             workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart"
             
@@ -5480,27 +5480,42 @@ server <- function(input, output, session) {
                         
                     },
                     
-                    # reference_protein_features
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")]) > 0) {
+                    # reference protein domains
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")]) > 0) {
                         
                         purrr::map(
-                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")], 
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")], 
+                            .f = function(a1) {
+                                
+                                list(
+                                    
+                                    # HGNC stable protein ID
+                                    geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                                    # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), position = ggstance::position_dodgev(), mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id, colour = region_class), size = 10),
+                                    geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(x = c(start, end) %>% mean, xmin = c(start, end) %>% mean, xmax = c(start, end) %>% mean, ymin = protein_id, ymax = protein_id, colour = region_class), size = 100),
+                                    # domain description
+                                    ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = region_type))
+                                    
+                                ) 
+                                
+                            } ) %>% purrr::flatten()
+                        
+                    },
+                    
+                    # reference protein PTMs
+                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")]) > 0) {
+                        
+                        purrr::map(
+                            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")], 
                             .f = function(a1) {
                                 
                                 list(
                                     
                                     geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
-                                    ggrepel::geom_label_repel(data = a1, nudge_y = 0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
+                                    ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
                                     
                                 ) 
-                                # %>% purrr::splice(
-                                #     .,
-                                #     purrr::map(.x = a1 %>% dplyr::filter(type == "exon") %>% dplyr::rowwise() %>% group_split(),
-                                #                .f = function(b1) {
-                                #                    ggrepel::geom_label_repel(data = b1, colour = "black", angle = 90, force = 5, force_pull = 0, direction = "both", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = ""))) %>% return
-                                #                } )
-                                #     )
                                 
                             } ) %>% purrr::flatten()
                         
@@ -5676,10 +5691,14 @@ server <- function(input, output, session) {
         ## get vector of transcript_ids in view
         vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
         
-        ## subset protein features by protein_id
-        workshop_reactiveValues_plot_metadata$list_y_axis_scale[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale), pattern = "^Reference protein")] <- purrr::map(
-            .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-            .f = ~.x[.x$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique)
+        if (vector_transcript_ids_in_view %>% length > 0) {
+            
+            ## subset protein features by protein_id
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale), pattern = "^Reference protein")] <- purrr::map(
+                .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+                .f = ~.x[.x$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique)
+            
+        }
         
         print("workshop_plot_brush_ranges$logical_brush_zoom_on")
         print(workshop_plot_brush_ranges$logical_brush_zoom_on)

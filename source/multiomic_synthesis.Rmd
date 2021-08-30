@@ -1050,8 +1050,15 @@ tibble_biomart_regions_gtf[is.na(tibble_biomart_regions_gtf$uniprotkb_id), "unip
 
 data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
-# also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
+## also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
 tibble_biomart_regions_gtf_gene_centric <- tibble_biomart_regions_gtf %>% dplyr::group_by(protein_id, protein_version, interpro, ENTRY_TYPE, ENTRY_NAME, transcript_id, transcript_version, seqnames, strand, region_type, start, end, width, type, exon_number, uniprotkb_entry, gene_id, hgnc_stable_protein_ID) %>% dplyr::summarise("uniprot_stable_protein_IDs" = `uniprot_stable_protein_ID` %>% paste(collapse = ";"))
+
+## this is a bit more complicated because interpro is organised in a different way to the others
+### add in the interpro names to the region_type column
+tibble_biomart_regions_gtf_gene_centric[tibble_biomart_regions_gtf_gene_centric$region_type == "interpro", "region_type"] <- paste("interpro: ", tibble_biomart_regions_gtf_gene_centric[tibble_biomart_regions_gtf_gene_centric$region_type == "interpro", "ENTRY_NAME"] %>% head, sep = "")
+### entry_type - those not interpro will be labelled "biomart"
+tibble_biomart_regions_gtf_gene_centric$region_class <- tibble_biomart_regions_gtf_gene_centric$ENTRY_TYPE
+tibble_biomart_regions_gtf_gene_centric[is.na(tibble_biomart_regions_gtf_gene_centric$region_class), "region_class"] <- "biomart"
 
 data.table::fwrite(x = tibble_biomart_regions_gtf_gene_centric, file = paste(results_dir, "biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
