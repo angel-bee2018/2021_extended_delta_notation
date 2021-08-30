@@ -5067,6 +5067,9 @@ server <- function(input, output, session) {
                 
             } )
         
+        global_list_tibbles_track_features_visible <<- list_tibbles_track_features_visible
+        global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
+        
         # print("list_tibbles_track_features_visible")
         # print(list_tibbles_track_features_visible)
         
@@ -5124,7 +5127,7 @@ server <- function(input, output, session) {
                 .l = list(
                     "a1" = list_tibbles_track_features_visible_flattened,
                     "a2" = names(list_tibbles_track_features_visible_flattened),
-                    "a3" = list_tibbles_track_features_all_flattened
+                    "a3" = list_tibbles_track_features_all_flattened[gsub(x = list_tibbles_track_features_visible_flattened %>% names, pattern = "^[^\\:]+\\: (.*)", replacement = "\\1")]
                 ),
                 .f = function(a1, a2, a3) {
                     
@@ -5670,6 +5673,13 @@ server <- function(input, output, session) {
         }
         
         # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
+        ## get vector of transcript_ids in view
+        vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
+        
+        ## subset protein features by protein_id
+        workshop_reactiveValues_plot_metadata$list_y_axis_scale[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale), pattern = "^Reference protein")] <- purrr::map(
+            .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+            .f = ~.x[.x$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique)
         
         print("workshop_plot_brush_ranges$logical_brush_zoom_on")
         print(workshop_plot_brush_ranges$logical_brush_zoom_on)
