@@ -3284,21 +3284,23 @@ parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromo
     # vector_input_coordinates <- c(
     #     "1:2-3:+"
     # )
+    
+    # input_coordinates <- "X:11759402-11759875"
     # expect_stranded <- TRUE
     # tibble_gtf_table <- tibble_ref_gtf
     
     ###########
     
     # split into vector of chr start end strand.
-    vector_chr_start_end_strand <- input_coordinates %>% trimws() %>% gsub(pattern = "[^0-9]", replacement = " ") %>% stringr::str_squish() %>% strsplit(split = " ") %>% unlist %>% type.convert
+    vector_chr_start_end_strand <- input_coordinates %>% trimws() %>% gsub(pattern = "[^0-9a-zA-Z]", replacement = " ") %>% stringr::str_squish() %>% strsplit(split = " ") %>% unlist
     
     # if length is 2, then it's a single nt. do a +/- 50nt window
     if (vector_chr_start_end_strand %>% length == 2) {
         output <- c(vector_chr_start_end_strand[1], vector_chr_start_end_strand[2] - 50, vector_chr_start_end_strand[2] + 50)
     # if length is 3, then it's a geniune range.
-    } else if (vector_chr_start_end_strand %>% length == 3) {
+    } else if (vector_chr_start_end_strand %>% length == 3 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert)) {
         output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
-    } else if (vector_chr_start_end_strand %>% length == 4) {
+    } else if (vector_chr_start_end_strand %>% length == 4 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert)) {
         output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
     } else {
         output <- "non_coord"
@@ -4700,8 +4702,8 @@ server <- function(input, output, session) {
         } else {
                 
             input_chr <- parse_result[1]
-            input_start <- parse_result[2]
-            input_end <- parse_result[3]
+            input_start <- parse_result[2] %>% type.convert
+            input_end <- parse_result[3] %>% type.convert
             input_strand <- "*"
             
             workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
@@ -4888,11 +4890,11 @@ server <- function(input, output, session) {
             long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
             
             # list-ify by column
-            long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), contains("hgnc_stable_transcript_ID"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
+            long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
             list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
             
             # grep each column
-            list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~which(.x == input$workshop_jump_to_coords)) %>% purrr::discard(.p = ~.x %>% length == 0)
+            list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~grep(x = .x, pattern = input$workshop_jump_to_coords, ignore.case = TRUE)) %>% purrr::discard(.p = ~.x %>% length == 0)
             
             if (length(list_grep_result_per_column) > 0) {
                 
@@ -4908,8 +4910,8 @@ server <- function(input, output, session) {
         } else {
             
             input_chr <- parse_result[1]
-            input_start <- parse_result[2]
-            input_end <- parse_result[3]
+            input_start <- parse_result[2] %>% type.convert
+            input_end <- parse_result[3] %>% type.convert
             input_strand <- "*"
             
             workshop_reactiveValues_current_plot_range$chr <- input_chr
@@ -5328,7 +5330,10 @@ server <- function(input, output, session) {
                     "a3" = names(list_tibbles_track_features_visible_flattened)
                 ), .f = function(a1, a2, a3) {
                     
-                    dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% unique %>%
+                    # dplyr::bind_rows(a1, a2) %>% dplyr::mutate("panel" = a3) %>% unique %>%
+                    #     return
+                    
+                    a1 %>% dplyr::mutate("panel" = a3) %>% unique %>%
                         return
                     
                     # a2 %>% dplyr::mutate("panel" = a3) %>% return
@@ -5435,6 +5440,14 @@ server <- function(input, output, session) {
                 }
                 
             ) %>% flatten
+            
+            ## filter proteome annotations by visible transcript_ids
+            ### get a vector of the protein_ids in range
+            vector_protein_ids_in_view <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference transcripts")] %>% purrr::map(~.x$protein_id) %>% unlist %>% na.omit %>% unique
+            
+            global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference protein")] <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
+            
+            global_workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] <- global_workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
             
             if (workshop_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
                 
@@ -5571,7 +5584,7 @@ server <- function(input, output, session) {
                                     geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
                                     # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                                     # domain description
-                                    ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
+                                    geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
                                     
                                 ) 
                                 
@@ -5800,39 +5813,69 @@ server <- function(input, output, session) {
             
             ## subset protein features by any transcript_ids that may be in view
             ### limits
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] <- purrr::map2(
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
                 .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
                 .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
                 .f = function(a1, a2) {
                     
                     # DEBUG ###
                     # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+                    # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
                     ###########
                     
                     if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
                         
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$id
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$id %>% return
                         
                     } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
                         
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
     
                     }
                     
                 } )
             
-            ### use limits to change the labels according to initial mapping
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
-                .l = list(
-                    "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
-                    "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
-                    "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
-                ),
-                .f = function(a1, a2, a3) {
+            ### labels
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
+                .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+                .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+                .f = function(a1, a2) {
                     
-                    return(a2[a1 %in% a3])
+                    # DEBUG ###
+                    # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+                    # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
+                    ###########
+                    
+                    if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                        
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% return
+                        
+                    } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                        
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
+                        
+                    }
                     
                 } )
+            
+            ### use limits to change the labels according to initial mapping
+            # workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
+            #     .l = list(
+            #         "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
+            #         "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
+            #         "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
+            #     ),
+            #     .f = function(a1, a2, a3) {
+            #         
+            #         # DEBUG ###
+            #         # a1 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")] %>% .[[1]]
+            #         # a2 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")] %>% .[[1]]
+            #         # a3 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] %>% .[[1]]
+            #         ###########
+            #         
+            #         return(a2[a1 %in% a3])
+            #         
+            #     } )
                 
         }
         
