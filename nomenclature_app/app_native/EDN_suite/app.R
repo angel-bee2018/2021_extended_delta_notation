@@ -5546,7 +5546,7 @@ server <- function(input, output, session) {
                                     geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
                                     geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                                    geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                                    geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     # geom_text(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     
                                 )
@@ -5774,7 +5774,8 @@ server <- function(input, output, session) {
         
         if (!is.null(brush)) {
             workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
             
             workshop_plot_brush_ranges$logical_brush_zoom_on <- TRUE
             # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
@@ -5793,15 +5794,46 @@ server <- function(input, output, session) {
         
         # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
         ## get vector of transcript_ids in view
-        vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
+        vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
         
         if (vector_transcript_ids_in_view %>% length > 0) {
             
-            ## subset protein features by protein_id
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale), pattern = "^Reference protein")] <- purrr::map(
+            ## subset protein features by any transcript_ids that may be in view
+            ### limits
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] <- purrr::map2(
                 .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-                .f = ~.x[.x$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique)
+                .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+                .f = function(a1, a2) {
+                    
+                    # DEBUG ###
+                    # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+                    ###########
+                    
+                    if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                        
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$id
+                        
+                    } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                        
+                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique
+    
+                    }
+                    
+                } )
             
+            ### use limits to change the labels according to initial mapping
+            workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
+                .l = list(
+                    "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
+                    "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
+                    "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
+                ),
+                .f = function(a1, a2, a3) {
+                    
+                    return(a2[a1 %in% a3])
+                    
+                } )
+                
         }
         
         print("workshop_plot_brush_ranges$logical_brush_zoom_on")
