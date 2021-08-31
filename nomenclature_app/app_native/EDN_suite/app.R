@@ -3752,7 +3752,9 @@ ui <- fluidPage(
                                               brush = brushOpts(
                                                   id = "workshop_plot_output_brush",
                                                   resetOnNew = TRUE
-                                              )),
+                                              ))
+                                   
+                                   # plotly::plotlyOutput("workshop_plotly_output", width = paste(100, "%", sep = ""), height = paste(1500, "px", sep = ""))
                                    
                             )
                             
@@ -4357,7 +4359,7 @@ server <- function(input, output, session) {
             
         } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
             
-            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% mutate_at(.vars = "id", as.character)
             
             workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart"
             
@@ -5154,21 +5156,19 @@ server <- function(input, output, session) {
                         print("tibble_all_exons_of_overlapped_parent_transcript")
                         print(tibble_all_exons_of_overlapped_parent_transcript)
                         
-                        if (grepl(x = a2, pattern = "Reference protein") == TRUE) {
-                            
-                            tibble_distance_annotations_based_on_user_query <- purrr::map2(
-                                # overlapping transcript entries
-                                .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id),
-                                # exons belonging to the transcript
-                                .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist],
-                                .f = function(a1, a2) {
+                        # for interpro/biomart, split by **id** (rowwise) due to plotting of one feature at a time.
+                        if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                          
+                            tibble_distance_annotations_based_on_user_query <- purrr::map(
+                                # individual protein domains/regions
+                                .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(id),
+                                .f = function(b1) {
                                     
                                     # DEBUG ###
-                                    # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% .[[2]]
-                                    # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist] %>% .[[2]]
+                                    # b1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(id) %>% .[[1]]
                                     ###########
                                     
-                                    vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
+                                    vector_all_ref_vertices <- b1[, c("start", "end")] %>% unlist %>% sort
                                     
                                     # strategy: grow left and right ends of the user vertices until it touches a vertex. 
                                     left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
@@ -5177,7 +5177,50 @@ server <- function(input, output, session) {
                                     right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
                                     
                                     tibble_vertices_with_distances <- tibble(
-                                        "protein_id" = a1$protein_id %>% unique,
+                                        "id" = b1$id %>% unique,
+                                        "protein_id" = b1$protein_id %>% unique,
+                                        "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
+                                        "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
+                                    ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                                    
+                                    # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
+                                    if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == left_ref_vertex_grown_from_user_query_end & tibble_vertices_with_distances$query_vertex == selected_user_range_end), ]
+                                    }
+                                    
+                                    if (right_ref_vertex_grown_from_user_query_start > selected_user_range_end) {
+                                        tibble_vertices_with_distances <- tibble_vertices_with_distances[!(tibble_vertices_with_distances$ref_vertex == right_ref_vertex_grown_from_user_query_start & tibble_vertices_with_distances$query_vertex == selected_user_range_start), ]
+                                    }
+                                    
+                                    return(tibble_vertices_with_distances)
+                                    
+                                } ) %>% dplyr::bind_rows() %>% unique
+                        
+                        # for dbPTM, split by protein_id
+                        } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                            
+                            tibble_distance_annotations_based_on_user_query <- purrr::map2(
+                                # overlapping transcript entries
+                                .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id),
+                                # exons belonging to the transcript
+                                .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist],
+                                .f = function(b1, b2) {
+                                    
+                                    # DEBUG ###
+                                    # b1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% .[[2]]
+                                    # b2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(protein_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$protein_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(protein_id) %>% purrr::map(~.x$protein_id %>% unique) %>% unlist] %>% .[[2]]
+                                    ###########
+                                    
+                                    vector_all_ref_vertices <- b2[, c("start", "end")] %>% unlist %>% sort
+                                    
+                                    # strategy: grow left and right ends of the user vertices until it touches a vertex. 
+                                    left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
+                                    right_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_start] %>% min
+                                    left_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_end] %>% max
+                                    right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
+                                    
+                                    tibble_vertices_with_distances <- tibble(
+                                        "protein_id" = b1$protein_id %>% unique,
                                         "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
                                         "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
                                     ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
@@ -5202,14 +5245,14 @@ server <- function(input, output, session) {
                                 .x = tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id),
                                 # exons belonging to the transcript
                                 .y = tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist],
-                                .f = function(a1, a2) {
+                                .f = function(b1, b2) {
                                     
                                     # DEBUG ###
-                                    # a1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% .[[2]]
-                                    # a2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist] %>% .[[2]]
+                                    # b1 <- tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% .[[2]]
+                                    # b2 <- tibble_all_exons_of_overlapped_parent_transcript %>% dplyr::group_split(transcript_id) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$transcript_id %>% unique) %>% unlist) %>% .[tibble_ref_transcripts_overlapped_by_user_query %>% dplyr::group_split(transcript_id) %>% purrr::map(~.x$transcript_id %>% unique) %>% unlist] %>% .[[2]]
                                     ###########
                                     
-                                    vector_all_ref_vertices <- a2[, c("start", "end")] %>% unlist %>% sort
+                                    vector_all_ref_vertices <- b2[, c("start", "end")] %>% unlist %>% sort
                                     
                                     # strategy: grow left and right ends of the user vertices until it touches a vertex. 
                                     left_ref_vertex_grown_from_user_query_start <- vector_all_ref_vertices[vector_all_ref_vertices <= selected_user_range_start] %>% max
@@ -5218,7 +5261,7 @@ server <- function(input, output, session) {
                                     right_ref_vertex_grown_from_user_query_end <- vector_all_ref_vertices[vector_all_ref_vertices >= selected_user_range_end] %>% min
                                     
                                     tibble_vertices_with_distances <- tibble(
-                                        "transcript_id" = a1$transcript_id %>% unique,
+                                        "transcript_id" = b1$transcript_id %>% unique,
                                         "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
                                         "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
                                     ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
@@ -5303,24 +5346,24 @@ server <- function(input, output, session) {
             
         }
         
-        number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
+        # ONLY NOW we can set the y-viewing range - DEPRECATED
+        # number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
         
-        # ONLY NOW we can set the y-viewing range
-        plot_view_initial_y_start <- 1 + plot_y_scale*(number_of_transcripts_captured - 1)
+        # plot_view_initial_y_start <- 1 + plot_y_scale*(number_of_transcripts_captured - 1)
         #  - 1.5*(number_of_transcripts_captured - 1)
-        plot_view_initial_y_end <- number_of_transcripts_captured - plot_y_scale*(number_of_transcripts_captured - 1)
+        # plot_view_initial_y_end <- number_of_transcripts_captured - plot_y_scale*(number_of_transcripts_captured - 1)
         #  + 1.5*(number_of_transcripts_captured - 1)
         
         # apply offset
         ## minuses because the y axis is in reversed order.
-        plot_view_initial_y_start <- plot_view_initial_y_start - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
-        plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
+        # plot_view_initial_y_start <- plot_view_initial_y_start - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
+        # plot_view_initial_y_end <- plot_view_initial_y_end - (plot_view_initial_y_end - plot_view_initial_y_start)*plot_y_offset
         
         return(list(
             "plot_view_initial_x_start" = plot_view_initial_x_start,
             "plot_view_initial_x_end" = plot_view_initial_x_end,
-            "plot_view_initial_y_start" = plot_view_initial_y_start,
-            "plot_view_initial_y_end" = plot_view_initial_y_end,
+            # "plot_view_initial_y_start" = plot_view_initial_y_start,
+            # "plot_view_initial_y_end" = plot_view_initial_y_end,
             "list_tibbles_track_features_visible_flattened" = list_tibbles_track_features_visible_flattened,
             "tibble_user_ranges_visible" = tibble_user_ranges_visible,
             "list_distances_between_user_ranges_and_reference_annotations" = list_distances_between_user_ranges_and_reference_annotations
@@ -5361,8 +5404,8 @@ server <- function(input, output, session) {
             plot_height <- workshop_reactive_plot_height()
             plot_width <- workshop_reactive_plot_width()
             
-            plot_view_initial_y_start <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_start
-            plot_view_initial_y_end <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_end
+            # plot_view_initial_y_start <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_start
+            # plot_view_initial_y_end <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_end
             
             # print("plot_height")
             # print(plot_height)
@@ -5398,27 +5441,58 @@ server <- function(input, output, session) {
                 ## get the y-axis values 
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
                     
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
-                    },
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein features")]) > 0) {
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein features")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$protein_id %>% unique %>% na.omit %>% rev)
-                    },
-                    if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
-                        list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
-                    },
-                    if (nrow(tibble_user_ranges_visible) > 0) {
-                        list("user_ranges" = tibble_user_ranges_visible$id %>% as.character())
-                    }
+                    "limits" = list(
+                        
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$id %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$protein_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (nrow(tibble_user_ranges_visible) > 0) {
+                            list(
+                                "user_ranges" = tibble_user_ranges_visible$id %>% as.character()
+                            )
+                        }
+                        
+                    ) %>% flatten, 
                     
-                ) %>% flatten
+                    "labels" = list(
+                        
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_transcript_ID), ] %>% .$transcript_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$protein_id %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")] %>% purrr::map(~.x[mixedorder(.x$hgnc_stable_protein_ID), ] %>% .$protein_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+                            list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")] %>% purrr::map(~.x$transcript_id %>% unique %>% na.omit %>% rev)
+                        },
+                        if (nrow(tibble_user_ranges_visible) > 0) {
+                            list(
+                                "user_ranges" = tibble_user_ranges_visible$id %>% as.character()
+                            )
+                        }
+                        
+                    ) %>% flatten
+                    
+                )
                 
                 workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial <- workshop_reactiveValues_plot_metadata$list_y_axis_scale
                 
             }
             
             ## number of features per track
-            workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track <- workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% 
+            workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% 
                 purrr::map(~.x %>% length) %>% unlist
             ## distances
             workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
@@ -5448,7 +5522,7 @@ server <- function(input, output, session) {
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
                 geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
                 theme_bw(),
-                theme(text = element_text(family = "Helvetica")),
+                theme(text = element_text(family = "Helvetica"), legend.position = "none"),
                 ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
                 # brush resizing (x)
                 # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
@@ -5473,6 +5547,7 @@ server <- function(input, output, session) {
                                     geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                                     geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                                    # geom_text(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                                     
                                 )
                                 
@@ -5490,15 +5565,21 @@ server <- function(input, output, session) {
                                 list(
                                     
                                     # HGNC stable protein ID
-                                    geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
-                                    # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), position = ggstance::position_dodgev(), mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id, colour = region_class), size = 10),
-                                    geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(x = c(start, end) %>% mean, xmin = c(start, end) %>% mean, xmax = c(start, end) %>% mean, ymin = protein_id, ymax = protein_id, colour = region_class), size = 100),
+                                    geom_text(data = a1 %>% dplyr::filter(type == "exon"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                                    geom_segment(data = a1 %>% dplyr::filter(type == "exon"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
+                                    # symbol in addition to colour to indicate domain/region type
+                                    geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                                    # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                                     # domain description
-                                    ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = region_type))
+                                    ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
                                     
                                 ) 
                                 
-                            } ) %>% purrr::flatten()
+                            } ) %>% purrr::flatten() %>% 
+                            purrr::splice(
+                                scale_colour_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
+                                                    values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
+                            )
                         
                     },
                     
@@ -5566,7 +5647,21 @@ server <- function(input, output, session) {
                             .y = names(list_distances_between_user_ranges_and_reference_annotations),
                             .f = function(a1, a2) {
                                 
-                                if (grepl(x = a2, pattern = "Reference protein") == TRUE) {
+                                # separate condition for interpro - plot each domain/region individually
+                                if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                                    
+                                    list(
+                                        
+                                        if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                                            geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = id, yend = id))
+                                        },
+                                        geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = ref_vertex_minus_query_vertex))
+                                        # geom_text(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = ref_vertex_minus_query_vertex))
+                                        
+                                    ) %>% return
+                                    
+                                # separate condition for dbPTM - plot by ENSP id
+                                } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
                                     
                                     list(
                                         
@@ -5574,6 +5669,7 @@ server <- function(input, output, session) {
                                             geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = protein_id, yend = protein_id))
                                         },
                                         geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = ref_vertex_minus_query_vertex))
+                                        # geom_text(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = ref_vertex_minus_query_vertex))
                                         
                                     ) %>% return
                                     
@@ -5585,6 +5681,8 @@ server <- function(input, output, session) {
                                             geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
                                         },
                                         geom_label(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
+                                        # geom_segment(data = a1, colour = "white", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id)),
+                                        # geom_text(data = a1, colour = "red", nudge_y = -0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = ref_vertex_minus_query_vertex))
                                         
                                     ) %>% return
                                     
@@ -5596,7 +5694,7 @@ server <- function(input, output, session) {
                     
                     # FACETS 
                     if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
-                        ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% names) ~ ., scales = "free_y")
+                        ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
                     },
                     
                     # adaptive facet aspect ratio
@@ -5613,7 +5711,7 @@ server <- function(input, output, session) {
                     # facet-specific brush resizing (y)
                     if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
                         ggh4x::facetted_pos_scales(
-                            y = workshop_reactiveValues_plot_metadata$list_y_axis_scale %>% purrr::map(~scale_y_discrete(limits = .x, breaks = .x, labels = .x))
+                            y = purrr::map2(.x = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
                         )
                     }
                     
@@ -5624,6 +5722,12 @@ server <- function(input, output, session) {
                 ggplot_final_plot
                 
             }, height = plot_height, width = plot_width )
+            
+            # output$workshop_plotly_output <- plotly::renderPlotly( {
+            #     
+            #     plotly::ggplotly(ggplot_final_plot)
+            #     
+            # } )
             
             output$workshop_ref_table_output <- renderDataTable(
                 {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
