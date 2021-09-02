@@ -3544,7 +3544,7 @@ ui <- fluidPage(
                                    selectInput(inputId = "workshop_import_file_type_selection", 
                                                label = "Choose the annotation files to import", 
                                                choices = list("Reference transcripts" = c("Ensembl", "RefSeq", "LRG"),
-                                                              "Reference protein features" = c("Interpro + BioMart", "dbPTM"),
+                                                              "Reference protein features" = c("Interpro + BioMart (ens98)", "dbPTM (ens98)", "Interpro + BioMart (ens75)", "dbPTM (ens75)"),
                                                               "Upload custom GTF" = c("Upload custom GTF", "Upload custom BED file")),
                                                width = "200px"),
                                    
@@ -4333,15 +4333,23 @@ server <- function(input, output, session) {
             
             showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
             
-        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)") {
             
-            showModal(modalDialog(paste("Importing Interpro + BioMart. Please wait...\n", sep = ""), footer = NULL))
+            showModal(modalDialog(paste("Importing Interpro + BioMart (ens98). Please wait...\n", sep = ""), footer = NULL))
             
-        } else if (input$workshop_import_file_type_selection == "dbPTM") {
+        } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)") {
             
-            showModal(modalDialog(paste("Importing dbPTM. Please wait...\n", sep = ""), footer = NULL))
+            showModal(modalDialog(paste("Importing dbPTM (ens98). Please wait...\n", sep = ""), footer = NULL))
             
-        } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)") {
+            
+            showModal(modalDialog(paste("Importing Interpro + BioMart (ens75). Please wait...\n", sep = ""), footer = NULL))
+            
+        } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)") {
+            
+            showModal(modalDialog(paste("Importing dbPTM (ens75). Please wait...\n", sep = ""), footer = NULL))
+            
+        }else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
             
             showModal(modalDialog(paste("Importing custom GTF. Please wait...\n", sep = ""), footer = NULL))
             
@@ -4359,17 +4367,29 @@ server <- function(input, output, session) {
             
             workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- paste("ensembl_", input$workshop_genome_assembly, sep = "")
             
-        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart") {
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)") {
             
             import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% mutate_at(.vars = "id", as.character)
             
-            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart"
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart_ens98"
             
-        } else if (input$workshop_import_file_type_selection == "dbPTM") {
+        } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)") {
             
             import_tibble <- data.table::fread(file = paste("data/dbPTM_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
             
-            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm"
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm_ens98"
+            
+        } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)") {
+            
+            import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% mutate_at(.vars = "id", as.character)
+            
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart_ens75"
+            
+        } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)") {
+            
+            import_tibble <- data.table::fread(file = paste("data/dbPTM_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+            
+            workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm_ens75"
             
         } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
             
@@ -4405,8 +4425,8 @@ server <- function(input, output, session) {
                 names(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
                 # automatically checkbox the added GTF
                 workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_transcripts", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
-                # Reference Interpro + BioMart
-            } else if (input$workshop_import_file_type_selection == "Interpro + BioMart" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+                # Reference Interpro + BioMart - ens98
+            } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
                 workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
                     input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 )
@@ -4414,7 +4434,23 @@ server <- function(input, output, session) {
                 # automatically checkbox the added GTF
                 workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 # dbPTM
-            } else if (input$workshop_import_file_type_selection == "dbPTM" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+            } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+                # automatically checkbox the added GTF
+                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                # Reference Interpro + BioMart - ens75
+            } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+                workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+                    input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                )
+                names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+                # automatically checkbox the added GTF
+                workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+                # dbPTM - ens75
+            } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
                 workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
                     input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
                 )
