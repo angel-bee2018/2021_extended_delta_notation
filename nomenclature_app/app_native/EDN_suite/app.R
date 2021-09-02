@@ -4687,7 +4687,7 @@ server <- function(input, output, session) {
         
         print(workshop_reactiveValues_annotation_files_selected$annotation_files)
         
-    }, ignoreNULL = FALSE, ignoreInit = TRUE)
+    }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
     # deal with user adding range values
     observeEvent(input$workshop_add_user_range, {
@@ -4737,7 +4737,7 @@ server <- function(input, output, session) {
             
         }
         
-    } )
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
     # deal with user selecting range from the list
     observeEvent(input$workshop_select_user_range, {
@@ -4763,7 +4763,7 @@ server <- function(input, output, session) {
         workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
         workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
         
-    } )
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
     # deal with user deleting range from the list
     observeEvent(input$workshop_delete_user_range, {
@@ -4827,7 +4827,7 @@ server <- function(input, output, session) {
             
         }
         
-    } )
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
     # deal with user resetting user ranges
     observeEvent(input$workshop_reset_user_table, {
@@ -4855,7 +4855,7 @@ server <- function(input, output, session) {
         workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
         workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
         
-    } )
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
     workshop_reactiveValues_current_plot_range <- reactiveValues(
         "chr" = "3",
@@ -4921,7 +4921,7 @@ server <- function(input, output, session) {
         
         # output$workshop_nomenclature_output <- renderText({triage_result})
         
-    } )
+    }, ignoreNULL = TRUE, ignoreInit = TRUE )
     
     # render ggplots having been given the coords of the range to be viewed
     workshop_reactive_final_plot <- reactive( {
@@ -4973,12 +4973,12 @@ server <- function(input, output, session) {
             "panel" = "user_ranges"
         )
         
-        # global_tibble_all_user_ranges <<- tibble_all_user_ranges
+        global_tibble_all_user_ranges <<- tibble_all_user_ranges
         
         print("tibble_all_user_ranges")
         print(tibble_all_user_ranges)
         
-        # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+        global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
         
         # set up the ranges that the user has selected to highlight and calculate distances for
         selected_user_range_chr <- workshop_reactiveValues_selected_user_range$chr
@@ -5122,8 +5122,8 @@ server <- function(input, output, session) {
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
             
             # DEBUG ###
-            global_list_tibbles_track_features_visible_flattened_1 <<- list_tibbles_track_features_visible_flattened
-            global_list_tibbles_track_features_all_flattened_1 <<- list_tibbles_track_features_all_flattened
+            global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            global_1_list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened
             ###########
             
             ## having determined the plot window, calculate distances to every exon in the plot range
@@ -5320,6 +5320,8 @@ server <- function(input, output, session) {
                     
                 } )
             
+            global_2_list_distance_annotation_data_flattened <<- list_distance_annotation_data_flattened
+            
             list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
             
             # add back in the exons touched by the distance range. this is so that the calculated distances can find a ref exon vertex even when it's not in view.
@@ -5350,6 +5352,8 @@ server <- function(input, output, session) {
             }
             
         }
+        
+        global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
         
         # ONLY NOW we can set the y-viewing range - DEPRECATED
         # number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
@@ -5419,14 +5423,31 @@ server <- function(input, output, session) {
             
             slider_table_height <- workshop_reactive_slider_table_height()
             
-            
             list_tibbles_track_features_visible_flattened <- workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened
+            
+            list_distances_between_user_ranges_and_reference_annotations <- workshop_reactive_final_plot() %>% .$list_distances_between_user_ranges_and_reference_annotations
+            
+            ## filter proteome annotations by visible transcript_ids (but ONLY if there are transcripts in the visible range!)
+            ### get a vector of the protein_ids in range
+            vector_protein_ids_in_view <- list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x$protein_id) %>% unlist %>% na.omit %>% unique
+            
+            global_vector_protein_ids_in_view <<- vector_protein_ids_in_view
+            
+            if ( !is.null(global_vector_protein_ids_in_view) ) {
+                
+                list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")] <- list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
+                # prune
+                list_tibbles_track_features_visible_flattened <- list_tibbles_track_features_visible_flattened %>% purrr::discard(.p = ~.x %>% nrow == 0)
+                
+                list_distances_between_user_ranges_and_reference_annotations[grep(x = names(list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] <- list_distances_between_user_ranges_and_reference_annotations[grep(x = names(list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ]) 
+                # prune
+                list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations %>% purrr::discard(.p = ~.x %>% nrow == 0)
+                
+            }
             
             tibble_user_ranges_visible <- workshop_reactive_final_plot() %>% .$tibble_user_ranges_visible
             # print("tibble_user_ranges_visible 2")
             # print(tibble_user_ranges_visible)
-            
-            list_distances_between_user_ranges_and_reference_annotations <- workshop_reactive_final_plot() %>% .$list_distances_between_user_ranges_and_reference_annotations
             
             # update the metadata record of items in the viewing range
             ## track data
@@ -5441,14 +5462,7 @@ server <- function(input, output, session) {
                 
             ) %>% flatten
             
-            ## filter proteome annotations by visible transcript_ids
-            ### get a vector of the protein_ids in range
-            vector_protein_ids_in_view <- workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference transcripts")] %>% purrr::map(~.x$protein_id) %>% unlist %>% na.omit %>% unique
-            
-            workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference protein")] <- workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range[grep(x = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
-            
-            workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations[grep(x = names(workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] <- workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations[grep(x = names(workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
-            
+            # initialise brush y-axis limits
             if (workshop_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
                 
                 ## get the y-axis values 
@@ -5518,10 +5532,14 @@ server <- function(input, output, session) {
             global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
             global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
             global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
-            global_workshop_plot_brush_ranges <<- workshop_plot_brush_ranges
+            global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
             
             print("tibble_user_ranges_visible")
             print(tibble_user_ranges_visible)
+            
+            print("input")
+            print(reactiveValuesToList(input) %>% unlist)
+            global_input <<- reactiveValuesToList(input)
             
             print("list_distances_between_user_ranges_and_reference_annotations")
             print(list_distances_between_user_ranges_and_reference_annotations)
@@ -5581,7 +5599,7 @@ server <- function(input, output, session) {
                                     geom_text(data = a1 %>% dplyr::filter(type == "exon"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                                     geom_segment(data = a1 %>% dplyr::filter(type == "exon"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
                                     # symbol in addition to colour to indicate domain/region type
-                                    geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                                    geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
                                     # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                                     # domain description
                                     geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))

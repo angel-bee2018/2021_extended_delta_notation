@@ -44,9 +44,11 @@ library(data.table)
 library(biomaRt)
 httr::set_config(httr::config(ssl_verifypeer = FALSE))
 
-ensembl_archive_name <- "sep2019"
+ensembl_archive_name <- "feb2021"
+# ensembl_archive_name <- "sep2019"
 # ensembl_archive_name <- "feb2014"
 
+# ensembl_mart = biomaRt::useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl")
 ensembl_mart = useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl", host = paste("http://", ensembl_archive_name, ".archive.ensembl.org", sep = ""))
 # library(systemPipeR)
 # library(GOstats)
@@ -750,7 +752,7 @@ list_all_tibble_interpro_entries <- furrr::future_imap(
   set_names(nm = dir(path = interpro_archive_dir, pattern = "\\d+\\.\\d+", full.names = FALSE))
 
 # roll with one release for now
-tibble_interpro_entry_mapping <- list_all_tibble_interpro_entries$`47.0`
+tibble_interpro_entry_mapping <- list_all_tibble_interpro_entries$`86.0`
 
 ```
 
@@ -844,6 +846,8 @@ tibble_dbPTM_with_modified_residue[is.na(tibble_dbPTM_with_modified_residue$unip
 
 ```{r}
 
+# listAttributes(mart = ensembl_mart)
+
 plan(list(tweak(multiprocess, workers = 24),
           tweak(multiprocess, workers = 4)))
 
@@ -888,12 +892,13 @@ list_of_tibbles_biomart_regions_cast_onto_genome <- furrr::future_imap(
   .f = function(a1, a2) {
     
     # DEBUG ###
-    # a1 <- list_biomart_features$ncoils %>% .[13769, ]
+    # a1 <- list_biomart_features$interpro
     ###########
     
     cat("\nnow processing: ", a2, "\n")
     
     tibble_sorted_CDS_relative_positions <- a1 %>% 
+      dplyr::select(-protein_version) %>%
       add_column("CDS_relative_coords_start" = ((3*.$start) - 2), "CDS_relative_coords_end" = (3*.$end)) %>% 
       dplyr::mutate("vec_all_CDS_relative_positions" = purrr::map2(.x = `CDS_relative_coords_start`, .y = `CDS_relative_coords_end`, .f = ~.x:.y)) %>%
       dplyr::left_join(., tibble_ENSP_to_genome_relative_CDS_positions) %>%
@@ -937,6 +942,9 @@ tibble_biomart_regions_cast_onto_genome <- purrr::map2(
   .f = ~.x %>% tibble::add_column("region_type" = .y)
 ) %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
 
+# sometimes there are incompatible ENSP IDs. they will result in 0 nucleotide width. remove these.
+tibble_biomart_regions_cast_onto_genome <- tibble_biomart_regions_cast_onto_genome[tibble_biomart_regions_cast_onto_genome$nucleotide_width != 0, ]
+
 # create GTF 
 ## sample an exon row from the GTF
 # tibble_gtf_row_sample <- tibble_ref_gtf[tibble_ref_gtf$type == "exon", ] %>% .[1, ]
@@ -958,7 +966,7 @@ suppressWarnings( suppressMessages(
       # a1 <- list_biomart_regions_cast_onto_genome_split[[1]]
       ###########
       
-      # cat(a2, "L1 \n")
+      cat(a2, "L1 \n")
       
       L1_split_list <- a1 %>% dplyr::rowwise() %>% dplyr::group_split()
       
@@ -967,12 +975,10 @@ suppressWarnings( suppressMessages(
         .f = function(b1, b2) {
           
           # DEBUG ###
-          # b1 <- tibble_biomart_regions_cast_onto_genome %>% dplyr::rowwise() %>% dplyr::group_split() %>% .[[1]]
-          
-          # b1 <- list_biomart_regions_cast_onto_genome_split[[10]][411, ]
+          # b1 <- L1_split_list[[96]]
           ###########
           
-          # cat(b2, "L2 \n")
+          cat(b2, "L2 \n")
           
           vector_genome_relative_feature_positions <- b1$vec_all_genome_relative_coords_of_item %>% unlist %>% sort
           
