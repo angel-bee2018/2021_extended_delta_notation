@@ -5009,12 +5009,12 @@ server <- function(input, output, session) {
             "panel" = "user_ranges"
         )
         
-        global_tibble_all_user_ranges <<- tibble_all_user_ranges
+        # global_tibble_all_user_ranges <<- tibble_all_user_ranges
         
         print("tibble_all_user_ranges")
         print(tibble_all_user_ranges)
         
-        global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+        # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
         
         # set up the ranges that the user has selected to highlight and calculate distances for
         selected_user_range_chr <- workshop_reactiveValues_selected_user_range$chr
@@ -5022,10 +5022,10 @@ server <- function(input, output, session) {
         selected_user_range_end <- workshop_reactiveValues_selected_user_range$end
         selected_user_range_strand <- workshop_reactiveValues_selected_user_range$strand
         
-        global_selected_user_range_chr <<- selected_user_range_chr
-        global_selected_user_range_start <<- selected_user_range_start
-        global_selected_user_range_end <<- selected_user_range_end
-        global_selected_user_range_strand <<- selected_user_range_strand
+        # global_selected_user_range_chr <<- selected_user_range_chr
+        # global_selected_user_range_start <<- selected_user_range_start
+        # global_selected_user_range_end <<- selected_user_range_end
+        # global_selected_user_range_strand <<- selected_user_range_strand
         
         if (selected_user_range_strand == "*") {
             selected_user_range_strand <- c("+", "-")
@@ -5107,8 +5107,8 @@ server <- function(input, output, session) {
                 
             } )
         
-        global_list_tibbles_track_features_visible <<- list_tibbles_track_features_visible
-        global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
+        # global_list_tibbles_track_features_visible <<- list_tibbles_track_features_visible
+        # global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
         
         # print("list_tibbles_track_features_visible")
         # print(list_tibbles_track_features_visible)
@@ -5158,8 +5158,8 @@ server <- function(input, output, session) {
             list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
             
             # DEBUG ###
-            global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
-            global_1_list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened
+            # global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            # global_1_list_tibbles_track_features_all_flattened <<- list_tibbles_track_features_all_flattened
             ###########
             
             ## having determined the plot window, calculate distances to every exon in the plot range
@@ -5356,7 +5356,7 @@ server <- function(input, output, session) {
                     
                 } )
             
-            global_2_list_distance_annotation_data_flattened <<- list_distance_annotation_data_flattened
+            # global_2_list_distance_annotation_data_flattened <<- list_distance_annotation_data_flattened
             
             list_distances_between_user_ranges_and_reference_annotations <- list_distance_annotation_data_flattened %>% purrr::map(~.x$tibble_distance_annotations_based_on_user_query) %>% purrr::keep(.p = ~.x %>% length > 0)
             
@@ -5389,7 +5389,7 @@ server <- function(input, output, session) {
             
         }
         
-        global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+        # global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
         
         # ONLY NOW we can set the y-viewing range - DEPRECATED
         # number_of_transcripts_captured <- list_tibbles_track_features_visible_flattened %>% purrr::map(~.x$transcript_id %>% unique %>% length) %>% unlist %>% max
@@ -5467,9 +5467,9 @@ server <- function(input, output, session) {
             ### get a vector of the protein_ids in range
             vector_protein_ids_in_view <- list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")] %>% purrr::map(~.x$protein_id) %>% unlist %>% na.omit %>% unique
             
-            global_vector_protein_ids_in_view <<- vector_protein_ids_in_view
+            # global_vector_protein_ids_in_view <<- vector_protein_ids_in_view
             
-            if ( !is.null(global_vector_protein_ids_in_view) ) {
+            if ( !is.null(vector_protein_ids_in_view) ) {
                 
                 list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")] <- list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein")] %>% purrr::map(~.x[.x$protein_id %in% vector_protein_ids_in_view, ])
                 # prune
@@ -5561,24 +5561,24 @@ server <- function(input, output, session) {
             workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
             
             # DEBUG ###
-            print("plot debug")
-            global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
-            global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
-            global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
-            global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
-            global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
-            global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
-            global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
-            
-            print("tibble_user_ranges_visible")
-            print(tibble_user_ranges_visible)
-            
-            print("input")
-            print(reactiveValuesToList(input) %>% unlist)
-            global_input <<- reactiveValuesToList(input)
-            
-            print("list_distances_between_user_ranges_and_reference_annotations")
-            print(list_distances_between_user_ranges_and_reference_annotations)
+            # print("plot debug")
+            # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            # global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            # global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+            # global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
+            # global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+            # global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
+            # global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
+            # 
+            # print("tibble_user_ranges_visible")
+            # print(tibble_user_ranges_visible)
+            # 
+            # print("input")
+            # print(reactiveValuesToList(input) %>% unlist)
+            # global_input <<- reactiveValuesToList(input)
+            # 
+            # print("list_distances_between_user_ranges_and_reference_annotations")
+            # print(list_distances_between_user_ranges_and_reference_annotations)
             
             ###########
             
@@ -5848,6 +5848,81 @@ server <- function(input, output, session) {
             # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
             #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
             # workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
+            
+            # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
+            ## get vector of transcript_ids in view
+            vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
+            
+            if ( vector_transcript_ids_in_view %>% length > 0 & grepl(x = brush$panelvar, pattern = "^Reference transcripts") ) {
+                
+                ## subset protein features by any transcript_ids that may be in view
+                ### limits
+                workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
+                    .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+                    .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+                    .f = function(a1, a2) {
+                        
+                        # DEBUG ###
+                        # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+                        # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
+                        ###########
+                        
+                        if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                            
+                            a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$id %>% return
+                            
+                        } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                            
+                            a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
+                            
+                        }
+                        
+                    } )
+                
+                ### labels
+                workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
+                    .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+                    .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+                    .f = function(a1, a2) {
+                        
+                        # DEBUG ###
+                        # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+                        # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
+                        ###########
+                        
+                        if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                            
+                            a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% return
+                            
+                        } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                            
+                            a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
+                            
+                        }
+                        
+                    } )
+                
+                ### use limits to change the labels according to initial mapping
+                # workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
+                #     .l = list(
+                #         "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
+                #         "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
+                #         "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
+                #     ),
+                #     .f = function(a1, a2, a3) {
+                #         
+                #         # DEBUG ###
+                #         # a1 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")] %>% .[[1]]
+                #         # a2 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")] %>% .[[1]]
+                #         # a3 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] %>% .[[1]]
+                #         ###########
+                #         
+                #         return(a2[a1 %in% a3])
+                #         
+                #     } )
+                
+            }
+            
         } else {
             workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
                                               workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
@@ -5857,80 +5932,6 @@ server <- function(input, output, session) {
             
             # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
             #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
-        }
-        
-        # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
-        ## get vector of transcript_ids in view
-        vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
-        
-        if (vector_transcript_ids_in_view %>% length > 0) {
-            
-            ## subset protein features by any transcript_ids that may be in view
-            ### limits
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
-                .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-                .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
-                .f = function(a1, a2) {
-                    
-                    # DEBUG ###
-                    # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
-                    # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
-                    ###########
-                    
-                    if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
-                        
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$id %>% return
-                        
-                    } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
-                        
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
-    
-                    }
-                    
-                } )
-            
-            ### labels
-            workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
-                .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-                .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
-                .f = function(a1, a2) {
-                    
-                    # DEBUG ###
-                    # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
-                    # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
-                    ###########
-                    
-                    if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
-                        
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% return
-                        
-                    } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
-                        
-                        a1[a1$transcript_id %in% vector_transcript_ids_in_view, ] %>% .[mixedorder(.$hgnc_stable_protein_ID) %>% rev, ] %>% .$protein_id %>% unique %>% return
-                        
-                    }
-                    
-                } )
-            
-            ### use limits to change the labels according to initial mapping
-            # workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
-            #     .l = list(
-            #         "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
-            #         "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
-            #         "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
-            #     ),
-            #     .f = function(a1, a2, a3) {
-            #         
-            #         # DEBUG ###
-            #         # a1 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")] %>% .[[1]]
-            #         # a2 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")] %>% .[[1]]
-            #         # a3 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] %>% .[[1]]
-            #         ###########
-            #         
-            #         return(a2[a1 %in% a3])
-            #         
-            #     } )
-                
         }
         
         print("workshop_plot_brush_ranges$logical_brush_zoom_on")
