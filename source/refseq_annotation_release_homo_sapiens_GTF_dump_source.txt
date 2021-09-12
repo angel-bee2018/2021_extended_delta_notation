@@ -1,0 +1,29 @@
+refseq_gtf_dump_dir=/mnt/LTS/projects/2020_isoform_nomenclature/refseq_GTF_dump/test/
+
+mkdir -p $refseq_gtf_dump_dir
+
+cd $refseq_gtf_dump_dir
+
+parallel -j 15 --link --round-robin --ungroup -N 1 'cd {1}; wget -nc -c -r -l 0 "ftp://ftp.ensembl.org/pub/release-"{2}"/gtf/homo_sapiens/*.gtf.gz" ' \
+::: $refseq_gtf_dump_dir \
+::: $(ncftpls https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_mammalian/Homo_sapiens/annotation_releases/)
+
+wget -nc -c -r -l 0 "ftp://ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian/*"
+
+cd /mnt/LTS/projects/2020_isoform_nomenclature/refseq_GTF_dump/test/ftp.ncbi.nlm.nih.gov/refseq/release/vertebrate_mammalian
+
+for i in $(ls *rna.gbff*); do gunzip $i & done
+
+# unzip all files
+cd $refseq_gtf_dump_dir
+shopt -s globstar
+for i in $(ls **/*.gtf.gz); do cp $i "./"$(echo $i | sed 's/.*\/\(.*\)/\1/g') & done
+
+for file in $(ls *.gz); do echo "n" | gunzip $file & done
+
+
+for i in $(ls *rna.gbff); do cat $i | sed 's/\/\//\`/g' | awk 'ORS="&&&" {print $0}' | awk -v RS='&&&\`&&&' '{print $0}' | grep "homo sapiens" --ignore-case > $i"_human" & done
+
+cat *_human > vertebrate_mammalian.rna.gbff_humanonly
+
+rm *_human
