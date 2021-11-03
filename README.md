@@ -1,6 +1,6 @@
 # The EDN Suite <img src="https://github.com/angel-bee2018/2021_extended_delta_notation/blob/master/hex_sticker.png" align="right" height="200" />
 
-![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues](https://img.shields.io/badge/issues-a%20fucktonne-critical) 
+![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues](https://img.shields.io/badge/issues-alot-critical) 
 
 A collection of 4 tools that enable researchers to generate and interpret the Extended Delta notation for alternative splicing. Currently in pre-publication testing.
 
