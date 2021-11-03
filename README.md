@@ -2,7 +2,7 @@
 
 ![code_version](https://img.shields.io/badge/version-pre--publication-ffb3b3) ![known_issues](https://img.shields.io/badge/issues-alot-critical) 
 
-A collection of 4 tools that enable researchers to generate and interpret the Extended Delta notation for alternative splicing. Currently in pre-publication testing.
+A collection of 2 tools that enable researchers to generate and interpret the Extended Delta notation for alternative splicing. Currently in pre-publication testing.
 
 EDN Automator: Auomatically generates publication-ready Extended Delta Notation to describe human RNA splice events.
 
