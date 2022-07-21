@@ -5283,9 +5283,9 @@ server <- function(input, output, session) {
             .f = function(a1, a2, a3) {
               
               # DEBUG ###
-              # a1 <- global_1_list_tibbles_track_features_visible_flattened[[1]]
-              # a2 <- names(global_1_list_tibbles_track_features_visible_flattened)[[1]]
-              # a3 <- global_1_list_tibbles_track_features_all_flattened[gsub(x = global_1_list_tibbles_track_features_visible_flattened %>% names, pattern = "^[^\\:]+\\: (.*)", replacement = "\\1")] %>% .[[1]]
+              # a1 <- global_1_list_tibbles_track_features_visible_flattened[[2]]
+              # a2 <- names(global_1_list_tibbles_track_features_visible_flattened)[[2]]
+              # a3 <- global_1_list_tibbles_track_features_all_flattened[gsub(x = global_1_list_tibbles_track_features_visible_flattened %>% names, pattern = "^[^\\:]+\\: (.*)", replacement = "\\1")] %>% .[[2]]
               # selected_user_range_chr <- global_selected_user_range_chr
               # selected_user_range_start <- global_selected_user_range_start
               # selected_user_range_end <- global_selected_user_range_end
@@ -5332,7 +5332,8 @@ server <- function(input, output, session) {
                         "protein_id" = b1$protein_id %>% unique,
                         "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
                         "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
-                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`) %>%
+                        .[is.finite(.$ref_vertex_minus_query_vertex), ]
                       
                       # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
                       if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
@@ -5349,7 +5350,7 @@ server <- function(input, output, session) {
                       ## 1. add in the ref exon start/end entries that are associated with each ref_vertex
                       tibble_vertices_with_pct_overlap <- dplyr::bind_cols(
                         tibble_vertices_with_distances,
-                        purrr::map(.x = tibble_vertices_with_distances$ref_vertex, .f = ~b2[which(b2$start == .x | b2$end == .x), c("start", "end")]) %>% dplyr::bind_rows() %>% dplyr::rename("ref_exon_start" = "start", "ref_exon_end" = "end")
+                        purrr::map(.x = tibble_vertices_with_distances$ref_vertex, .f = ~b1[which(b1$start == .x | b1$end == .x), c("start", "end")]) %>% dplyr::bind_rows() %>% dplyr::rename("ref_exon_start" = "start", "ref_exon_end" = "end")
                       )
                       
                       ## 2. check if each feature overlapped by the query range
@@ -5393,7 +5394,8 @@ server <- function(input, output, session) {
                         "protein_id" = b1$protein_id %>% unique,
                         "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
                         "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
-                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`) %>%
+                        .[is.finite(.$ref_vertex_minus_query_vertex), ]
                       
                       # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
                       if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
@@ -5452,7 +5454,8 @@ server <- function(input, output, session) {
                         "transcript_id" = b1$transcript_id %>% unique,
                         "ref_vertex" = c(left_ref_vertex_grown_from_user_query_start, right_ref_vertex_grown_from_user_query_start, left_ref_vertex_grown_from_user_query_end, right_ref_vertex_grown_from_user_query_end),
                         "query_vertex" = c(selected_user_range_start, selected_user_range_start, selected_user_range_end, selected_user_range_end)
-                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`)
+                      ) %>% dplyr::mutate("ref_vertex_minus_query_vertex" = `ref_vertex` - `query_vertex`) %>%
+                        .[is.finite(.$ref_vertex_minus_query_vertex), ]
                       
                       # test for redundant overlapping distances. this happens when 1. both query ends find a ref transcript and 2. distance to left overlaps and/or distance to right overlaps.
                       if (left_ref_vertex_grown_from_user_query_end < selected_user_range_start) {
@@ -5757,13 +5760,13 @@ server <- function(input, output, session) {
             
             # DEBUG ###
             # print("plot debug")
-            # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
-            # global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
+            global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+            global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
             global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
             global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
             global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
             global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
-            # global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
+            global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
             # 
             # print("tibble_user_ranges_visible")
             # print(tibble_user_ranges_visible)
@@ -5771,12 +5774,15 @@ server <- function(input, output, session) {
             # print("input")
             # print(reactiveValuesToList(input) %>% unlist)
             # global_input <<- reactiveValuesToList(input)
-            # 
-            # print("list_distances_between_user_ranges_and_reference_annotations")
+
+            print("global_2_list_tibbles_track_features_visible_flattened")
+            print(global_2_list_tibbles_track_features_visible_flattened)
+            
+            print("list_distances_between_user_ranges_and_reference_annotations")
             print(list_distances_between_user_ranges_and_reference_annotations)
             
             print("global_workshop_reactiveValues_plot_metadata")
-            print(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels_secondary)
+            print(global_workshop_reactiveValues_plot_metadata)
             
             ###########
             
@@ -5813,7 +5819,10 @@ server <- function(input, output, session) {
                         geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                         geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
                         # "thick" CDS
-                        geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                        if (any(a1$type == "CDS") == TRUE) {
+                          geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                        }
+                        
                         # geom_text(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
                         
                       )
@@ -5838,7 +5847,6 @@ server <- function(input, output, session) {
                         geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
                         # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                         # domain description
-                        geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
                         
                       ) 
                       
@@ -5922,7 +5930,7 @@ server <- function(input, output, session) {
                           if (any(a1$ref_vertex_minus_query_vertex != 0)) {
                             geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = id, yend = id))
                           },
-                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, ", ", b1 %>% signif(digits = 2), " %", sep = "") }}) %>% unlist ))
+                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
                           
                         ) %>% return
                         
@@ -5934,7 +5942,7 @@ server <- function(input, output, session) {
                           if (any(a1$ref_vertex_minus_query_vertex != 0)) {
                             geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = protein_id, yend = protein_id))
                           },
-                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, ", ", b1 %>% signif(digits = 2), " %", sep = "") }}) %>% unlist ))
+                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
                           
                         ) %>% return
                         
@@ -5945,7 +5953,7 @@ server <- function(input, output, session) {
                           if (any(a1$ref_vertex_minus_query_vertex != 0)) {
                             geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
                           },
-                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, ", ", b1 %>% signif(digits = 2), " %", sep = "") }}) %>% unlist ))
+                          ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
                           
                         ) %>% return
                         
