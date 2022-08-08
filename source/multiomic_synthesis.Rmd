@@ -1025,7 +1025,7 @@ suppressWarnings( suppressMessages(
                 "start" = vec_starts,
                 "end" = vec_ends,
                 "width" = vec_widths,
-                "type" = "exon") )
+                "type" = "CDS") )
           
           # add exon number
           if (b1$strand == "+") {
@@ -1220,7 +1220,7 @@ suppressWarnings( suppressMessages(
                 "start" = vec_starts,
                 "end" = vec_ends,
                 "width" = vec_widths,
-                "type" = "exon") )
+                "type" = "CDS") )
           
           # add exon number
           if (b1$strand == "+") {

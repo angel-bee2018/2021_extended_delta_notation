@@ -4949,7 +4949,7 @@ server <- function(input, output, session) {
               long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
               long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^hgnc_stable_transcript_ID$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
               long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^transcript_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(hgnc_stable_protein_ID) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^hgnc_stable_protein_ID$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique,
               long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^protein_id$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique
             ) %>%
               data.table::rbindlist(use.names = TRUE, fill = TRUE) %>% tibble::as_tibble()
@@ -6009,7 +6009,7 @@ server <- function(input, output, session) {
                   geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
                   geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                  geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                   geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
                   # "thick" CDS
                   if (any(a1$type == "CDS") == TRUE) {
@@ -6034,10 +6034,11 @@ server <- function(input, output, session) {
                 list(
                   
                   # HGNC stable protein ID
-                  geom_text(data = a1 %>% dplyr::filter(type == "exon"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
-                  geom_segment(data = a1 %>% dplyr::filter(type == "exon"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1, colour = region_class)),
                   # symbol in addition to colour to indicate domain/region type
-                  geom_text(data = a1 %>% dplyr::filter(type == "exon"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
                   # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                   # domain description
                   
@@ -6060,8 +6061,9 @@ server <- function(input, output, session) {
                 
                 list(
                   
-                  geom_text(data = a1 %>% dplyr::filter(type == "exon") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
-                  geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                   ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
                   
                 ) 
@@ -6081,8 +6083,13 @@ server <- function(input, output, session) {
                   
                   geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
                   geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
-                  geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                  geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                  # geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                  geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                  # "thick" CDS
+                  if (any(a1$type == "CDS") == TRUE) {
+                    geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                  }
                   
                 )
                 
