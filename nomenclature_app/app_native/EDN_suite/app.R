@@ -4898,7 +4898,8 @@ server <- function(input, output, session) {
   # we also have to keep a record of what has been selected in the past, so the the checkbox doesn't automatically reset itself when files are loaded of removed.
   workshop_reactiveValues_annotation_files_selected <- reactiveValues(
     "vector_checked_items" = c(),
-    "annotation_files" = list()
+    "annotation_files" = list(),
+    "annotation_index" = list()
   )
   
   observeEvent(input$workshop_select_plot_panels, {
@@ -4936,17 +4937,49 @@ server <- function(input, output, session) {
           .f = ~.x[.y]
         )
         
+        if (!is.null(workshop_reactiveValues_annotation_files_selected$annotation_files)) {
+          
+          if (length(workshop_reactiveValues_annotation_files_selected$annotation_files) > 0) {
+            
+            # create index
+            long_tibble_selected_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten() %>% data.table::rbindlist(use.names = TRUE, fill = TRUE)
+            
+            workshop_reactiveValues_annotation_files_selected$annotation_index <- list(
+              long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_name$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^hgnc_stable_transcript_ID$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^transcript_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(hgnc_stable_protein_ID) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique,
+              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^protein_id$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique
+            ) %>%
+              data.table::rbindlist(use.names = TRUE, fill = TRUE) %>% tibble::as_tibble()
+            
+          }
+          
+        }
+        
       } else {
         
-        workshop_reactiveValues_annotation_files_selected$annotation_files <- list()
+        workshop_reactiveValues_annotation_files_selected$annotation_files <- list() 
+        workshop_reactiveValues_annotation_files_selected$annotation_index <- list() 
+        
+        dplyr::select(contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id") )
         
       }
       
     }
     
-    print(workshop_reactiveValues_annotation_files_selected$annotation_files)
+    print("workshop_reactiveValues_annotation_files_selected")
+    print(workshop_reactiveValues_annotation_files_selected)
+    global_workshop_annotation_files_selected <<- workshop_reactiveValues_annotation_files_selected %>% reactiveValuesToList()
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # observeEvent(workshop_reactiveValues_annotation_files_selected$vector_checked_items, {
+  #   
+  #   
+  #   
+  # }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
   # deal with user adding range values
   observeEvent(input$workshop_add_user_range, {
@@ -5173,23 +5206,42 @@ server <- function(input, output, session) {
     if (parse_result == "non_coord" & length(workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
       
       # rbind all the annotation files together
-      long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
+      # long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
+      # 
+      # long_tibble_all_annotation_files_subset <- long_tibble_all_annotation_files %>% dplyr::select(contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id") )
+      # 
+      # length_column_grep_result <- 0
+      # current_column_index <- 0
+      # 
+      # while (length_column_grep_result == 0 & current_column_index < ncol(long_tibble_all_annotation_files_subset)) {
+      #   
+      #   current_column_index <- current_column_index + 1
+      #   
+      #   vector_column_grep_result <- grep(x = long_tibble_all_annotation_files_subset[, current_column_index] %>% unlist, pattern = input$workshop_jump_to_coords, ignore.case = TRUE)
+      #   
+      #   length_column_grep_result <- vector_column_grep_result %>% length
+      #   
+      # }
       
-      # list-ify by column
-      long_tibble_all_annotation_files <- long_tibble_all_annotation_files %>% dplyr::select(seqnames, start, end, contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id"), panel )
-      list_all_annotation_files_by_column <- long_tibble_all_annotation_files %>% purrr::array_tree(margin = 2)
+      long_tibble_annotation_index <- workshop_reactiveValues_annotation_files_selected %>% reactiveValuesToList() %>% .$annotation_index
       
-      # grep each column
-      list_grep_result_per_column <- list_all_annotation_files_by_column %>% purrr::map(~grep(x = .x, pattern = input$workshop_jump_to_coords, ignore.case = TRUE)) %>% purrr::discard(.p = ~.x %>% length == 0)
+      vector_column_grep_result <- grep(x = long_tibble_annotation_index$feature, pattern = input$workshop_jump_to_coords %>% trimws, ignore.case = TRUE)
       
-      if (length(list_grep_result_per_column) > 0) {
+      length_column_grep_result <- length(vector_column_grep_result)
+      
+      if (length_column_grep_result > 0) {
         
-        # get the first match and only consider the annotation table associated with the first result
-        tibble_matches <- long_tibble_all_annotation_files[list_grep_result_per_column[[1]], ] %>% .[.$panel == (long_tibble_all_annotation_files[list_grep_result_per_column[[1]][1], ] %>% .$panel), ]
+        workshop_reactiveValues_current_plot_range$chr <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$seqnames
+        workshop_reactiveValues_current_plot_range$start <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$start
+        workshop_reactiveValues_current_plot_range$end <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$end
         
-        workshop_reactiveValues_current_plot_range$chr <- tibble_matches$seqnames %>% unique %>% .[1]
-        workshop_reactiveValues_current_plot_range$start <- tibble_matches$start %>% min
-        workshop_reactiveValues_current_plot_range$end <- tibble_matches$start %>% max
+      } else if (length_column_grep_result == 0) {
+        
+        output$workshop_nomenclature_output <- renderText({"Search returned no matches"})
+        
+        workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_current_plot_range$chr
+        workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_current_plot_range$start
+        workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_current_plot_range$end
         
       }
       
@@ -5956,7 +6008,8 @@ server <- function(input, output, session) {
                   
                   geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
                   geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
-                  geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                  # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                   geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
                   # "thick" CDS
                   if (any(a1$type == "CDS") == TRUE) {
