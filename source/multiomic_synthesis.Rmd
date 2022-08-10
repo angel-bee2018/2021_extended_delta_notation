@@ -662,7 +662,7 @@ tibble_uniprot_stable_protein_id_mapping <- data.table::fread(file = paste(unipr
 # 38.98 only for now
 # tibble_ref_gtf <- list_all_tibble_ref_gtf$annotated_ensembl_gtf_release_98.txt
 
-tibble_ref_gtf <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "annotated_ensembl_gtf_release_75.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
+tibble_ref_gtf <- data.table::fread(file = paste(ensembl_GTF_dump_dir, "annotated_ensembl_gtf_release_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, check.names = FALSE, header = TRUE) %>% as_tibble
 
 options(mc.cores = 8)
 #### get all the genome-relative positions of CDS nucleotides for every ENSP id
@@ -848,12 +848,11 @@ tibble_dbPTM_with_modified_residue[is.na(tibble_dbPTM_with_modified_residue$unip
 
 # listAttributes(mart = ensembl_mart)
 
-plan(list(tweak(multiprocess, workers = 24),
-          tweak(multiprocess, workers = 4)))
+plan(list(tweak(multiprocess, workers = 6),
+          tweak(multiprocess, workers = 64)))
 
 list_biomart_features <- furrr::future_map(
   .x = list(
-    "interpro" = c("ensembl_peptide_id", "ensembl_peptide_id_version", "interpro", "interpro_start", "interpro_end"),
     "mobidblite" = c("ensembl_peptide_id", "ensembl_peptide_id_version", "mobidblite_start", "mobidblite_end"),
     "ncoils" = c("ensembl_peptide_id", "ensembl_peptide_id_version", "ncoils_start", "ncoils_end"),
     "seg" = c("ensembl_peptide_id", "ensembl_peptide_id_version", "seg_start", "seg_end"),
@@ -861,7 +860,27 @@ list_biomart_features <- furrr::future_map(
     "tmhmm" = c("ensembl_peptide_id", "ensembl_peptide_id_version", "tmhmm_start", "tmhmm_end")
   ),
   .f = ~getBM(attributes = .x, mart = ensembl_mart) %>% as_tibble,
-  .progress = TRUE)
+  .progress = TRUE) %>%
+  purrr::splice(
+    "interpro" = furrr::future_map(
+      .x = getBM(attributes = "chromosome_name", mart = ensembl_mart) %>% .$chromosome_name, 
+      .f = function(a2) {
+        getBM(attributes = c("ensembl_peptide_id", "ensembl_peptide_id_version", "interpro", "interpro_start", "interpro_end"), mart = ensembl_mart, filters = "chromosome_name", values = a2)
+      } ) %>% rbindlist %>% 
+      (function(x) {
+        
+        vector_ENSP_ids_missed <- setdiff(getBM(attributes = "ensembl_peptide_id", mart = ensembl_mart) %>% .$ensembl_peptide_id, x$ensembl_peptide_id)
+        
+        if (length(vector_ENSP_ids_missed) == 0) {
+          return(x)
+        } else {
+          dplyr::bind_rows(
+            x,
+            getBM(attributes = c("ensembl_peptide_id", "ensembl_peptide_id_version", "interpro", "interpro_start", "interpro_end"), mart = ensembl_mart, filters = "ensembl_peptide_id", values = vector_ENSP_ids_missed)
+          ) %>% return
+        }
+      } )
+  )
 
 list_biomart_features <- list_biomart_features %>% purrr::map(~.x %>% dplyr::rename("protein_id" = "ensembl_peptide_id") %>% dplyr::mutate("protein_version" = gsub(x = `ensembl_peptide_id_version`, pattern = ".*\\.(.*)$", replacement = "\\1") %>% type.convert) %>% dplyr::select(-ensembl_peptide_id_version) %>% na.omit)
 
@@ -1047,7 +1066,7 @@ suppressWarnings( suppressMessages(
 tibble_biomart_regions_gtf0 <- list_biomart_regions_gtf %>% flatten %>% rbindlist %>% as_tibble
 
 tibble_biomart_regions_gtf <- dplyr::left_join(tibble_biomart_regions_gtf0, tibble_uniprotkb_entry_to_ENSP_mapping) %>% 
-  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$last_release_seen_gene_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
+  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$release_last_seen_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
   dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>% 
   dplyr::mutate(
     "uniprot_stable_protein_ID" = paste(uniprotkb_id, "-u", uniprot_isoform_number, ".", uniprot_stable_protein_number, sep = "")
@@ -1055,7 +1074,7 @@ tibble_biomart_regions_gtf <- dplyr::left_join(tibble_biomart_regions_gtf0, tibb
 
 tibble_biomart_regions_gtf[is.na(tibble_biomart_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
 
-data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_75.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+data.table::fwrite(x = tibble_biomart_regions_gtf, file = paste(results_dir, "biomart_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ## also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
 tibble_biomart_regions_gtf_gene_centric <- tibble_biomart_regions_gtf %>% dplyr::group_by(protein_id, protein_version, interpro, ENTRY_TYPE, ENTRY_NAME, transcript_id, transcript_version, seqnames, strand, region_type, start, end, width, type, exon_number, uniprotkb_entry, gene_id, hgnc_stable_protein_ID) %>% dplyr::summarise("uniprot_stable_protein_IDs" = `uniprot_stable_protein_ID` %>% paste(collapse = ";"))
@@ -1070,7 +1089,7 @@ tibble_biomart_regions_gtf_gene_centric[is.na(tibble_biomart_regions_gtf_gene_ce
 ## add id column because we're going to have to plot each region one by one
 tibble_biomart_regions_gtf_gene_centric$id <- 1:nrow(tibble_biomart_regions_gtf_gene_centric)
 
-data.table::fwrite(x = tibble_biomart_regions_gtf_gene_centric, file = paste(results_dir, "biomart_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+data.table::fwrite(x = tibble_biomart_regions_gtf_gene_centric, file = paste(results_dir, "biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
 
@@ -1080,7 +1099,7 @@ data.table::fwrite(x = tibble_biomart_regions_gtf_gene_centric, file = paste(res
 
 # convert uniprotkb_entry into ENSP
 tibble_dbPTM_allhuman_annotations_with_ENSP <- dplyr::left_join(tibble_dbPTM_with_modified_residue, tibble_uniprotkb_entry_to_ENSP_mapping) %>% 
-  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$last_release_seen_gene_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
+  dplyr::left_join(., tibble_hgnc_stable_protein_id_mapping[tibble_hgnc_stable_protein_id_mapping$ensembl_release_version == tibble_hgnc_stable_protein_id_mapping$release_last_seen_protein_id, c("gene_id", "protein_id", "hgnc_stable_protein_ID")]) %>%
   dplyr::left_join(., tibble_uniprot_stable_protein_id_mapping) %>%
   dplyr::filter(is.na(protein_id) != TRUE | is.na(uniprotkb_id) != TRUE) %>% type_convert
 
@@ -1249,12 +1268,12 @@ tibble_dbPTM_regions_gtf <- tibble_dbPTM_regions_gtf0 %>%
 
 # tibble_dbPTM_regions_gtf[is.na(tibble_dbPTM_regions_gtf$uniprotkb_id), "uniprot_stable_protein_ID"] <- NA
 
-data.table::fwrite(x = tibble_dbPTM_regions_gtf, file = paste(results_dir, "dbPTM_tracks_ensembl_75.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+data.table::fwrite(x = tibble_dbPTM_regions_gtf, file = paste(results_dir, "dbPTM_tracks_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 # also write a gene-centric version with the uniprot_stable_protein_ID collapsed. We do this because it's a bit slow if we leave this until the app.
 tibble_dbPTM_regions_gtf_gene_centric <- tibble_dbPTM_regions_gtf %>% dplyr::group_by(uniprotkb_entry, modified_residue_position, PTM_type, modified_residue, protein_id, gene_id, hgnc_stable_protein_ID, transcript_id, transcript_version, protein_version, seqnames, strand, nucleotide_width, start, end, width, type, exon_number) %>% dplyr::summarise("uniprot_stable_protein_IDs" = `uniprot_stable_protein_ID` %>% paste(collapse = ";"))
 
-data.table::fwrite(x = tibble_dbPTM_regions_gtf_gene_centric, file = paste(results_dir, "dbPTM_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
+data.table::fwrite(x = tibble_dbPTM_regions_gtf_gene_centric, file = paste(results_dir, "dbPTM_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", quote = FALSE, col.names = TRUE, row.names = FALSE)
 
 ```
 

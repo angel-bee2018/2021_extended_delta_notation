@@ -4945,12 +4945,12 @@ server <- function(input, output, session) {
             long_tibble_selected_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten() %>% data.table::rbindlist(use.names = TRUE, fill = TRUE)
             
             workshop_reactiveValues_annotation_files_selected$annotation_index <- list(
-              long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_name$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^hgnc_stable_transcript_ID$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^transcript_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^hgnc_stable_protein_ID$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique,
-              long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^protein_id$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique
+              if (any(long_tibble_selected_annotation_files$type == "gene")) {long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_name$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
+              if (any(long_tibble_selected_annotation_files$type == "gene")) {long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
+              if (any(long_tibble_selected_annotation_files$type == "transcript")) {long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^hgnc_stable_transcript_ID$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
+              if (any(long_tibble_selected_annotation_files$type == "transcript")) {long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^transcript_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
+              if (any(long_tibble_selected_annotation_files$type == "CDS")) {long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^hgnc_stable_protein_ID$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique},
+              if (any(long_tibble_selected_annotation_files$type == "CDS")) {long_tibble_selected_annotation_files %>% .[.$type == "CDS", ] %>% dplyr::group_by(across(matches("^protein_id$", ignore.case = TRUE))) %>% dplyr::summarise("seqnames" = unique(seqnames), "start" = min(start), "end" = max(end)) %>% setNames(c("feature", "seqnames", "start", "end")) %>% na.omit %>% unique}
             ) %>%
               data.table::rbindlist(use.names = TRUE, fill = TRUE) %>% tibble::as_tibble()
             
@@ -4962,8 +4962,6 @@ server <- function(input, output, session) {
         
         workshop_reactiveValues_annotation_files_selected$annotation_files <- list() 
         workshop_reactiveValues_annotation_files_selected$annotation_index <- list() 
-        
-        dplyr::select(contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id") )
         
       }
       
@@ -6036,17 +6034,18 @@ server <- function(input, output, session) {
                   # HGNC stable protein ID
                   geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
-                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1, colour = region_class)),
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = id, height = 0.1, fill = region_class)),
                   # symbol in addition to colour to indicate domain/region type
-                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), fontface = "bold", colour = "white", size = 5, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), fontface = "bold", colour = "white", size = 4, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
                   # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
                   # domain description
+                  geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
                   
                 ) 
                 
               } ) %>% purrr::flatten() %>% 
               purrr::splice(
-                scale_colour_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
+                scale_fill_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
                                     values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
               )
             
@@ -6201,12 +6200,25 @@ server <- function(input, output, session) {
       # } )
       
       output$workshop_ref_table_output <- renderDataTable(
-        {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% rbindlist(use.names = TRUE, fill = TRUE) %>%
-            dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
-            .[mixedorder(.$hgnc_stable_transcript_ID), ] %>%
-            dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
-            dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
-            return},
+        {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
+            (function(x ) {
+              
+              if (length(x) == 0) {
+                return(NULL)
+              } else {
+                
+                x %>%
+                  rbindlist(use.names = TRUE, fill = TRUE) %>%
+                  dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
+                  (function(x2) { x2[mixedorder(x2 %>% dplyr::select(matches("hgnc_stable_.*_ID")) %>% unlist), ] %>% return } ) %>%
+                  dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+                  dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
+                  return
+                
+              }
+              
+            } )
+            },
         options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
       )
       
