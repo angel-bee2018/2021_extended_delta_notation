@@ -70,10 +70,14 @@ extract_matching.exons <- function(query_chr, query_start, query_end, query_stra
   
   # print(paste("now processing junction number", index))
   
-  # left_query_shift <<- left_query_shift
-  # right_query_shift <<- right_query_shift
-  # left_tolerance <<- left_tolerance
-  # right_tolerance <<- right_tolerance
+  global_query_chr <<- query_chr
+  global_query_start <<- query_start
+  global_query_end <<- query_end
+  global_query_strand <<- query_strand
+  
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
+  }
   
   if (!(query_strand == "+" | query_strand == "-")) {
     
@@ -130,10 +134,14 @@ extract_junction.flanking.exons <- function(query_chr, query_start, query_end, q
   
   # print(paste("now processing junction number", index))
   
-  # left_query_shift <<- left_query_shift
-  # right_query_shift <<- right_query_shift
-  # left_tolerance <<- left_tolerance
-  # right_tolerance <<- right_tolerance
+  global_query_chr <<- query_chr
+  global_query_start <<- query_start
+  global_query_end <<- query_end
+  global_query_strand <<- query_strand
+  
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
+  }
   
   if (query_strand == "." | query_strand == 0 | query_strand == "*") {
     
@@ -198,10 +206,14 @@ extract_overlapping_features <- function(query_chr, query_start, query_end, quer
   
   # print(paste("now processing junction number", index))
   
-  # left_query_shift <<- left_query_shift
-  # right_query_shift <<- right_query_shift
-  # left_tolerance <<- left_tolerance
-  # right_tolerance <<- right_tolerance
+  global_query_chr <<- query_chr
+  global_query_start <<- query_start
+  global_query_end <<- query_end
+  global_query_strand <<- query_strand
+  
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
+  }
   
   if (!(query_strand == "+" | query_strand == "-")) {
     
@@ -244,6 +256,14 @@ magnetise_genome_position_to_ref_starts <- function(query_chr, query_coord, quer
   # ref_start_shift <- -1
   # return_type <- "exon"
   ###########################
+  
+  global_magnetised_query_chr <<- query_chr
+  global_magnetised_query_coord <<- query_coord
+  global_magnetised_query_strand <<- query_strand
+  
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
+  }
   
   if (!(query_strand == "+" | query_strand == "-")) {
     
@@ -370,10 +390,10 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
   # print(right_tolerance)
   
   # demultiplex the coordinates
-  query_chr <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-  query_VSR_start <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-  query_VSR_end <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-  query_strand <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+  query_chr <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+  query_VSR_start <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+  query_VSR_end <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+  query_strand <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
   
   # EXON TIBBLE
   # sort the exon tibble in order of increasing co-ordinates
@@ -1487,7 +1507,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   #         89739290, 89739477,
   #         89740100, 89740803
   #     )
-  # ) 
+  # )
   
   # VSR_coordinates <- automator_input_alternative_event_region
   # NOTE: we will deliberately choose to exclude rev() sequences which means that it won't mean anything to input reversed start/end coords.
@@ -1517,10 +1537,10 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   ###########
   
   # demultiplex the VSR coordinates - currently we only use the chr and strand info from the VSR.
-  query_chr <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-  query_VSR_start <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2") %>% type.convert
-  query_VSR_end <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3") %>% type.convert
-  query_strand <- gsub(x = VSR_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+  query_chr <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+  query_VSR_start <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2") %>% type.convert(as.is = TRUE)
+  query_VSR_end <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3") %>% type.convert(as.is = TRUE)
+  query_strand <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
   
   # detect A3SS/A5SS - they are special cases because by definition, LISs which are flush with one side of the VSR are A3/5SS events.
   ## if there are any alternative exons which have a co-ordinate in common with the VSR, then it's BY DEEFINITION a A3SS/A5SS exon.
@@ -1769,7 +1789,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
           # print(b2)
           
           # DEBUG ###
-          # b1 <- a1[[2]]
+          # b1 <- a1[[1]]
           ###########
           
           if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
@@ -1780,14 +1800,14 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
           b1 %>% 
             purrr::splice(
               "exonic_matches" = if (b1$left_end_of_VSR == FALSE & b1$right_end_of_VSR == FALSE) {
-                name_a_single_exon(query_chr = b1$chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance) %>% 
+                name_a_single_exon(query_chr = query_chr, query_start = b1$query_start_magnetised, query_end = b1$query_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance) %>% 
                   tibble::add_column(
                     "query_start" = b1$query_start_magnetised,
                     "query_end" = b1$query_end_magnetised
                   )
               },
               "effective_VSR_matches" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
-                name_a_single_junction(query_chr = b1$chr, query_start = b1$effective_VSR_start_magnetised, query_end = b1$effective_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = tibble_gtf_table, right_tolerance = right_tolerance) %>% 
+                name_a_single_junction(query_chr = query_chr, query_start = b1$effective_VSR_start_magnetised, query_end = b1$effective_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = tibble_gtf_table, right_tolerance = right_tolerance) %>% 
                   tibble::add_column(
                     "query_start" = b1$effective_VSR_start,
                     "query_end" = b1$effective_VSR_end
@@ -1795,8 +1815,8 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
               },
               "ref_exons_matched_to_free_A3_5SS_vertex" = if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
                 dplyr::bind_rows(
-                  magnetise_genome_position_to_ref_end(query_chr = b1$chr, query_coord = free_A3_5SS_vertex, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_end_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord,
-                  magnetise_genome_position_to_ref_starts(query_chr = b1$chr, query_coord = free_A3_5SS_vertex, query_strand = b1$strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_start_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord
+                  magnetise_genome_position_to_ref_end(query_chr = query_chr, query_coord = free_A3_5SS_vertex, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_end_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord,
+                  magnetise_genome_position_to_ref_starts(query_chr = query_chr, query_coord = free_A3_5SS_vertex, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = 0, query_tolerance = 0, ref_start_shift = 0, return_type = "exon") %>% .$tibble_ref_ends_matched_to_query_coord
                 )
               }
             ) %>% return
@@ -2210,13 +2230,13 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
   # DEBUG ###
   # tibble_LSV_coords <- tibble(chr = c("1", "1", "1", "1", "1", "1"), start = c(150267478, 150267789, 150267991, 150268127, 150267478, 150267789), end = c(150268696, 150268696, 150268696, 150268696, 150267714, 150267955), strand = c("-", "-", "-", "-", "-", "-"))
   
-  left_query_shift <- 0
-  right_query_shift <- 0
-  left_tolerance <- 1
-  right_tolerance <- 1
-  tibble_gtf_table <- tibble_ref_gtf
+  # left_query_shift <- 0
+  # right_query_shift <- 0
+  # left_tolerance <- 1
+  # right_tolerance <- 1
+  # tibble_gtf_table <- tibble_ref_gtf
   
-  tibble_LSV_coords <- tibble_VSR_chr_start_end_strand
+  # tibble_LSV_coords <- tibble_LSV_chr_start_end_strand
   ###########
   
   left_query_shift <- left_query_shift %>% paste %>% type.convert
@@ -2232,60 +2252,6 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
   
   # sort in increasing order of start co-ords
   tibble_LSV_coords <- tibble_LSV_coords %>% dplyr::arrange(start)
-  
-  # magnetise all coords by matching query ends to ref vertices
-  # in the process, count the number of common vertices for each ref transcript. this will be the main selected variant.
-  # starts: magnetise to the nearest vertex in range and convert to exonic/intronic start. ends: magnetise to the nearest vertex in range and convert to exonic/intronic end.
-  
-  tibble_LSV_coords_magnetised <- purrr::map(
-    .x = tibble_LSV_coords %>% dplyr::rowwise() %>% dplyr::group_split(),
-    .f = function(a1) {
-      
-      # DEBUG ###
-      a1 <- tibble_LSV_coords %>% dplyr::rowwise() %>% dplyr::group_split() %>% .[[1]]
-      ###########
-      
-      query_chr <- a1$chr
-      query_start <- a1$start
-      query_end <- a1$end
-      query_strand <- a1$strand
-      
-      ## MAGNETISE QUERY START
-      list_magnetised_ref_start_to_query_start <- magnetise_genome_position_to_ref_starts(query_chr = query_chr, query_coord = query_start, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = left_query_shift, query_tolerance = left_tolerance, ref_start_shift = 0, return_type = "exon")
-      
-      list_magnetised_ref_end_to_query_start <- magnetise_genome_position_to_ref_end(query_chr = query_chr, query_coord = query_start, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = left_query_shift, query_tolerance = left_tolerance, ref_end_shift = 1, return_type = "exon")
-      
-      query_start_magnetised <- c(list_magnetised_ref_start_to_query_start$magnetised_coord, list_magnetised_ref_end_to_query_start$magnetised_coord) %>% na.omit %>% .[abs(. - query_start) == min(abs(. - query_start))] %>% .[1]
-      
-      tibble_ref_entries_containing_magnetised_query_start <- dplyr::bind_rows(list_magnetised_ref_start_to_query_start$tibble_ref_starts_matched_to_query_coord %>% .[which(.$start == query_VSR_start_magnetised), ], list_magnetised_ref_end_to_query_start$tibble_ref_ends_matched_to_query_coord %>% .[which((.$end + 1) == query_start_magnetised), ])
-      
-      if (length(query_start_magnetised) == 0 | is.na(query_start_magnetised) == TRUE) {
-        query_VSR_start_magnetised <- query_start
-      }
-      
-      ## MAGNETISE QUERY END
-      list_magnetised_ref_start_to_query_end <- magnetise_genome_position_to_ref_starts(query_chr = query_chr, query_coord = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = left_query_shift, query_tolerance = left_tolerance, ref_start_shift = -1, return_type = "exon")
-      
-      list_magnetised_ref_end_to_query_end <- magnetise_genome_position_to_ref_end(query_chr = query_chr, query_coord = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, query_shift = left_query_shift, query_tolerance = left_tolerance, ref_end_shift = 0, return_type = "exon")
-      
-      query_end_magnetised <- c(list_magnetised_ref_start_to_query_end$magnetised_coord, list_magnetised_ref_end_to_query_end$magnetised_coord) %>% na.omit %>% .[abs(. - query_end) == min(abs(. - query_end))] %>% .[1]
-      
-      tibble_ref_entries_containing_magnetised_query_end <- dplyr::bind_rows(list_magnetised_ref_start_to_query_end$tibble_ref_starts_matched_to_query_coord %>% .[which((.$start - 1) == query_VSR_end_magnetised), ], list_magnetised_ref_end_to_query_end$tibble_ref_ends_matched_to_query_coord %>% .[which(.$end == query_end_magnetised), ])
-      
-      if (length(query_end_magnetised) == 0 | is.na(query_end_magnetised) == TRUE) {
-        query_end_magnetised <- query_end
-      }
-      
-      ## summarise
-      vector_VSR_matched_hgnc_variant_names <- c(tibble_ref_entries_containing_magnetised_query_start$hgnc_stable_transcript_ID, tibble_ref_entries_containing_magnetised_query_end$hgnc_stable_transcript_ID) %>% na.omit %>% unique
-      
-      tibble_global_VSR_possible_names <- name_a_single_junction(query_chr = query_chr, query_start = query_VSR_start_magnetised, query_end = query_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
-      
-      
-    } )
-  
-  
-  
   
   # CHECK INTERGENIC
   tibble_trancripts_overlapping_query_LSV <- extract_overlapping_features(query_chr = LSV_chr, query_start = LSV_start - 1, query_end = LSV_end + 1, query_strand = LSV_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "transcript")
@@ -2555,7 +2521,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
   # query_chr <- b1$chr
   # query_start <- b1$query_start_magnetised
   # query_end <- b1$query_end_magnetised
-  # query_strand <- b1$strand
+  # query_strand <- query_strand
   # return_all_possibilities <- TRUE
   # premagnetised <- TRUE
   
@@ -2582,6 +2548,10 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
     right_query_shift <- 0
     left_tolerance <- 0
     right_tolerance <- 0
+  }
+  
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
   }
   
   ## look for exact exon match in the reference
@@ -3001,6 +2971,10 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
     right_tolerance <- 0
   }
   
+  if (is.na(query_strand) | is.null(query_strand)) {
+    query_strand <- "*"
+  }
+  
   ## look for exact exon match in the reference
   # tibble_matched_reference_exons <- extract_matching.exons(query_chr = query_chr, query_start = query_start, query_end = query_end, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, left_query_shift = left_query_shift, right_query_shift = right_query_shift, left_tolerance = left_tolerance, right_tolerance = right_tolerance, return_type = "exon")
   ## look for exact junction match in the reference
@@ -3245,54 +3219,39 @@ triage_input_coordinates <- function(vector_input_coordinates, vector_of_expecte
   
   # DEBUG ###
   # vector_input_coordinates <- c(
-  #     "16:89740100-89740803:8",
-  #     "16:89738975-89739477:+",
-  #     "16:89739267-89739993:*",
-  #     "16:89739290-89739477:0",
-  #     "16:89739554-89739993:.",
-  #     "8:89738975-89739137",
-  #     "89738975-89739132",
-  #     "16:89738975-89739128:-",
-  #     "16:89738709:89738881"
+  #   # "16:89740100-89740803:8",
+  #   # "16:89738975-89739477:+",
+  #   "16:89739267-89739993:*",
+  #   # "16:89739290-89739477:0",
+  #   # "16:89739554-89739993:.",
+  #   "8:89738975-89739137"
+  #   # "89738975-89739132",
+  #   # "16:89738975-89739128:-",
+  #   # "16:89738709:89738881",
+  #   # "16:89738709:89738881:*"
   # )
   
-  # vector_input_coordinates <- c(
-  #     "1:2-3:+"
+  # vector_of_expected_chromosomes <- c(
+  #     1:22,
+  #     "X", "Y", "M"
   # )
-  # expect_stranded <- TRUE
   # tibble_gtf_table <- tibble_ref_gtf
   
   ###########
   
-  if (expect_stranded == TRUE) {
-    
-    # print(vector_input_coordinates)
-    # print(tibble_gtf_table)
-    
-    # check for basic format
-    if (grep(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)") %>% length != vector_input_coordinates %>% length) {
-      warning("Error: Please check the format of your co-ordinates and make sure you have specified the strand.")
-      return("triage fail")
-    }
-    
-    vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-    vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-    vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-    vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-    
-  } else if (expect_stranded == FALSE) {
-    
-    # check for basic format
-    if (grep(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)") %>% length != vector_input_coordinates %>% length) {
-      warning("Error: Please check the format of your co-ordinates and make sure you have specified the strand.")
-      return("triage fail")
-    }
-    
-    vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\1")
-    vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\2")
-    vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)", replacement = "\\3")
-    
+  # print(vector_input_coordinates)
+  # print(tibble_gtf_table)
+  
+  # check for basic format
+  if (grep(x = vector_input_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$") %>% length != vector_input_coordinates %>% length) {
+    warning("Error: Please check the format of your co-ordinates and make sure you have specified the strand.")
+    return("triage fail")
   }
+  
+  vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+  vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+  vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+  vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
   
   # check chromosomes
   if (vector_query_chr %in% (vector_of_expected_chromosomes) %>% all == FALSE) {
@@ -3301,13 +3260,13 @@ triage_input_coordinates <- function(vector_input_coordinates, vector_of_expecte
   }
   
   # check start/end for numeric
-  if (vector_query_VSR_start %>% type.convert %>% is.numeric == FALSE | vector_query_VSR_end %>% type.convert %>% is.numeric == FALSE) {
+  if (vector_query_VSR_start %>% type.convert(as.is = TRUE) %>% is.numeric == FALSE | vector_query_VSR_end %>% type.convert(as.is = TRUE) %>% is.numeric == FALSE) {
     warning("Error: Please check the format of your start/end co-ordinates")
     return("triage fail")
   }
   
   # check start/end for order. end must be > start
-  if (any((vector_query_VSR_start %>% type.convert) > (vector_query_VSR_end %>% type.convert))) {
+  if (any((vector_query_VSR_start %>% type.convert(as.is = TRUE)) > (vector_query_VSR_end %>% type.convert(as.is = TRUE)))) {
     warning("Error: Please ensure that all the start co-ordinates are not greater than your end co-ordinates")
     return("triage fail")
   }
@@ -4137,10 +4096,10 @@ server <- function(input, output, session) {
         triage_input_coordinates(vector_input_coordinates = vector_FLI_exon_genome_relative_coordinates %>% unlist, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
         
         # create tibble of chr start end strand
-        vector_isoform_chr <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        vector_isoform_start <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-        vector_isoform_end <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-        vector_isoform_strand <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+        vector_isoform_chr <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+        vector_isoform_start <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+        vector_isoform_end <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+        vector_isoform_strand <- gsub(x = vector_FLI_exon_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
         
         tibble_FLI_chr_start_end_strand <- tibble("chr" = vector_isoform_chr,
                                                   "start" = vector_isoform_start,
@@ -4216,14 +4175,10 @@ server <- function(input, output, session) {
             
             vector_exon_coords <- a1 %>% unlist
             
-            # vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-            # vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-            # vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-            # vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-            return(tibble("chr" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1"),
-                          "start" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2"),
-                          "end" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3"),
-                          "strand" = gsub(x = vector_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")) %>% type_convert)
+            return(tibble("chr" = gsub(x = vector_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1"),
+                          "start" = gsub(x = vector_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2"),
+                          "end" = gsub(x = vector_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3"),
+                          "strand" = gsub(x = vector_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")) %>% type_convert)
             
           } )
         
@@ -4264,12 +4219,8 @@ server <- function(input, output, session) {
           .x = list(vector_LIS_exon_genome_relative_coordinates),
           .f = function(a1) {
             
-            # vector_query_chr <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-            # vector_query_VSR_start <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-            # vector_query_VSR_end <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-            # vector_query_strand <- gsub(x = vector_input_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
-            return(tibble("start" = gsub(x = a1, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2"),
-                          "end" = gsub(x = a1, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")) %>% type_convert)
+            return(tibble("start" = gsub(x = a1, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2"),
+                          "end" = gsub(x = a1, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")) %>% type_convert)
             
           } )
         
@@ -4293,10 +4244,10 @@ server <- function(input, output, session) {
         
         triage_input_coordinates(vector_input_coordinates = automator_input_alternative_exon_coords, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
         
-        AE_query_chr <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        AE_query_start <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-        AE_query_end <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-        AE_query_strand <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+        AE_query_chr <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+        AE_query_start <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+        AE_query_end <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+        AE_query_strand <- gsub(x = automator_input_alternative_exon_coords, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
         
         match_result <- name_a_single_exon(query_chr = AE_query_chr, query_start = AE_query_start %>% type.convert, query_end = AE_query_end %>% type.convert, query_strand = AE_query_strand, return_all_possibilities = FALSE, premagnetised = FALSE, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance)
         
@@ -4339,10 +4290,10 @@ server <- function(input, output, session) {
         
         triage_input_coordinates(vector_input_coordinates = vector_VSR_junction_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
         
-        VSR_query_chr <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        VSR_query_start <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-        VSR_query_end <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-        VSR_query_strand <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+        VSR_query_chr <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+        VSR_query_start <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+        VSR_query_end <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+        VSR_query_strand <- gsub(x = vector_VSR_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
         
         # create list of tibble of junction start/ends
         tibble_VSR_chr_start_end_strand <- tibble("chr" = VSR_query_chr, "start" = VSR_query_start, "end" = VSR_query_end, "strand" = VSR_query_strand, "is_IR" = vector_VSR_junction_is_IR) %>% type_convert
@@ -4373,10 +4324,10 @@ server <- function(input, output, session) {
         
         triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
         
-        LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-        LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-        LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+        LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+        LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+        LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+        LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
         
         # create list of tibble of junction start/ends
         tibble_LSV_chr_start_end_strand <- tibble("chr" = LSV_query_chr, "start" = LSV_query_start, "end" = LSV_query_end, "strand" = LSV_query_strand) %>% type_convert
@@ -4394,17 +4345,17 @@ server <- function(input, output, session) {
         triage_input_coordinates(vector_input_coordinates = vector_LSV_junction_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
         
         # DEBUG ###
-        # vector_LSV_junction_genome_relative_coordinates <- "1:180178884-180182172:+"
+        vector_LSV_junction_genome_relative_coordinates <- "7:7157427-7234302"
         # automator_input_left_query_end_shift <- 0
         # automator_input_right_query_end_shift <- 0
         # automator_input_left_match_tolerance <- 1
         # automator_input_right_match_tolerance <- 1
         ###########
         
-        LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\1")
-        LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\2")
-        LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\3")
-        LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([^\\:]+)\\:([^\\-]+)\\-([^\\:]+)\\:(.*)", replacement = "\\4")
+        LSV_query_chr <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\1")
+        LSV_query_start <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2")
+        LSV_query_end <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3")
+        LSV_query_strand <- gsub(x = vector_LSV_junction_genome_relative_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
         
         # create list of tibble of junction start/ends
         tibble_LSV_chr_start_end_strand <- tibble("chr" = LSV_query_chr, "start" = LSV_query_start, "end" = LSV_query_end, "strand" = LSV_query_strand) %>% type_convert
