@@ -6347,9 +6347,107 @@ server <- function(input, output, session) {
   #         y = list(NULL, NULL)
   #     )
   
-  
-  
   # END WORKSHOP ###
+  
+  # START REVERSE TRANSLATE ###
+  
+  observeEvent(NULL, {
+    
+    # FUNCTION TO RETURN ALL FIRST LEVEL BRACKETS FROM A STRING
+    ## INPUT: A CHARACTER STRING
+    ## OUTPUT: A LIST OF VECTORS, WHERE EACH LIST ELEMENT IS A BRACKETED TERM
+    ## OPTION: can choose to output the stuff in the middle of the bracketed things
+    
+    extract_bracketed_terms_from_string <- function(input_string, output_intervening_terms = FALSE) {
+      
+      # vectorise and tabulate
+      vector_input_string <- input_string %>% strsplit(split = "") %>% unlist
+      tibble_input_table <- tibble("vector_input" = vector_input_string, "flag_brackets" = NA)
+      # tally for matching brackets
+      tibble_input_table[tibble_input_table$vector_input == "(", "flag_brackets"] <- 1
+      tibble_input_table[tibble_input_table$vector_input == ")", "flag_brackets"] <- -1
+      tibble_input_table[is.na(tibble_input_table$flag_brackets), "flag_brackets"] <- 0
+      
+      tibble_input_table$flag_brackets_cumulative <- tibble_input_table$flag_brackets %>% purrr::accumulate(sum)
+      
+      if (any(tibble_input_table$flag_brackets_cumulative == 1)) {
+        
+        # find level 1 bracket closure
+        vector_L1_bracket_start_locations <- intersect(which(c(0, tibble_input_table$flag_brackets_cumulative) == 0), which(tibble_input_table$flag_brackets_cumulative == 1))
+        vector_L1_bracket_end_locations <- intersect(which(c(0, tibble_input_table$flag_brackets_cumulative) == 1), which(tibble_input_table$flag_brackets_cumulative == 0))
+        
+        # aggregate the index ranges we want outputted.
+        tibble_output_index_ranges <- dplyr::bind_rows(
+          tibble(
+            "start" = vector_L1_bracket_start_locations + 1,
+            "end" = vector_L1_bracket_end_locations - 1,
+            "flag" = "target"
+          )
+        )
+        
+        if (output_intervening_terms == TRUE) {
+          
+          # get index ranges of intervening terms
+          vector_intervening_term_starts <- c(1, vector_L1_bracket_end_locations + 1) 
+          vector_intervening_term_ends <- c(vector_L1_bracket_start_locations - 1, length(tibble_input_table$vector_input))
+          
+          # aggregate the index ranges we want outputted.
+          tibble_output_index_ranges <- dplyr::bind_rows(
+            tibble_output_index_ranges,
+            tibble(
+              "start" = vector_intervening_term_starts,
+              "end" = vector_intervening_term_ends,
+              "flag" = "intervening"
+            )
+          ) %>% 
+            .[.$start > 0 & .$end > 0, ] %>%
+            .[.$start < length(tibble_input_table$vector_input) & .$end < length(tibble_input_table$vector_input), ] %>%
+            dplyr::arrange(start)
+        }
+        
+        return(
+          purrr::map2(
+            .x = tibble_output_index_ranges$start,
+            .y = tibble_output_index_ranges$end,
+            .f = ~tibble_input_table$vector_input %>% .[.x:.y] %>% paste(collapse = "")
+            
+          )
+        )
+        
+      } else {
+        return(input_string)
+      }
+      
+    }
+    
+    revtrans_input_string <- "ALKBH2-enst4.2 E2 E3"
+    revtrans_input_string <- "ALKBH2-enst4.2 E1 (ALKBH2-enst5.1 E3) E2"
+    revtrans_input_string <- "((ALKBH2-enst4.2 E3jE4)/(ALKBH2-enst4.2 E3N336jD10E4))"
+    
+    # strategy: unfold brackets into nested list elements along with their operations
+    revtrans_input_string_nospace <- revtrans_input_string %>% stringr::str_squish()
+    
+    unbracket_revtrans_input_string_nospace <- revtrans_input_string_nospace
+    
+    while(grepl(x = unbracket_revtrans_input_string_nospace %>% unlist, pattern = "\\)|\\(") %>% any) {
+      
+      unbracket_revtrans_input_string_nospace <- purrr::map_depth(
+        .x = unbracket_revtrans_input_string_nospace,
+        .depth = purrr::vec_depth(unbracket_revtrans_input_string_nospace), 
+        .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE)) %>% 
+        purrr::flatten()
+      
+    }
+    
+    
+    
+    purrr::map(
+      
+    )
+    
+  } )
+  
+  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
