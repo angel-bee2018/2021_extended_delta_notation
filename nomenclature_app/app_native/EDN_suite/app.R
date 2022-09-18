@@ -6360,6 +6360,14 @@ server <- function(input, output, session) {
     
     extract_bracketed_terms_from_string <- function(input_string, output_intervening_terms = FALSE) {
       
+      # DEBUG ###
+      # input_string <- "ALKBH2-enst4.2e3N336jD10e4(ALKBH2-enst5.1t)circ"
+      ###########
+      
+      print(input_string)
+      
+      global_input_string <<- input_string
+      
       # vectorise and tabulate
       vector_input_string <- input_string %>% strsplit(split = "") %>% unlist
       tibble_input_table <- tibble("vector_input" = vector_input_string, "flag_brackets" = NA)
@@ -6401,17 +6409,35 @@ server <- function(input, output, session) {
             )
           ) %>% 
             .[.$start > 0 & .$end > 0, ] %>%
-            .[.$start < length(tibble_input_table$vector_input) & .$end < length(tibble_input_table$vector_input), ] %>%
+            .[.$start <= length(tibble_input_table$vector_input) & .$end <= length(tibble_input_table$vector_input), ] %>%
             dplyr::arrange(start)
         }
         
         return(
-          purrr::map2(
-            .x = tibble_output_index_ranges$start,
-            .y = tibble_output_index_ranges$end,
-            .f = ~tibble_input_table$vector_input %>% .[.x:.y] %>% paste(collapse = "")
-            
-          )
+          purrr::pmap(
+            .l = list(
+              "a1" = tibble_output_index_ranges$start,
+              "a2" = tibble_output_index_ranges$end,
+              "a3" = tibble_output_index_ranges$flag
+            ),
+            .f = function(a1, a2, a3) {
+              
+              if (a3 == "intervening") {
+                
+                return(tibble_input_table$vector_input %>% .[a1:a2] %>% paste(collapse = ""))
+                
+              } else if (a3 == "target") {
+                
+                return(
+                  list(
+                    tibble_input_table$vector_input %>% .[a1:a2] %>% paste(collapse = "")
+                  )
+                )
+                
+              }
+              
+              
+            } )
         )
         
       } else {
@@ -6420,12 +6446,13 @@ server <- function(input, output, session) {
       
     }
     
-    revtrans_input_string <- "ALKBH2-enst4.2 E2 E3"
-    revtrans_input_string <- "ALKBH2-enst4.2 E1 (ALKBH2-enst5.1 E3) E2"
-    revtrans_input_string <- "((ALKBH2-enst4.2 E3jE4)/(ALKBH2-enst4.2 E3N336jD10E4))"
+    revtrans_input_string <- "ALKBH2-enst4.2 e2 e3"
+    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst5.1 e3) e2"
+    revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
+    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 (ALKBH2-enst5.1t)circ) ALKBH2-enst5.1t e2<- N(e3)circ ->e3 ALKBH2-enst5.1 e3"
     
     # strategy: unfold brackets into nested list elements along with their operations
-    revtrans_input_string_nospace <- revtrans_input_string %>% stringr::str_squish()
+    revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "")
     
     unbracket_revtrans_input_string_nospace <- revtrans_input_string_nospace
     
@@ -6433,11 +6460,41 @@ server <- function(input, output, session) {
       
       unbracket_revtrans_input_string_nospace <- purrr::map_depth(
         .x = unbracket_revtrans_input_string_nospace,
-        .depth = purrr::vec_depth(unbracket_revtrans_input_string_nospace), 
-        .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE)) %>% 
-        purrr::flatten()
+        .depth = purrr::vec_depth(unbracket_revtrans_input_string_nospace) - 1,
+        .ragged = FALSE,
+        .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
       
     }
+    
+    testunfold(unbracket_revtrans_input_string_nospace)
+    
+    testunfold <- function(input) {
+      
+      # DEBUG ###
+      # input <- unbracket_revtrans_input_string_nospace
+      ###########
+      
+      if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
+        
+        a1 <- extract_bracketed_terms_from_string(input, output_intervening_terms = TRUE)
+        
+        purrr::map_if(
+          .x = a1,
+          .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any,
+          .f = function(b1) {
+
+              return(testunfold(b1[[1]]))
+
+          }
+        ) %>% return
+        
+      } else {
+        return(input)
+      }
+      
+    }
+    
+    
     
     
     
