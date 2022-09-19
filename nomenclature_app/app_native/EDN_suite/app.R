@@ -6451,32 +6451,33 @@ server <- function(input, output, session) {
     revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
     revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 (ALKBH2-enst5.1t)circ) ALKBH2-enst5.1t e2<- N(e3)circ ->e3 ALKBH2-enst5.1 e3"
     
+    revtrans_input_string %>% strsplit("(?<=.)(?=circ)|(?<=circ)", perl = TRUE)
+    
     # strategy: unfold brackets into nested list elements along with their operations
     revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "")
     
-    unbracket_revtrans_input_string_nospace <- revtrans_input_string_nospace
+    revtrans_input_string_nospace_unbracket <- revtrans_input_string_nospace
     
-    while(grepl(x = unbracket_revtrans_input_string_nospace %>% unlist, pattern = "\\)|\\(") %>% any) {
-      
-      unbracket_revtrans_input_string_nospace <- purrr::map_depth(
-        .x = unbracket_revtrans_input_string_nospace,
-        .depth = purrr::vec_depth(unbracket_revtrans_input_string_nospace) - 1,
-        .ragged = FALSE,
-        .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
-      
-    }
+    # while(grepl(x = revtrans_input_string_nospace_unbracket %>% unlist, pattern = "\\)|\\(") %>% any) {
+    #   
+    #   revtrans_input_string_nospace_unbracket <- purrr::map_depth(
+    #     .x = revtrans_input_string_nospace_unbracket,
+    #     .depth = purrr::vec_depth(revtrans_input_string_nospace_unbracket) - 1,
+    #     .ragged = FALSE,
+    #     .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
+    #   
+    # }
     
-    testunfold(unbracket_revtrans_input_string_nospace)
-    
-    testunfold <- function(input) {
+    revtrans_recursively_drill_function <- function(input, input_function) {
       
       # DEBUG ###
-      # input <- unbracket_revtrans_input_string_nospace
+      # input <- revtrans_input_string_nospace_unbracket
+      # input_function <- extract_bracketed_terms_from_string
       ###########
       
       if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
         
-        a1 <- extract_bracketed_terms_from_string(input, output_intervening_terms = TRUE)
+        a1 <- input_function(input, output_intervening_terms = TRUE)
         
         purrr::map_if(
           .x = a1,
@@ -6494,13 +6495,14 @@ server <- function(input, output, session) {
       
     }
     
+    revtrans_input_string_unfolded <- revtrans_recursively_drill_function(input = revtrans_input_string_nospace_unbracket, input_function = extract_bracketed_terms_from_string)
     
-    
-    
-    
-    purrr::map(
-      
-    )
+      test <- purrr::modify_depth(
+        .x = revtrans_input_string_unfolded,
+        .depth = purrr::vec_depth(revtrans_input_string_unfolded) - 1,
+        .ragged = FALSE,
+        .f = ~"a")
+        # .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
     
   } )
   
