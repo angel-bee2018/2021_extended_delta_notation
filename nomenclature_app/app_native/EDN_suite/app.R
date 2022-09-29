@@ -6449,43 +6449,46 @@ server <- function(input, output, session) {
     revtrans_input_string <- "ALKBH2-enst4.2 e2 e3"
     revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst5.1 e3) e2"
     revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
-    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 (ALKBH2-enst5.1t)circ) ALKBH2-enst5.1t e2<- N(e3)circ ->e3 ALKBH2-enst5.1 e3"
+    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 circ(ALKBH2-enst5.1fl)) ALKBH2-enst5.1fl e2<- N(circe3) ->e3 ALKBH2-enst5.1 e3"
     
-    revtrans_input_string %>% strsplit("(?<=.)(?=circ)|(?<=circ)", perl = TRUE)
+    ## circ, rev, os, ins, del:
+    ### can be circ(), circEx/circDEx/circNEx, circIx/circDIx/circNIx or circGENE-enst....
+    ### rule: no confusion when brackets are present, but without brackets, look for the presence of "enst". Attempt to search for the existence of circGENE and if it doesnt exist, treat it as circ(GENE....)
+    ### throw a warning too if circ was specified but it returned a gene name.
     
     # strategy: unfold brackets into nested list elements along with their operations
     revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "")
     
-    revtrans_input_string_nospace_unbracket <- revtrans_input_string_nospace
-    
-    # while(grepl(x = revtrans_input_string_nospace_unbracket %>% unlist, pattern = "\\)|\\(") %>% any) {
+    # while(grepl(x = revtrans_input_string_nospace %>% unlist, pattern = "\\)|\\(") %>% any) {
     #   
-    #   revtrans_input_string_nospace_unbracket <- purrr::map_depth(
-    #     .x = revtrans_input_string_nospace_unbracket,
-    #     .depth = purrr::vec_depth(revtrans_input_string_nospace_unbracket) - 1,
+    #   revtrans_input_string_nospace <- purrr::map_depth(
+    #     .x = revtrans_input_string_nospace,
+    #     .depth = purrr::vec_depth(revtrans_input_string_nospace) - 1,
     #     .ragged = FALSE,
     #     .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
     #   
     # }
     
-    revtrans_recursively_drill_function <- function(input, input_function) {
+    # cryptic function to recursively unbracket through a nested list
+    ## note that this exhibits ragged behaviour
+    revtrans_recursively_unbracket_nested_list <- function(input, input_function, ...) {
       
       # DEBUG ###
-      # input <- revtrans_input_string_nospace_unbracket
+      # input <- revtrans_input_string_nospace
       # input_function <- extract_bracketed_terms_from_string
       ###########
       
       if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
         
-        a1 <- input_function(input, output_intervening_terms = TRUE)
+        a1 <- input_function(input, ...)
         
         purrr::map_if(
           .x = a1,
           .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any,
           .f = function(b1) {
-
-              return(testunfold(b1[[1]]))
-
+            
+            return(input_function(b1[[1]]))
+            
           }
         ) %>% return
         
@@ -6495,15 +6498,108 @@ server <- function(input, output, session) {
       
     }
     
-    revtrans_input_string_unfolded <- revtrans_recursively_drill_function(input = revtrans_input_string_nospace_unbracket, input_function = extract_bracketed_terms_from_string)
+    # cryptic function to recursively split enst IDs
+    ## note that this exhibits ragged behaviour
+    revtrans_recursively_split_nested_list <- function(input, regex_delimiter_for_this_function) {
+      
+      # DEBUG ###
+      # input <- revtrans_input_string_unfolded
+      # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+      ###########
+      
+      print("call")
+      print(input)
+      global_input <<- input
+      
+      if (input %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != input %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length) {
+        
+        purrr::modify_if(
+          .x = input,
+          .p = ~.x %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != .x %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length,
+          .f = function(b1) {
+            
+            if (data.class(b1) == "character") {
+              
+              return(split_string_keep_delimiter(input_string = b1, regex_delimiter = regex_delimiter_for_this_function))
+              
+            } else if (data.class(b1) == "list") {
+              print("recall")
+              print(b1)
+              global_recall <<- b1
+              
+              return(revtrans_recursively_split_nested_list(b1, regex_delimiter_for_this_function = regex_delimiter_for_this_function))
+            } else {
+              stop("data class of input should be a character of list")
+            }
+            
+          }
+        ) %>% return
+        
+      } else {
+        return(input)
+      }
+      
+    }
     
-      test <- purrr::modify_depth(
-        .x = revtrans_input_string_unfolded,
-        .depth = purrr::vec_depth(revtrans_input_string_unfolded) - 1,
-        .ragged = FALSE,
-        .f = ~"a")
-        # .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
+    # function to split string but keep delimiter
+    ## input: MUST BE A CHARACTER STRING and a delimiter in regex
+    ## output: vector of split terms
+    split_string_keep_delimiter <- function(input_string, regex_delimiter) {
+      
+      # DEBUG ###
+      # input_string <- revtrans_input_string_nospace
+      # regex_delimiter <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+fl*"
+      ###########
+      
+      # create tibble of split positions
+      tibble_delimiter_positions <- input_string %>% stringr::str_locate_all(pattern = regex_delimiter) %>% .[[1]] %>% as_tibble %>% tibble::add_column("type" = "delimiter")
+      
+      length_of_string <- input_string %>% stringr::str_length()
+      
+      # fill in the tibble with the intervening terms
+      tibble_intervening_positions <- tibble("start" = c(1, tibble_delimiter_positions$end + 1), "end" = c(tibble_delimiter_positions$start - 1, length_of_string), "type" = "intervening")
+      
+      # combine
+      tibble_combined_split_positions <- dplyr::bind_rows(
+        tibble_delimiter_positions,
+        tibble_intervening_positions %>% .[!.$start %in% c(tibble_delimiter_positions$start, tibble_delimiter_positions$end) & !.$end %in% c(tibble_delimiter_positions$start, tibble_delimiter_positions$end), ]
+      ) %>%
+        dplyr::arrange(start)
+      
+      # output the split
+      return(
+        tibble_combined_split_positions %>% purrr::map2(.x = .$start, .y = .$end, .f = ~input_string %>% stringr::str_sub(.x, .y)) 
+      )
+      
+    }
     
+    # unfold brackets first
+    revtrans_input_string_unfolded <- revtrans_recursively_unbracket_nested_list(input = revtrans_input_string_nospace, input_function = extract_bracketed_terms_from_string,  output_intervening_terms = TRUE)
+    
+    # split after enst
+    # IMPORTANT NOTE: be very cautious about tandem overlapping repeated matches
+    revtrans_input_string_enst_split <- revtrans_recursively_split_nested_list(input = revtrans_input_string_unfolded, regex_delimiter_for_this_function = "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*")
+      
+    # there will be some stuff remaining BEFORE the gene symbols, e.g. circ, e3 etc... 
+    # we will now proceeed to check whether they are actually a gene name e.g. E2F
+    
+    )
+    
+    
+    
+    
+    revtrans_recursively_unbracket_nested_list
+    
+      revtrans_input_string_nospace %>% 
+      strsplit(split = "(?<=.)(?=circ)|(?<=circ)|(?<=.)(?=[nNdDeEiIjJ](?!st))|(?<=[nNdDeEiIjJ](?!st))|(?<=.)(?=\\/)|(?<=\\/)|(?<=.)(?=\\-\\>)|(?<=\\-\\>)|(?<=.)(?=\\-\\<)|(?<=\\-\\<)|(?<=.)(?=[eEiI][0-9][0-9])|(?<=[eEiI][0-9][0-9])", perl = TRUE) %>% unlist
+    
+    
+    %>%
+      strsplit(split = ")", perl = TRUE) %>% unlist %>%
+      strsplit("(?<=.)(?=d)|(?<=d)|(?<=.)(?=D)|(?<=D)", perl = TRUE) %>% 
+      strsplit("(?<=.)(?=j)|(?<=j)|(?<=.)(?=J)|(?<=J)", perl = TRUE) %>% 
+      strsplit("(?<=.)(?=\\-\\>)|(?<=\\-\\>)|(?<=.)(?=\\-\\<)|(?<=\\-\\<)", perl = TRUE)
+      
   } )
   
   # END REVERSE TRANSLATE ###
