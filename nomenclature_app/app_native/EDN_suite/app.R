@@ -6779,7 +6779,116 @@ server <- function(input, output, session) {
           return(input)
         }
         
-      })
+      } )
+    
+    # calculate the nomenclature
+    ## work from the innermost terms out
+    
+    # generic function to read a nested list and apply operations to elements.
+    # input: a list with at most 2 levels.
+    # output: a list with one level.
+    revtrans_reading_head <- function(list_input, tibble_gtf_table) {
+      
+      # DEBUG ###
+      list_input <- revtrans_input_string_split_text_operators[[4]][[1]]
+      tibble_gtf_table <- tibble_gtf_table
+      ###########
+      
+      
+      
+    }
+    
+    # input: a nested list of perfectly split terms
+    # output: a BED or GTF-like format that specifies features along a chosen set of coordinates.
+    ## reverse translate converts to genome-relative coords at the end of the day, so the kind of data output will have to be coordinates.
+    
+    revtrans_input_string_processed <- revtrans_input_string_split_text_operators %>% (
+      function(input) {
+        
+        # DEBUG ###
+        # input <- revtrans_input_string_unfolded[[4]]
+        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        ###########
+        
+        function_F1 <<- sys.function(which = 2)
+        
+        print("call")
+        print(input)
+        global_input <<- input
+        
+        if (input %>% purrr::vec_depth() > 3) {
+          
+        } else if (input %>% purrr::vec_depth() == 3) {
+          
+        } else if (input %>% purrr::vec_depth() == 2) {
+          
+        }
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
+            .f = function(b1) {
+              
+              if (data.class(b1) == "character" & length(b1) == 1) {
+                
+                gfhfh
+                
+              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+                
+                print("recall")
+                print(b1)
+                global_recall <<- b1
+                
+                return(b1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% return
+          
+        } else {
+          return(input)
+        }
+        
+      } )
+    
+    function_F1 <<- sys.function(which = 2)
+    
+    print("call")
+    print(input)
+    global_input <<- input
+    
+    if (input %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(input %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length) {
+      
+      purrr::map_if(
+        .x = input,
+        .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
+        .f = function(b1) {
+          
+          if (data.class(b1) == "character" & length(b1) == 1) {
+            
+            fg
+            
+          } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+            
+            print("recall")
+            print(b1)
+            global_recall <<- b1
+            
+            return(b1 %>% function_F1)
+            
+          } else {
+            stop("data class of input should be a character of list")
+          }
+          
+        }
+      ) %>% return
+      
+    } else {
+      return(input)
+    }
     
   } )  # END REVERSE TRANSLATE ###
   
