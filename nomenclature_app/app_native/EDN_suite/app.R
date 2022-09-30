@@ -6670,13 +6670,11 @@ server <- function(input, output, session) {
         print(input)
         global_input <<- input
         
-        regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
-        
-        if (input %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length) {
+        if (input %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length) {
           
           purrr::map_if(
             .x = input,
-            .p = ~.x %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length,
+            .p = ~.x %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length,
             .f = function(b1) {
               
               if (data.class(b1) == "character" & length(b1) == 1) {
@@ -6685,8 +6683,8 @@ server <- function(input, output, session) {
                 if (grep(x = tibble_gtf_table$gene_name %>% na.omit %>% unique, ignore.case = TRUE, pattern = gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE, replacement = "\\2")) %>% length > 0) {
                   return(
                     c(
-                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\1"), 
-                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\2"))
+                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\1"),
+                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\2"))
                     )
                 } else {
                   return(b1)
@@ -6712,7 +6710,77 @@ server <- function(input, output, session) {
         }
         
       })
+    
+    # split text operators
+    ## at this point, the only things that should remain untidied are just e, i, j, N, D, circ etc.
+    ## we just find these and pick them apart.
+    revtrans_input_string_split_text_operators <- revtrans_input_string_split_before_enst %>% (
+      function(input) {
         
+        # DEBUG ###
+        # input <- revtrans_input_string_unfolded[[4]]
+        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        ###########
+        
+        function_F1 <<- sys.function(which = 2)
+        
+        print("call")
+        print(input)
+        global_input <<- input
+        
+        if (input %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(input %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length) {
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
+            .f = function(b1) {
+              
+              if (data.class(b1) == "character" & length(b1) == 1) {
+                
+                b1 %>%
+                  split_string_keep_delimiter(regex_delimiter = "e\\d+") %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "i\\d+")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "j")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "d\\d*")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "n\\d*")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "circ")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "rev")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "os")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "ins")) %>%
+                  unlist %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "del")) %>%
+                  unlist %>%
+                  return
+                
+              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+                
+                print("recall")
+                print(b1)
+                global_recall <<- b1
+                
+                return(b1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% return
+          
+        } else {
+          return(input)
+        }
+        
+      })
+    
   } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
