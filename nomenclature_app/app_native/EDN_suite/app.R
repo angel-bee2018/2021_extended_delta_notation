@@ -6361,7 +6361,7 @@ server <- function(input, output, session) {
     extract_bracketed_terms_from_string <- function(input_string, output_intervening_terms = FALSE) {
       
       # DEBUG ###
-      # input_string <- "ALKBH2-enst4.2e3N336jD10e4(ALKBH2-enst5.1t)circ"
+      # input_string <- "ALKBH2-enst4.2e3N336jD10e4circ(ALKBH2-enst5.1fl)"
       ###########
       
       print(input_string)
@@ -6446,6 +6446,8 @@ server <- function(input, output, session) {
       
     }
     
+    tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+    
     revtrans_input_string <- "ALKBH2-enst4.2 e2 e3"
     revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst5.1 e3) e2"
     revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
@@ -6468,78 +6470,6 @@ server <- function(input, output, session) {
     #     .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
     #   
     # }
-    
-    # cryptic function to recursively unbracket through a nested list
-    ## note that this exhibits ragged behaviour
-    revtrans_recursively_unbracket_nested_list <- function(input, input_function, ...) {
-      
-      # DEBUG ###
-      # input <- revtrans_input_string_nospace
-      # input_function <- extract_bracketed_terms_from_string
-      ###########
-      
-      if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
-        
-        a1 <- input_function(input, ...)
-        
-        purrr::map_if(
-          .x = a1,
-          .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any,
-          .f = function(b1) {
-            
-            return(input_function(b1[[1]]))
-            
-          }
-        ) %>% return
-        
-      } else {
-        return(input)
-      }
-      
-    }
-    
-    # cryptic function to recursively split enst IDs
-    ## note that this exhibits ragged behaviour
-    revtrans_recursively_split_nested_list <- function(input, regex_delimiter_for_this_function) {
-      
-      # DEBUG ###
-      # input <- revtrans_input_string_unfolded
-      # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
-      ###########
-      
-      print("call")
-      print(input)
-      global_input <<- input
-      
-      if (input %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != input %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length) {
-        
-        purrr::modify_if(
-          .x = input,
-          .p = ~.x %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != .x %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length,
-          .f = function(b1) {
-            
-            if (data.class(b1) == "character") {
-              
-              return(split_string_keep_delimiter(input_string = b1, regex_delimiter = regex_delimiter_for_this_function))
-              
-            } else if (data.class(b1) == "list") {
-              print("recall")
-              print(b1)
-              global_recall <<- b1
-              
-              return(revtrans_recursively_split_nested_list(b1, regex_delimiter_for_this_function = regex_delimiter_for_this_function))
-            } else {
-              stop("data class of input should be a character of list")
-            }
-            
-          }
-        ) %>% return
-        
-      } else {
-        return(input)
-      }
-      
-    }
     
     # function to split string but keep delimiter
     ## input: MUST BE A CHARACTER STRING and a delimiter in regex
@@ -6568,20 +6498,125 @@ server <- function(input, output, session) {
       
       # output the split
       return(
-        tibble_combined_split_positions %>% purrr::map2(.x = .$start, .y = .$end, .f = ~input_string %>% stringr::str_sub(.x, .y)) 
+        tibble_combined_split_positions %>% purrr::map2(.x = .$start, .y = .$end, .f = ~input_string %>% stringr::str_sub(.x, .y)) %>% unlist 
       )
       
     }
     
     # unfold brackets first
-    revtrans_input_string_unfolded <- revtrans_recursively_unbracket_nested_list(input = revtrans_input_string_nospace, input_function = extract_bracketed_terms_from_string,  output_intervening_terms = TRUE)
+    revtrans_input_string_unfolded <- revtrans_input_string_nospace %>% (
+      function(input) {
+        
+        # DEBUG ###
+        # input <- revtrans_input_string_nospace
+        # input_function <- extract_bracketed_terms_from_string
+        ###########
+        
+        function_F1 <<- sys.function(which = 3)
+        
+        if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any == TRUE,
+            .f = function(a1) {
+              
+              if (data.class(a1) == "character") {
+                
+                b1 <- extract_bracketed_terms_from_string(a1, output_intervening_terms = TRUE)
+                
+                if (grepl(x = b1 %>% unlist, pattern = "\\)|\\(") %>% any != TRUE) {
+                  return(b1)
+                } else {
+                  
+                  print("recall1")
+                  print(sys.nframe())
+                  
+                  return(b1 %>% function_F1)
+                }
+                
+              } else if (data.class(a1) == "list") {
+                
+                print("recall2")
+                print(a1)
+                global_recall <<- a1
+                
+                return(a1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% 
+            return
+          
+        } else {
+          return(input)
+        }
+        
+      } ) %>%
+      purrr::flatten()
+    
+    # split at special symbols early because there is no confusion about their scope
+    revtrans_input_string_split_special_symbols <- revtrans_input_string_unfolded %>% (
+      
+      function(input, regex_delimiter_for_this_function) {
+        
+        # DEBUG ###
+        # input <- revtrans_input_string_unfolded[[4]]
+        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        ###########
+        
+        function_F1 <<- sys.function(which = 2)
+        
+        print("call")
+        print(input)
+        global_input <<- input
+        
+        regex_delimiter_for_this_function <- "((\\→)|(\\←)|(<\\-)|(\\->)|(\\^)|(\\Δ)|(\\∇)|(\\▼)|(\\_)|(\\?)|(\\/))"
+        
+        if (input %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != input %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length) {
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~.x %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != .x %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length,
+            .f = function(b1) {
+              
+              if (data.class(b1) == "character" & length(b1) == 1) {
+                
+                return(split_string_keep_delimiter(input_string = b1, regex_delimiter = regex_delimiter_for_this_function))
+                
+              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+                
+                print("recall")
+                print(b1)
+                global_recall <<- b1
+                
+                return(b1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character or list")
+              }
+              
+            }
+          ) %>% return
+          
+        } else {
+          return(input)
+        }
+        
+      }
+      
+    )
     
     # split after enst
     # IMPORTANT NOTE: be very cautious about tandem overlapping repeated matches
-    revtrans_input_string_enst_split <- revtrans_recursively_split_nested_list(input = revtrans_input_string_unfolded, regex_delimiter_for_this_function = "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*")
-      
+    revtrans_input_string_split_after_enst <- revtrans_recursively_split_nested_list(input = revtrans_input_string_split_special_symbols, regex_delimiter_for_this_function = "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*")
+    
     # there will be some stuff remaining BEFORE the gene symbols, e.g. circ, e3 etc... 
     # we will now proceeed to check whether they are actually a gene name e.g. E2F
+    
     
     )
     
