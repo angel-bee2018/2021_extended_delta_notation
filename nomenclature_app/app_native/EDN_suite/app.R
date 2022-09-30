@@ -6446,31 +6446,6 @@ server <- function(input, output, session) {
       
     }
     
-    tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
-    
-    revtrans_input_string <- "ALKBH2-enst4.2 e2 e3"
-    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst5.1 e3) e2"
-    revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
-    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 circ(ALKBH2-enst5.1fl)) ALKBH2-enst5.1fl e2<- N(circe3) ->e3 ALKBH2-enst5.1 e3"
-    
-    ## circ, rev, os, ins, del:
-    ### can be circ(), circEx/circDEx/circNEx, circIx/circDIx/circNIx or circGENE-enst....
-    ### rule: no confusion when brackets are present, but without brackets, look for the presence of "enst". Attempt to search for the existence of circGENE and if it doesnt exist, treat it as circ(GENE....)
-    ### throw a warning too if circ was specified but it returned a gene name.
-    
-    # strategy: unfold brackets into nested list elements along with their operations
-    revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "")
-    
-    # while(grepl(x = revtrans_input_string_nospace %>% unlist, pattern = "\\)|\\(") %>% any) {
-    #   
-    #   revtrans_input_string_nospace <- purrr::map_depth(
-    #     .x = revtrans_input_string_nospace,
-    #     .depth = purrr::vec_depth(revtrans_input_string_nospace) - 1,
-    #     .ragged = FALSE,
-    #     .f = ~extract_bracketed_terms_from_string(.x, output_intervening_terms = TRUE))
-    #   
-    # }
-    
     # function to split string but keep delimiter
     ## input: MUST BE A CHARACTER STRING and a delimiter in regex
     ## output: vector of split terms
@@ -6502,6 +6477,23 @@ server <- function(input, output, session) {
       )
       
     }
+    
+    tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+    
+    global_vector_warnings <- c()
+    
+    revtrans_input_string <- "ALKBH2-enst4.2 e2 e3"
+    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst5.1 e3) e2"
+    revtrans_input_string <- "(ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4)"
+    revtrans_input_string <- "ALKBH2-enst4.2 e1 (ALKBH2-enst4.2 e3je4)/(ALKBH2-enst4.2 e3N336jD10e4 circ(ALKBH2-enst5.1fl)) ALKBH2-enst5.1fl e2<- N(circe3) ->e3 ALKBH2-enst5.1 e3"
+    
+    ## circ, rev, os, ins, del:
+    ### can be circ(), circEx/circDEx/circNEx, circIx/circDIx/circNIx or circGENE-enst....
+    ### rule: no confusion when brackets are present, but without brackets, look for the presence of "enst". Attempt to search for the existence of circGENE and if it doesnt exist, treat it as circ(GENE....)
+    ### throw a warning too if circ was specified but it returned a gene name.
+    
+    # strategy: unfold brackets into nested list elements along with their operations
+    revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "") %>% tolower()
     
     # unfold brackets first
     revtrans_input_string_unfolded <- revtrans_input_string_nospace %>% (
@@ -6612,32 +6604,116 @@ server <- function(input, output, session) {
     
     # split after enst
     # IMPORTANT NOTE: be very cautious about tandem overlapping repeated matches
-    revtrans_input_string_split_after_enst <- revtrans_recursively_split_nested_list(input = revtrans_input_string_split_special_symbols, regex_delimiter_for_this_function = "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*")
-    
-    # there will be some stuff remaining BEFORE the gene symbols, e.g. circ, e3 etc... 
-    # we will now proceeed to check whether they are actually a gene name e.g. E2F
-    
-    
-    )
-    
-    
-    
-    
-    revtrans_recursively_unbracket_nested_list
-    
-      revtrans_input_string_nospace %>% 
-      strsplit(split = "(?<=.)(?=circ)|(?<=circ)|(?<=.)(?=[nNdDeEiIjJ](?!st))|(?<=[nNdDeEiIjJ](?!st))|(?<=.)(?=\\/)|(?<=\\/)|(?<=.)(?=\\-\\>)|(?<=\\-\\>)|(?<=.)(?=\\-\\<)|(?<=\\-\\<)|(?<=.)(?=[eEiI][0-9][0-9])|(?<=[eEiI][0-9][0-9])", perl = TRUE) %>% unlist
-    
-    
-    %>%
-      strsplit(split = ")", perl = TRUE) %>% unlist %>%
-      strsplit("(?<=.)(?=d)|(?<=d)|(?<=.)(?=D)|(?<=D)", perl = TRUE) %>% 
-      strsplit("(?<=.)(?=j)|(?<=j)|(?<=.)(?=J)|(?<=J)", perl = TRUE) %>% 
-      strsplit("(?<=.)(?=\\-\\>)|(?<=\\-\\>)|(?<=.)(?=\\-\\<)|(?<=\\-\\<)", perl = TRUE)
+    revtrans_input_string_split_after_enst <- revtrans_input_string_split_special_symbols %>% (
+      function(input) {
+        
+        # DEBUG ###
+        # input <- revtrans_input_string_unfolded[[4]]
+        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        ###########
+        
+        function_F1 <<- sys.function(which = 2)
+        
+        print("call")
+        print(input)
+        global_input <<- input
+        
+        regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        
+        if (input %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != input %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length) {
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~.x %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != .x %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length,
+            .f = function(b1) {
+              
+              if (data.class(b1) == "character" & length(b1) == 1) {
+                
+                return(split_string_keep_delimiter(input_string = b1, regex_delimiter = regex_delimiter_for_this_function))
+                
+              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+                
+                print("recall")
+                print(b1)
+                global_recall <<- b1
+                
+                return(b1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% return
+          
+        } else {
+          return(input)
+        }
+        
+      })
       
-  } )
-  
-  # END REVERSE TRANSLATE ###
+    # split BEFORE XXXX-ensta.bfl
+    ## there will be some stuff remaining BEFORE the gene symbols, e.g. circ, e3 etc... 
+    ## the full list: e, i, j, D, N, circ, rev, os, ins, del
+    ## we will now proceeed to check whether they are actually a gene name e.g. E2F. if no match, then proceed to split. if match, don't split but warn.
+    revtrans_input_string_split_before_enst <- revtrans_input_string_split_after_enst %>% (
+      function(input) {
+        
+        # DEBUG ###
+        # input <- revtrans_input_string_unfolded[[4]]
+        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        ###########
+        
+        function_F1 <<- sys.function(which = 2)
+        
+        print("call")
+        print(input)
+        global_input <<- input
+        
+        regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
+        
+        if (input %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length) {
+          
+          purrr::map_if(
+            .x = input,
+            .p = ~.x %>% unlist %>% grep(pattern = "^(?!(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del))([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE) %>% length != .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% length,
+            .f = function(b1) {
+              
+              if (data.class(b1) == "character" & length(b1) == 1) {
+                
+                # test for match with reference gene symbols
+                if (grep(x = tibble_gtf_table$gene_name %>% na.omit %>% unique, ignore.case = TRUE, pattern = gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*)\\-\\d*enst\\d+.\\d+(fl)*$", perl = TRUE, replacement = "\\2")) %>% length > 0) {
+                  return(
+                    c(
+                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\1"), 
+                      gsub(x = b1, pattern = "^(e\\d+|i\\d+|j\\d+|d|n|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\2"))
+                    )
+                } else {
+                  return(b1)
+                }
+                
+              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
+                
+                print("recall")
+                print(b1)
+                global_recall <<- b1
+                
+                return(b1 %>% function_F1)
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% return
+          
+        } else {
+          return(input)
+        }
+        
+      })
+        
+  } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
