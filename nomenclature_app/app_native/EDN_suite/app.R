@@ -6785,16 +6785,116 @@ server <- function(input, output, session) {
     ## work from the innermost terms out
     
     # generic function to read a nested list and apply operations to elements.
-    # input: a list with at most 2 levels.
-    # output: a list with one level.
+    # input: a list with at most 2 levels, with the innermost level being a character vector.
+    # output: a list of lists, with each L1 list element specifying a unique structure (such as for alternative splicing mode)
+    ## L2 elements are lists of character vectors. each element contains a range of genomic coordinates followed by internal flags that specify modifications + what to draw + which reference elements to highlight
+    ## flags: 5pTRUNC, 5pEXT, 3pTRUNC, 3pEXT, CIRCULARISED, REVERSE, REVCOMP, SPLICEOUT, SPLICEIN, DELETION, INSERTION, /
+    ## L2 element example (lariat):
+    ### ..$main 1:235401503-235401587:+
+    ### ..$red NA
+    ### ..$green 1:235401588-235401611:+
+    ### ..$flags [1] "CIRCULARISED"
+    ### ..$relative [1] "ALKBH2-enst4.2 E2"
+    ## L2 element example (junction):
+    ### ..$main 1:235401503-235401587:+
+    ### ..$red NA
+    ### ..$green NA
+    ### ..$flags [1] "junction"
+    
+    ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
       
       # DEBUG ###
-      list_input <- revtrans_input_string_split_text_operators[[4]][[1]]
+      # list_input <- revtrans_input_string_split_text_operators[[4]][[1]]
+      list_input <- revtrans_input_string_split_text_operators[[7]]
       tibble_gtf_table <- tibble_gtf_table
       ###########
       
-      
+      purrr::map(
+        .x = list_input,
+        .f = function(a1) {
+          
+          # DEBUG ###
+          a1 <- list_input[[2]]
+          ###########
+          
+          if (purrr::vec_depth(a1) == 1) {
+            return(a1)
+          } else if (purrr::vec_depth(a1) == 2) {
+            purrr::map(
+              .x = a1,
+              .f = function(b1) {
+                
+                # DEBUG ###
+                b1 <- a1[[1]]
+                ###########
+                
+                # check length of character vector in the innermost level.
+                if (data.class(b1) != "character") {
+                  print("function \"revtrans_reading_head\" checkpoint 1 observed input")
+                  print(a1)
+                  stop("function \"revtrans_reading_head\" failed - innermost layer should be a character vector.")
+                } else if (length(b1) == 1) {
+                  return(b1)
+                } else if (length(b1) == 1) {
+                  
+                  tibble_operation_stack <- tibble("call" = character(), "class" = character())
+                  
+                  # operation stack should look like:
+                  # 1 retrieval (all exons)
+                  # 2 exon/intron modifiers
+                  # 3 filtering for short-read mode
+                  # 4 whole-transcript operations in order
+                  # 5 break
+                  # 6 <next hgnc stable ID>
+                  ...
+                  # 7 
+                  
+                  purrr::reduce2(
+                    .x = b1, 
+                    .y = 2:length(b1),
+                    .f = function(c1, c2, c3) {
+                      
+                      # apply and compute operations and un-nest
+                      # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
+                      # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
+                      # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
+                      
+                      # work from left to right - the reading head should work as a receiver-expecter-computer
+                      
+                      # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
+                      
+                      # ENST CAPTURE
+                      ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
+                      ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
+                      ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
+                      
+                        ## condition if there is enst on both sides - compute
+                      if (grepl(x = c1, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE & grepl(x = c2, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
+                        
+                        c1
+                        
+                        ## condition if we've reached the end - compute
+                      } else if (grepl(x = c1, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == FALSE & grepl(x = c2, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == FALSE) {
+                        
+                        ## condition: if no STOP condition -> denest immediately
+                      } else {
+                        return(c(c1, c2))
+                      }
+                      
+                    } )
+                  
+                }
+                
+              }
+            )
+          } else {
+            print("function \"revtrans_reading_head\" checkpoint 2 observed input")
+            print(a1)
+            stop("function \"revtrans_reading_head\" failed - input structure is unexpected. expected: a list with purrr::vec_depth() == 3")
+          }
+          
+        } )
       
     }
     
@@ -6851,44 +6951,9 @@ server <- function(input, output, session) {
         } else {
           return(input)
         }
+      
+    )
         
-      } )
-    
-    function_F1 <<- sys.function(which = 2)
-    
-    print("call")
-    print(input)
-    global_input <<- input
-    
-    if (input %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(input %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length) {
-      
-      purrr::map_if(
-        .x = input,
-        .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
-        .f = function(b1) {
-          
-          if (data.class(b1) == "character" & length(b1) == 1) {
-            
-            fg
-            
-          } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
-            
-            print("recall")
-            print(b1)
-            global_recall <<- b1
-            
-            return(b1 %>% function_F1)
-            
-          } else {
-            stop("data class of input should be a character of list")
-          }
-          
-        }
-      ) %>% return
-      
-    } else {
-      return(input)
-    }
     
   } )  # END REVERSE TRANSLATE ###
   
