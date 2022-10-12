@@ -6728,11 +6728,11 @@ server <- function(input, output, session) {
         print(input)
         global_input <<- input
         
-        if (input %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(input %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length) {
+        if (input %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins\\d*|del\\d*)$", perl = TRUE) %>% length != setdiff(input %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins\\d*|del\\d*)"), input %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length) {
           
           purrr::map_if(
             .x = input,
-            .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
+            .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins\\d*|del\\d*)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins\\d*|del\\d*)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
             .f = function(b1) {
               
               if (data.class(b1) == "character" & length(b1) == 1) {
@@ -6754,9 +6754,9 @@ server <- function(input, output, session) {
                   unlist %>%
                   purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "os")) %>%
                   unlist %>%
-                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "ins")) %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "ins\\d*")) %>%
                   unlist %>%
-                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "del")) %>%
+                  purrr::map(~split_string_keep_delimiter(input_string = .x, regex_delimiter = "del\\d*")) %>%
                   unlist %>%
                   return
                 
@@ -6838,7 +6838,7 @@ server <- function(input, output, session) {
                   return(b1)
                 } else if (length(b1) == 1) {
                   
-                  tibble_operation_stack <- tibble("call" = character(), "class" = character())
+                  
                   
                   # operation stack should look like:
                   # 1 retrieval (all exons)
@@ -6850,17 +6850,36 @@ server <- function(input, output, session) {
                   ...
                   # 7 
                   
+                  # initialise the working list
+                  list_working_terms_initial <- list(
+                    "accumulated_terms" = character(),
+                    "previous_term" = character(),
+                    "tibble_operation_stack" = tibble("element" = character(), "class" = character()),
+                    "status" = "INIT"
+                  )
+                  
                   purrr::reduce2(
                     .x = b1, 
                     .y = 2:length(b1),
                     .f = function(c1, c2, c3) {
+                      
+                      # if initial operation, import the initialised working list
+                      if (c3 == 2) {
+                        list_working_terms <- list_working_terms_initial
+                        term_left <- c1
+                        term_right <- c2
+                      } else {
+                        list_working_terms <- c1
+                        term_left <- list_working_terms$previous_term
+                        term_right <- c2
+                      }
                       
                       # apply and compute operations and un-nest
                       # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
                       # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
                       # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
                       
-                      # work from left to right - the reading head should work as a receiver-expecter-computer
+                      # work from left to right starting from the 1st term - the reading head should work as a receiver-expecter-computer
                       
                       # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
                       
@@ -6869,17 +6888,42 @@ server <- function(input, output, session) {
                       ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
                       ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
                       
-                        ## condition if there is enst on both sides - compute
-                      if (grepl(x = c1, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE & grepl(x = c2, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
+                        ## condition if there is enst on both sides - compute but refresh the operation slate and package the computed coord object neatly
+                      if (grepl(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
                         
-                        c1
+                        index_position_of_enst <- grep(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") 
                         
-                        ## condition if we've reached the end - compute
-                      } else if (grepl(x = c1, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == FALSE & grepl(x = c2, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == FALSE) {
                         
-                        ## condition: if no STOP condition -> denest immediately
+                        
+                        # reset the list of terms to work with for new hgnc stable ID on the level
+                        list_working_terms_initial$terms <- term_right
+                        
+                        ## condition: if no STOP condition -> compute
                       } else {
-                        return(c(c1, c2))
+                        
+                        # operation
+                        if (grepl(x = term_left, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+                          
+                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_left, "class" = "operator_quantitative", .after = if (any(list_working_terms_initial$tibble_operation_stack$class == "entity")) {max(which(list_working_terms_initial$tibble_operation_stack$class == "entity"))} else {0} )
+                          
+                        } else if (grepl(x = term_left, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
+                          
+                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_left, "class" = "operator_unqualified", .after = if (any(list_working_terms_initial$tibble_operation_stack$class == "entity")) {max(which(list_working_terms_initial$tibble_operation_stack$class == "entity"))} else {0} )
+                          
+                        } else if (grepl(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$|^e\\d+$|^i\\d+$") == TRUE) {
+                          
+                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_left, "class" = "entity", .before = 1)
+                          
+                        } else if (grepl(x = term_left, pattern = "^j$") == TRUE) {
+                          
+                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_left, "class" = "operator_doublesided", .before = 1)
+                          
+                        }
+                        
                       }
                       
                     } )
