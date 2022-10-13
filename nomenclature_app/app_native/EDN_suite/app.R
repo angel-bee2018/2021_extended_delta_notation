@@ -6478,6 +6478,62 @@ server <- function(input, output, session) {
       
     }
     
+    # function to retrieve the indices of all string matches in a nested list
+    ## input: a nested list & custom match_function such as str_match or grepl that returns a TRUE/FALSE upon match
+    ## output: a list of numerical vectors. L1: each instance of where there is a match. L2 (numerical vectors): list index coordinates by level
+    nested_list_grep <- function(input_list, match_function, ...) {
+      
+      # DEBUG ###
+      # input_list <- revtrans_input_string_unfolded
+      # match_function <- grepl
+      ###########
+      
+      # 1. loop through the whole list and replace each matched string with its index coordinates
+      vector_matched_index_coords <- input_list %>% (
+        function(input, vector_index_coordinates_input = NULL) {
+          
+          function_F2 <<- sys.function(which = sys.nframe())
+          
+          purrr::modify2(
+            .x = input,
+            .y = 1:length(input),
+            .f = function(a1, a2) {
+              
+              if (is.null(vector_index_coordinates_input)) {
+                vector_index_coordinates <- a2
+              } else {
+                vector_index_coordinates <- c(vector_index_coordinates_input, a2)
+              }
+              
+              if (data.class(a1) == "character" & length(a1) == 1) {
+                
+                # if (a1 %>% grepl(pattern = "fl") == TRUE) {
+                if (a1 %>% match_function(...) == TRUE) {
+                  return(vector_index_coordinates %>% paste(collapse = ","))
+                } else {
+                  return(NA)
+                }
+                
+              } else if (data.class(a1) %in% c("list", "character")) {
+                
+                return(a1 %>% function_F2(vector_index_coordinates_input = vector_index_coordinates))
+                
+              } else {
+                stop("data class of input should be a character of list")
+              }
+              
+            }
+          ) %>% 
+            return
+          
+        } ) %>% unlist %>% na.omit %>% as.vector
+      
+      # demux and return
+      vector_matched_index_coords %>% strsplit(split = ",") %>% purrr::map(~.x %>% type.convert(as.is = TRUE)) %>% 
+        return
+      
+    }
+    
     tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
     
     global_vector_warnings <- c()
@@ -6503,6 +6559,9 @@ server <- function(input, output, session) {
         # input <- revtrans_input_string_nospace
         # input_function <- extract_bracketed_terms_from_string
         ###########
+        
+        print("sys.nframe()")
+        print(sys.nframe())
         
         function_F1 <<- sys.function(which = 3)
         
