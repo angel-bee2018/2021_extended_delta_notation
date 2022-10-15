@@ -6534,6 +6534,34 @@ server <- function(input, output, session) {
       
     }
     
+    # function to subset a nested list using a vector of index coordinates
+    ## input: an integer vector
+    ## output: whatever the element of the list at the coordinates specified
+    
+    ## i.e. pluck_list_element_from_coords(x, c(1, 4, 2)) = x[[1]][[4]][[2]]
+    pluck_list_element_from_coords <- function(input_list, index_coords) {
+      
+      # DEBUG ###
+      # input_list <- revtrans_input_string_unfolded
+      # index_coords <- c(4, 1, 2)
+      ###########
+      
+      purrr::reduce(
+        .x = index_coords %>% tail(n = -1),
+        .init = input_list[[index_coords[1]]],
+        .f = function(a1, a2) {
+          
+          # print(a1)
+          # print(a2)
+          
+          return(
+            a1[[a2]]
+          )
+          
+        } )
+      
+    }
+    
     tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
     
     global_vector_warnings <- c()
@@ -6910,25 +6938,29 @@ server <- function(input, output, session) {
                   # 7 
                   
                   # initialise the working list
-                  list_working_terms_initial <- list(
-                    "accumulated_terms" = character(),
-                    "previous_term" = character(),
-                    "tibble_operation_stack" = tibble("element" = character(), "class" = character()),
-                    "status" = "INIT"
+                  list_list_working_terms_initial <- list(
+                    list(
+                      "accumulated_terms" = b1[[1]],
+                      "previous_term" = b1[[1]],
+                      "tibble_operation_stack" = tibble("element" = character(), "class" = character()),
+                      "status" = "INIT"
+                    )
                   )
                   
                   purrr::reduce2(
-                    .x = b1, 
-                    .y = 2:length(b1),
+                    .x = c(".", b1), 
+                    .y = 1:length(b1),
                     .f = function(c1, c2, c3) {
                       
                       # if initial operation, import the initialised working list
-                      if (c3 == 2) {
-                        list_working_terms <- list_working_terms_initial
+                      if (c3 == 1) {
+                        list_list_working_terms <- list_list_working_terms_initial
+                        list_working_terms <- list_list_working_terms[[1]]
                         term_left <- c1
                         term_right <- c2
                       } else {
-                        list_working_terms <- c1
+                        list_list_working_terms <- c1
+                        list_working_terms <- list_list_working_terms[[1]]
                         term_left <- list_working_terms$previous_term
                         term_right <- c2
                       }
@@ -6948,42 +6980,57 @@ server <- function(input, output, session) {
                       ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
                       
                         ## condition if there is enst on both sides - compute but refresh the operation slate and package the computed coord object neatly
-                      if (grepl(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
-                        
-                        index_position_of_enst <- grep(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") 
-                        
-                        
+                      if (grepl(x = list_working_terms$accumulated_terms, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
                         
                         # reset the list of terms to work with for new hgnc stable ID on the level
-                        list_working_terms_initial$terms <- term_right
+                        list_working_terms_new <- list_list_working_terms_initial[[1]]
                         
-                        ## condition: if no STOP condition -> compute
+                        list_working_terms_new$status <- "REFRESH"
+                        list_working_terms_new$accumulated_terms <- term_right
+                        list_working_terms_new$previous_term <- term_right
+                        
+                        list_list_working_terms <- list_list_working_terms %>% purrr::prepend(values = list_working_terms_new, before = 1)
+                        
+                        ## condition: if no STOP condition -> add to the operation stack
                       } else {
                         
+                        list_working_terms$status <- "ADDITION"
+                        list_working_terms$accumulated_terms <- c(list_working_terms$accumulated_terms, term_right)
+                        list_working_terms$previous_term <- term_right
+                        
                         # operation
-                        if (grepl(x = term_left, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+                        if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
                           
-                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_left, "class" = "operator_quantitative", .after = if (any(list_working_terms_initial$tibble_operation_stack$class == "entity")) {max(which(list_working_terms_initial$tibble_operation_stack$class == "entity"))} else {0} )
+                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_right, "class" = "operator_quantitative", .after = if (any(list_working_terms$tibble_operation_stack$class == "entity")) {max(grep(x = list_working_terms$tibble_operation_stack$class, pattern = "^entity"))} else {0} )
                           
-                        } else if (grepl(x = term_left, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
+                        } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
                           
-                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_left, "class" = "operator_unqualified", .after = if (any(list_working_terms_initial$tibble_operation_stack$class == "entity")) {max(which(list_working_terms_initial$tibble_operation_stack$class == "entity"))} else {0} )
+                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_right, "class" = "operator_unqualified", .after = if (any(list_working_terms$tibble_operation_stack$class == "entity")) {max(grep(x = list_working_terms$tibble_operation_stack$class, pattern = "^entity"))} else {0} )
                           
-                        } else if (grepl(x = term_left, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$|^e\\d+$|^i\\d+$") == TRUE) {
+                        } else if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
                           
-                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_left, "class" = "entity", .before = 1)
+                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_right, "class" = "entity_stableid", .before = 1)
                           
-                        } else if (grepl(x = term_left, pattern = "^j$") == TRUE) {
+                        } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
                           
-                          list_working_terms_initial$tibble_operation_stack <- list_working_terms_initial$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_left, "class" = "operator_doublesided", .before = 1)
+                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_right, "class" = "entity_feature", .before = 1)
+                          
+                        } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
+                          
+                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
+                            tibble::add_row("element" = term_right, "class" = "operator_doublesided", .before = 1)
                           
                         }
                         
+                        list_list_working_terms[[1]] <- list_working_terms
+                        
                       }
+                      
+                      return(list_list_working_terms)
                       
                     } )
                   
