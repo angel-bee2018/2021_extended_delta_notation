@@ -6577,68 +6577,69 @@ server <- function(input, output, session) {
     ### throw a warning too if circ was specified but it returned a gene name.
     
     # strategy: unfold brackets into nested list elements along with their operations
-    revtrans_input_string_nospace <- revtrans_input_string %>% gsub(pattern = " ", replacement = "") %>% tolower()
+    revtrans_input_string_tolower <- revtrans_input_string %>% tolower()
+    # %>% gsub(pattern = " ", replacement = "")
     
     # unfold brackets first
-    revtrans_input_string_unfolded <- revtrans_input_string_nospace %>% (
-      function(input) {
-        
-        # DEBUG ###
-        # input <- revtrans_input_string_nospace
-        # input_function <- extract_bracketed_terms_from_string
-        ###########
-        
-        print("sys.nframe()")
-        print(sys.nframe())
-        
-        function_F1 <<- sys.function(which = 3)
-        
-        if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
-          
-          purrr::map_if(
-            .x = input,
-            .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any == TRUE,
-            .f = function(a1) {
-              
-              if (data.class(a1) == "character") {
-                
-                b1 <- extract_bracketed_terms_from_string(a1, output_intervening_terms = TRUE)
-                
-                if (grepl(x = b1 %>% unlist, pattern = "\\)|\\(") %>% any != TRUE) {
-                  return(b1)
-                } else {
-                  
-                  print("recall1")
-                  print(sys.nframe())
-                  
-                  return(b1 %>% function_F1)
-                }
-                
-              } else if (data.class(a1) == "list") {
-                
-                print("recall2")
-                print(a1)
-                global_recall <<- a1
-                
-                return(a1 %>% function_F1)
-                
-              } else {
-                stop("data class of input should be a character of list")
-              }
-              
-            }
-          ) %>% 
-            return
-          
-        } else {
-          return(input)
-        }
-        
-      } ) %>%
-      purrr::flatten()
+    # revtrans_input_string_unfolded <- revtrans_input_string_tolower %>% (
+    #   function(input) {
+    #     
+    #     # DEBUG ###
+    #     # input <- revtrans_input_string_nospace
+    #     # input_function <- extract_bracketed_terms_from_string
+    #     ###########
+    #     
+    #     print("sys.nframe()")
+    #     print(sys.nframe())
+    #     
+    #     function_F1 <<- sys.function(which = 3)
+    #     
+    #     if (grepl(x = input %>% unlist, pattern = "\\)|\\(") %>% any == TRUE) {
+    #       
+    #       purrr::map_if(
+    #         .x = input,
+    #         .p = ~grepl(x = .x %>% unlist, pattern = "\\)|\\(") %>% any == TRUE,
+    #         .f = function(a1) {
+    #           
+    #           if (data.class(a1) == "character") {
+    #             
+    #             b1 <- extract_bracketed_terms_from_string(a1, output_intervening_terms = TRUE)
+    #             
+    #             if (grepl(x = b1 %>% unlist, pattern = "\\)|\\(") %>% any != TRUE) {
+    #               return(b1)
+    #             } else {
+    #               
+    #               print("recall1")
+    #               print(sys.nframe())
+    #               
+    #               return(b1 %>% function_F1)
+    #             }
+    #             
+    #           } else if (data.class(a1) == "list") {
+    #             
+    #             print("recall2")
+    #             print(a1)
+    #             global_recall <<- a1
+    #             
+    #             return(a1 %>% function_F1)
+    #             
+    #           } else {
+    #             stop("data class of input should be a character of list")
+    #           }
+    #           
+    #         }
+    #       ) %>% 
+    #         return
+    #       
+    #     } else {
+    #       return(input)
+    #     }
+    #     
+    #   } ) %>%
+    #   purrr::flatten()
     
     # split at special symbols early because there is no confusion about their scope
-    revtrans_input_string_split_special_symbols <- revtrans_input_string_unfolded %>% (
+    revtrans_input_string_split_special_symbols <- revtrans_input_string_tolower %>% (
       
       function(input, regex_delimiter_for_this_function) {
         
@@ -6653,7 +6654,7 @@ server <- function(input, output, session) {
         print(input)
         global_input <<- input
         
-        regex_delimiter_for_this_function <- "((\\→)|(\\←)|(<\\-)|(\\->)|(\\^)|(\\Δ)|(\\∇)|(\\▼)|(\\_)|(\\?)|(\\/))"
+        regex_delimiter_for_this_function <- "((\\→)|(\\←)|(<\\-)|(\\->)|(\\^)|(\\Δ)|(\\∇)|(\\▼)|(\\_)|(\\?)|(\\/)|(\\()|(\\)))"
         
         if (input %>% unlist %>% grep(pattern = paste("^", regex_delimiter_for_this_function, "$", sep = "")) %>% length != input %>% unlist %>% grep(pattern = regex_delimiter_for_this_function) %>% length) {
           
@@ -6801,7 +6802,7 @@ server <- function(input, output, session) {
     # split text operators
     ## at this point, the only things that should remain untidied are just e, i, j, N, D, circ etc.
     ## we just find these and pick them apart.
-    revtrans_input_string_split_text_operators <- revtrans_input_string_split_before_enst %>% (
+    revtrans_input_string_split_text_operators <- revtrans_input_string_split_before_enst %>% unlist %>% (
       function(input) {
         
         # DEBUG ###
@@ -6869,7 +6870,230 @@ server <- function(input, output, session) {
       } )
     
     # calculate the nomenclature
-    ## work from the innermost terms out
+    
+    # function to interpret a completed operation stack and convert it into a tibble of output coords that are fed into the the graphical plotter
+    # input: 
+    # 1. a list describing the operation stack - the list shall contain 2 elements: current_stable_id and element_data.
+    # element_data: a list of length "n" elements. Each list element contains: element, operations and class. Element may be either character, integer or a nested tibble which is in itself a tibble of output coordinates describing a previously completed operation that was nested. Operations are a list of character vectors each describing the order of operations which are to be applied to each element.
+    # 2. a table/tibble of the reference GTF
+    # output: a single tibble with columns chr, start, end, strand, mod, flag without any nesting. This will describe the way the structure is represented 
+    
+    revtrans_opstack_to_coords <- function(input_list_opstack, input_tibble_gtf_table) {
+      
+      # DEBUG ###
+      input_list_opstack <- list(
+        "current_stable_id" = "alkbh2-enst4.2",
+        "element_data" = tibble(
+          "entity" = list("", "e1", "e2", "e4"),
+          "operations" = list("", "", c("d23", "n32"), "circ"),
+          # "element" = c"alkbh2-enst4.2", " ", "d", "e1"),
+          "class" = c("entity_stableid", "entity_feature", "entity_feature", "entity_feature")
+        ) %>% purrr::array_tree()
+      )
+      # input_tibble_gtf_table <- tibble_gtf_table
+      ###########
+      
+      # initialise the tibble of output coords
+      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character())
+      
+      current_hgnc_stable_id <- input_list_opstack$current_stable_id
+      
+      if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
+        tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
+      } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
+        tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+      }
+      
+      tibble_output_coords <- purrr::reduce(
+        .x = purrr::splice(tibble_output_coords_init, input_list_opstack$element_data$entity),
+        .f = function(a1, a2) {
+          
+          # DEBUG ###
+          a1 <- fsdf
+          a2 <- fd
+          ###########
+          
+          tibble_current_coords <- a1
+          
+          if (a2 %>% data.class == "character") {
+            
+            # fetch and calculate entity coords first
+            if (grepl(x = a2$entity, pattern = "e\\d+")) {
+              exon_number <- grepl(x = a2$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+              tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
+            } else if (grepl(x = a2$entity, pattern = "i\\d+")) {
+              intron_number <- grepl(x = a2$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+              vector_junction_flanking_coords <- tibble_stable_id_entries[tibble_stable_id_entries$exon_number %in% c(intron_number, intron_number + 1), c("start", "end")] %>% unlist
+              vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+              tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
+            } else if (a2$entity == "junc") {
+              # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
+              # vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$end %>% type.convert(as.is = TRUE)) + 1
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start %>% type.convert(as.is = TRUE)) - 1
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "junction"
+              tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+            } else if (a2$entity == "join") {
+              # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
+              # vector_junction_flanking_coords <- vector_junction_flanking_coords[vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+              
+              # can't join opposite strand together - throw error if so
+              if (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$strand != tibble_current_coords[nrow(tibble_current_coords), ] %>% .$strand) {
+                stop("tried to join entities with different strands")
+              }
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$start %>% type.convert(as.is = TRUE)
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end %>% type.convert(as.is = TRUE)
+              tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "exon"
+              tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+            }
+            
+            entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
+            
+            tibble_current_coords <- purrr::reduce(
+              .x = purrr::splice(tibble_current_coords, a2$operations %>% as.list),
+              .f = function(b1, b2) {
+                
+                # DEBUG ###
+                ###########
+                
+                L2_tibble_current_coords <- b1
+                
+                if (grepl(x = b2, pattern = "fivep_d(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = b2, pattern = "threep_d(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = b2, pattern = "fivep_n(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = b2, pattern = "threep_n(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = b2, pattern = "^delta$")) {
+                  tibble_current_coords <- tibble_current_coords[-nrow(tibble_current_coords), ]
+                } else if (grepl(x = b2, pattern = "^nabla$")) {
+                  tibble_current_coords[nrow(tibble_current_coords) - 1, "flag"] <- paste("insertion;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                } else if (grepl(x = b2, pattern = "circ")) {
+                  tibble_current_coords[nrow(tibble_current_coords) - 1, "mod"] <- paste("circular;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                } else if (grepl(x = b2, pattern = "rev")) {
+                  start <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start
+                  end <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end
+                  tibble_current_coords[nrow(tibble_current_coords), "end"] <- vector_starts
+                  tibble_current_coords[nrow(tibble_current_coords), "start"] <- vector_ends
+                } else if (grepl(x = b2, pattern = "os")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "+"
+                  } else {
+                    tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "-"
+                  }
+                }
+                
+              } )
+            
+          } else if (a2 %>% data.class == "tbl_df") {
+            tibble_processed_transmitted_coords <- purrr::reduce(
+              .x = purrr::splice(a2$entity, a2$operations %>% as.list),
+              .f = function(a1, a2) {
+                
+                # DEBUG ###
+                ###########
+                
+                L2_tibble_transmitted_coords <- a1
+                
+                if (grepl(x = a2, pattern = "fivep_d(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = a2, pattern = "threep_d(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = a2, pattern = "fivep_n(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = a2, pattern = "threep_n(\\d+)")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") { 
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = a2, pattern = "threep_end")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") { 
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"]
+                  } else {
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"]
+                  }
+                } else if (grepl(x = a2, pattern = "fivep_end")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") { 
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  } else {
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  }
+                } else if (grepl(x = a2, pattern = "^delta$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
+                } else if (grepl(x = a2, pattern = "^nabla$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
+                } else if (grepl(x = a2, pattern = "circ")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
+                } else if (grepl(x = a2, pattern = "rev")) {
+                  vector_starts <- L2_tibble_transmitted_coords$start
+                  vector_ends <- L2_tibble_transmitted_coords$end
+                  L2_tibble_transmitted_coords$start <- vector_starts
+                  L2_tibble_transmitted_coords$end <- vector_ends
+                } else if (grepl(x = a2, pattern = "os")) {
+                  # assume positive strand if strand info is not provided
+                  if (entity_strand == "-") {
+                    L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand == "-", "strand"] <- "+"
+                  } else {
+                    L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand != "-", "strand"] <- "-"
+                  }
+                }
+                
+                return(L2_tibble_transmitted_coords)
+                
+              } )
+            
+            tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+            
+          }
+          
+          return(tibble_current_coords)
+          
+        } )
+      
+    }
     
     # generic function to read a nested list and apply operations to elements.
     # input: a list with at most 2 levels, with the innermost level being a character vector.
@@ -6888,223 +7112,181 @@ server <- function(input, output, session) {
     ### ..$green NA
     ### ..$flags [1] "junction"
     
+    # terminology: full set, element = hgnc stable id + entity + operations, entities are e, i, j.
+    # this function is responsible for defining the scope of a full set, i.e. it determines when to call the inner function to compute coords
+    # it is also responsible for transmitting coords upwards through multiple nested list levels.
+    # this function deals with forward slashes in the code. when forward slashes are encountered, it marks down the total number of forward slashes encountered. they will be combinatorially unfolded once the final coords tibble is generated.
+    
+    methods::setClass(
+      Class = "revtrans_opstack",
+      slots = c("accumulated_terms" = "character", 
+                "output_coords" = "tbl_df", 
+                "list_operation_stacks" = "list",
+                "status" = "character")
+    )
+    
     ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
       
       # DEBUG ###
-      # list_input <- revtrans_input_string_split_text_operators[[4]][[1]]
-      list_input <- revtrans_input_string_split_text_operators[[7]]
+      list_input <- revtrans_input_string_split_text_operators[[4]][[1]][[1]][[2]]
       tibble_gtf_table <- tibble_gtf_table
       ###########
       
-      purrr::map(
-        .x = list_input,
-        .f = function(a1) {
-          
-          # DEBUG ###
-          a1 <- list_input[[2]]
-          ###########
-          
-          if (purrr::vec_depth(a1) == 1) {
-            return(a1)
-          } else if (purrr::vec_depth(a1) == 2) {
-            purrr::map(
-              .x = a1,
-              .f = function(b1) {
+      # check structure of input list. 
+      ## it should be EITHER:
+      ## a) a character vector, OR
+      ## b) list of characters of length 1, and S4 objects of the class \"revtrans_opstack\"
+      # if (data.class(b1) == "character") {
+      #   if (length(b1) == 1) {
+      #     return(b1)
+      #   }
+      # } else if (data.class(b1) == "list") {
+      #   if (length(b1) == 1) {
+      #     return(b1[[1]])
+      #   }
+      #   
+      #   if (any(!b1 %>% purrr::map(~.x$data.class) %>% unlist %in% c("character", "revtrans_opstack")) == TRUE | b1[b1 %>% purrr::map(~.x$data.class) %>% unlist %in% c("character", "revtrans_opstack")] %>% purrr::map(~.x %>% length) %>% unlist > 1) {
+      #     print("function \"revtrans_reading_head\" checkpoint 1 observed input")
+      #     print(a1)
+      #     stop("function \"revtrans_reading_head\" failed - list elements should have length 1.")
+      #   }
+      #   
+      # }
+      
+      if (b1 %>% data.class != "character") {
+        
+        print("function \"revtrans_reading_head\" checkpoint 1 observed input")
+        print(a1)
+        stop("function \"revtrans_reading_head\" failed - expect a character vector or list of characters with potentially objects of class \"revtrans_opstack\".")
+        
+      }
+      
+        # operation stack should look like:
+        # 1 retrieval (all exons)
+        # 2 exon/intron modifiers
+        # 3 filtering for short-read mode
+        # 4 whole-transcript operations in order
+        # 5 break
+        # 6 <next hgnc stable ID>
+        ...
+        # 7 
+        
+        # initialise the opstack
+        revtrans_opstack_initial <-
+          methods::new(
+            Class = "revtrans_opstack",
+            "accumulated_terms" = character(),
+            "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
+            "list_operation_stacks" = list(),
+            "status" = "INIT"
+          )
+        
+        purrr::reduce2(
+          .x = purrr::splice(revtrans_opstack_initial, b1 %>% as.list), 
+          .y = 1:length(b1),
+          .f = function(c1, c2, c3) {
+            
+            function_F2 <<- sys.function(which = sys.nframe())
+            
+            revtrans_opstack_inprogress <- c1
+            term_previous <- revtrans_opstack_inprogress@accumulated_terms[[length(revtrans_opstack_inprogress@accumulated_terms)]]
+            term_current <- c2
+            
+            # if initial operation, import the initialised working list
+            if (c3 == 1) {
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- tibble("element" = character(), "class" = character())
+            } else {
+              
+            }
+            
+            # apply and compute operations and un-nest
+            # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
+            # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
+            # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
+            
+            # work from left to right starting from the 1st term - the reading head should work as a receiver-expecter-computer
+            
+            # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
+            
+            if (data.class(term_right) == "character") {
+              
+              # ENST CAPTURE
+              ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
+              ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
+              ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
+              
+              ## condition if there is enst on both sides - compute but refresh the operation slate and package the computed coord object neatly
+              if (grepl(x = revtrans_opstack_inprogress@accumulated_terms, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
                 
-                # DEBUG ###
-                b1 <- a1[[1]]
-                ###########
+                # calculate the genomic coords and add to the tibble of entries
+                revtrans_opstack_working_terms_new <- revtrans_opstack_working_terms[[1]]
                 
-                # check length of character vector in the innermost level.
-                if (data.class(b1) != "character") {
-                  print("function \"revtrans_reading_head\" checkpoint 1 observed input")
-                  print(a1)
-                  stop("function \"revtrans_reading_head\" failed - innermost layer should be a character vector.")
-                } else if (length(b1) == 1) {
-                  return(b1)
-                } else if (length(b1) == 1) {
+                revtrans_opstack_inprogress@status <- "REFRESH"
+                revtrans_opstack_inprogress@accumulated_terms <- term_right
+                
+                ## condition: if no STOP condition -> add to the operation stack
+              } else {
+                
+                if (c3 == length(b1)) {
+                  revtrans_opstack_working_terms@status <- "COMPLETE"
+                } else {
+                  revtrans_opstack_working_terms@status <- "UNFINISHED"
+                }
+                
+                revtrans_opstack_working_terms@accumulated_terms <- c(revtrans_opstack_working_terms@accumulated_terms, term_right)
+                revtrans_opstack_working_terms@previous_term <- term_right
+                
+                # operation
+                if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
                   
+                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
+                    tibble::add_row("element" = term_right, "class" = "operator_quantitative", .after = if (any(revtrans_opstack_working_terms@tibble_operation_stack$class == "entity")) {max(grep(x = revtrans_opstack_working_terms@tibble_operation_stack$class, pattern = "^entity"))} else {0} )
                   
+                } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
                   
-                  # operation stack should look like:
-                  # 1 retrieval (all exons)
-                  # 2 exon/intron modifiers
-                  # 3 filtering for short-read mode
-                  # 4 whole-transcript operations in order
-                  # 5 break
-                  # 6 <next hgnc stable ID>
-                  ...
-                  # 7 
+                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
+                    tibble::add_row("element" = term_right, "class" = "operator_unqualified", .after = if (any(revtrans_opstack_working_terms@tibble_operation_stack$class == "entity")) {max(grep(x = revtrans_opstack_working_terms@tibble_operation_stack$class, pattern = "^entity"))} else {0} )
                   
-                  # initialise the working list
-                  list_list_working_terms_initial <- list(
-                    list(
-                      "accumulated_terms" = b1[[1]],
-                      "previous_term" = b1[[1]],
-                      "tibble_operation_stack" = tibble("element" = character(), "class" = character()),
-                      "status" = "INIT"
-                    )
-                  )
+                } else if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
                   
-                  purrr::reduce2(
-                    .x = c(".", b1), 
-                    .y = 1:length(b1),
-                    .f = function(c1, c2, c3) {
-                      
-                      # if initial operation, import the initialised working list
-                      if (c3 == 1) {
-                        list_list_working_terms <- list_list_working_terms_initial
-                        list_working_terms <- list_list_working_terms[[1]]
-                        term_left <- c1
-                        term_right <- c2
-                      } else {
-                        list_list_working_terms <- c1
-                        list_working_terms <- list_list_working_terms[[1]]
-                        term_left <- list_working_terms$previous_term
-                        term_right <- c2
-                      }
-                      
-                      # apply and compute operations and un-nest
-                      # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
-                      # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
-                      # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
-                      
-                      # work from left to right starting from the 1st term - the reading head should work as a receiver-expecter-computer
-                      
-                      # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
-                      
-                      # ENST CAPTURE
-                      ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
-                      ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
-                      ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
-                      
-                        ## condition if there is enst on both sides - compute but refresh the operation slate and package the computed coord object neatly
-                      if (grepl(x = list_working_terms$accumulated_terms, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
-                        
-                        # reset the list of terms to work with for new hgnc stable ID on the level
-                        list_working_terms_new <- list_list_working_terms_initial[[1]]
-                        
-                        list_working_terms_new$status <- "REFRESH"
-                        list_working_terms_new$accumulated_terms <- term_right
-                        list_working_terms_new$previous_term <- term_right
-                        
-                        list_list_working_terms <- list_list_working_terms %>% purrr::prepend(values = list_working_terms_new, before = 1)
-                        
-                        ## condition: if no STOP condition -> add to the operation stack
-                      } else {
-                        
-                        list_working_terms$status <- "ADDITION"
-                        list_working_terms$accumulated_terms <- c(list_working_terms$accumulated_terms, term_right)
-                        list_working_terms$previous_term <- term_right
-                        
-                        # operation
-                        if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
-                          
-                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_right, "class" = "operator_quantitative", .after = if (any(list_working_terms$tibble_operation_stack$class == "entity")) {max(grep(x = list_working_terms$tibble_operation_stack$class, pattern = "^entity"))} else {0} )
-                          
-                        } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
-                          
-                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_right, "class" = "operator_unqualified", .after = if (any(list_working_terms$tibble_operation_stack$class == "entity")) {max(grep(x = list_working_terms$tibble_operation_stack$class, pattern = "^entity"))} else {0} )
-                          
-                        } else if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
-                          
-                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_right, "class" = "entity_stableid", .before = 1)
-                          
-                        } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
-                          
-                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_right, "class" = "entity_feature", .before = 1)
-                          
-                        } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
-                          
-                          list_working_terms$tibble_operation_stack <- list_working_terms$tibble_operation_stack %>%
-                            tibble::add_row("element" = term_right, "class" = "operator_doublesided", .before = 1)
-                          
-                        }
-                        
-                        list_list_working_terms[[1]] <- list_working_terms
-                        
-                      }
-                      
-                      return(list_list_working_terms)
-                      
-                    } )
+                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
+                    tibble::add_row("element" = term_right, "class" = "entity_stableid", .before = 1)
+                  
+                } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
+                  
+                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
+                    tibble::add_row("element" = term_right, "class" = "entity_feature", .before = 1)
+                  
+                } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
+                  
+                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
+                    tibble::add_row("element" = term_right, "class" = "operator_doublesided", .before = 1)
                   
                 }
                 
+                list_working_terms[[1]] <- revtrans_opstack_working_terms
+                
               }
-            )
-          } else {
-            print("function \"revtrans_reading_head\" checkpoint 2 observed input")
-            print(a1)
-            stop("function \"revtrans_reading_head\" failed - input structure is unexpected. expected: a list with purrr::vec_depth() == 3")
-          }
-          
-        } )
-      
-    }
-    
-    # input: a nested list of perfectly split terms
-    # output: a BED or GTF-like format that specifies features along a chosen set of coordinates.
-    ## reverse translate converts to genome-relative coords at the end of the day, so the kind of data output will have to be coordinates.
-    
-    revtrans_input_string_processed <- revtrans_input_string_split_text_operators %>% (
-      function(input) {
-        
-        # DEBUG ###
-        # input <- revtrans_input_string_unfolded[[4]]
-        # regex_delimiter_for_this_function <- "[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*"
-        ###########
-        
-        function_F1 <<- sys.function(which = 2)
-        
-        print("call")
-        print(input)
-        global_input <<- input
-        
-        if (input %>% purrr::vec_depth() > 3) {
-          
-        } else if (input %>% purrr::vec_depth() == 3) {
-          
-        } else if (input %>% purrr::vec_depth() == 2) {
-          
-        }
-          
-          purrr::map_if(
-            .x = input,
-            .p = ~.x %>% unlist %>% grep(pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)$", perl = TRUE) %>% length != setdiff(.x %>% unlist %>% grep(pattern = "(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)"), .x %>% unlist %>% grep(pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$")) %>% length,
-            .f = function(b1) {
+            
+            } else if (data.class(term_right) == "revtrans_opstack") {
               
-              if (data.class(b1) == "character" & length(b1) == 1) {
+              if (term_right@status == "COMPLETE") {
                 
-                gfhfh
+              } else if (term_right@status == "UNFINISHED") {
                 
-              } else if (data.class(b1) == "list" | data.class(b1) == "character" & length(b1) > 1) {
-                
-                print("recall")
-                print(b1)
-                global_recall <<- b1
-                
-                return(b1 %>% function_F1)
-                
-              } else {
-                stop("data class of input should be a character of list")
               }
               
             }
-          ) %>% return
-          
-        } else {
-          return(input)
-        }
-      
-    )
+            
+            
+            
+            return(list_working_terms)
+            
+          } )
         
-    
+      }
+      
   } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
