@@ -6881,15 +6881,15 @@ server <- function(input, output, session) {
     revtrans_opstack_to_coords <- function(input_list_opstack, input_tibble_gtf_table) {
       
       # DEBUG ###
-      input_list_opstack <- list(
-        "current_stable_id" = "alkbh2-enst4.2",
-        "element_data" = tibble(
-          "entity" = list("", "e1", "e2", "e4"),
-          "operations" = list("", "", c("d23", "n32"), "circ"),
-          # "element" = c"alkbh2-enst4.2", " ", "d", "e1"),
-          "class" = c("entity_stableid", "entity_feature", "entity_feature", "entity_feature")
-        ) %>% purrr::array_tree()
-      )
+      # input_list_opstack <- list(
+      #   "current_stable_id" = "alkbh2-enst4.2",
+      #   "element_data" = tibble(
+      #     "entity" = list("", "e1", "e2", "e4"),
+      #     "operations" = list("", "", c("d23", "n32"), "circ"),
+      #     # "element" = c"alkbh2-enst4.2", " ", "d", "e1"),
+      #     "class" = c("entity_stableid", "entity_feature", "entity_feature", "entity_feature")
+      #   ) %>% purrr::array_tree()
+      # )
       # input_tibble_gtf_table <- tibble_gtf_table
       ###########
       
@@ -7093,6 +7093,8 @@ server <- function(input, output, session) {
           
         } )
       
+      return(tibble_output_coords)
+      
     }
     
     # generic function to read a nested list and apply operations to elements.
@@ -7127,7 +7129,7 @@ server <- function(input, output, session) {
     
     ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
-      
+        
       # DEBUG ###
       list_input <- revtrans_input_string_split_text_operators[[4]][[1]][[1]][[2]]
       tibble_gtf_table <- tibble_gtf_table
@@ -7179,6 +7181,7 @@ server <- function(input, output, session) {
             "accumulated_terms" = character(),
             "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
             "list_operation_stacks" = list(),
+            "fslash_tracker" = tibble("level" = integer(), "iteration" = integer()),
             "status" = "INIT"
           )
         
@@ -7195,7 +7198,15 @@ server <- function(input, output, session) {
             
             # if initial operation, import the initialised working list
             if (c3 == 1) {
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- tibble("element" = character(), "class" = character())
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
+                "current_stable_id" = character(),
+                "element_data" = list(
+                  "entity" = list(),
+                  "operations" = list(),
+                  "class" = character()
+                )
+              )
+              
             } else {
               
             }
@@ -7205,7 +7216,9 @@ server <- function(input, output, session) {
             # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
             # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
             
-            # work from left to right starting from the 1st term - the reading head should work as a receiver-expecter-computer
+            # there are only three classes of inputs to the loop:
+            # 1. character (entity or operator - all operators have been changed to character previously)
+            # 2. class revtrans_opstack
             
             # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
             
@@ -7216,14 +7229,49 @@ server <- function(input, output, session) {
               ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
               ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
               
-              ## condition if there is enst on both sides - compute but refresh the operation slate and package the computed coord object neatly
-              if (grepl(x = revtrans_opstack_inprogress@accumulated_terms, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE & grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
+              ## if there is no HGNC stable ID in the previous terms, then create a nested level immediately.
+              ## if they're operations, then wait till you get an enst, then it will be considered a nested level and the operations will be global on it.
+              ## if they're entities, then it will be considered to be part of the level above.
+              ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
+              if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
                 
-                # calculate the genomic coords and add to the tibble of entries
-                revtrans_opstack_working_terms_new <- revtrans_opstack_working_terms[[1]]
-                
-                revtrans_opstack_inprogress@status <- "REFRESH"
-                revtrans_opstack_inprogress@accumulated_terms <- term_right
+                # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
+                if (revtrans_opstack_inprogress@status == "INIT") {
+                  # (nothing needed here)
+                  
+                # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+                } else if (revtrans_opstack_inprogress@status == "ASSEMBLING") {
+                  
+                  tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                  
+                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                  
+                  revtrans_opstack_inprogress@status == "INIT"
+                  
+                # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
+                } else if (revtrans_opstack_inprogress@status == "PENDING") {
+                  
+                  tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data$entity <- tibble_coords_sector_pending
+                  
+                  # if not at the start of a string or already in the middle of a pending calculation of a sector for an overarching operation, add a new list element to compute the new sector
+                } else {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks, 
+                    list(
+                      "current_stable_id" = term_right,
+                      "element_data" = list(
+                        "entity" = list(),
+                        "operations" = list(),
+                        "class" = character()
+                      )
+                    ) )
+                  
+                }
                 
                 ## condition: if no STOP condition -> add to the operation stack
               } else {
@@ -7269,13 +7317,15 @@ server <- function(input, output, session) {
                 
               }
             
+            # if a revtrans_opstack is encountered, then it means it was previously unfinished
             } else if (data.class(term_right) == "revtrans_opstack") {
               
-              if (term_right@status == "COMPLETE") {
-                
-              } else if (term_right@status == "UNFINISHED") {
-                
-              }
+              
+              
+            # if a tibble is encountered, then it means we have previously successfully converted to coords.
+            } else if (data.class(term_right) == "tbl_df") {
+              
+              
               
             }
             
