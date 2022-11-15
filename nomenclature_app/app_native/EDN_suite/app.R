@@ -6878,6 +6878,12 @@ server <- function(input, output, session) {
     # 2. a table/tibble of the reference GTF
     # output: a single tibble with columns chr, start, end, strand, mod, flag without any nesting. This will describe the way the structure is represented 
     
+    # sometimes the hgnc stable ID is not provided (it is NA a.k.a anonymous)
+    # this can occur when an opstack is incomplete, e.g. entities in front of the hgnc stable ID
+    # or it may occur when we are just finishing off operations on a series of already done coords without any overarching hgnc stable ID
+    # in this case, the function should recognise this and go into alternate mode.
+    # it will return unprocessed entities via an opstack object instead of a coord table, and that's enough to know that it's unfinished.
+    
     revtrans_opstack_to_coords <- function(input_list_opstack, input_tibble_gtf_table) {
       
       # DEBUG ###
@@ -6886,7 +6892,6 @@ server <- function(input, output, session) {
       #   "element_data" = tibble(
       #     "entity" = list("", "e1", "e2", "e4"),
       #     "operations" = list("", "", c("d23", "n32"), "circ"),
-      #     # "element" = c"alkbh2-enst4.2", " ", "d", "e1"),
       #     "class" = c("entity_stableid", "entity_feature", "entity_feature", "entity_feature")
       #   ) %>% purrr::array_tree()
       # )
@@ -6896,183 +6901,224 @@ server <- function(input, output, session) {
       # initialise the tibble of output coords
       tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character())
       
-      current_hgnc_stable_id <- input_list_opstack$current_stable_id
-      
-      if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
-        tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
-      } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
-        tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+      if (!is.na(input_list_opstack$current_stable_id)) {
+        
+        current_hgnc_stable_id <- input_list_opstack$current_stable_id
+        
+        if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
+          tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
+        } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
+          tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+        }
+        
       }
       
       tibble_output_coords <- purrr::reduce(
-        .x = purrr::splice(tibble_output_coords_init, input_list_opstack$element_data$entity),
+        .x = purrr::splice(tibble_output_coords_init, input_list_opstack$element_data),
         .f = function(a1, a2) {
           
           # DEBUG ###
-          a1 <- fsdf
-          a2 <- fd
+          # a1 <- fsdf
+          # a2 <- fd
           ###########
           
           tibble_current_coords <- a1
           
-          if (a2 %>% data.class == "character") {
+          if (a2$entity %>% data.class == "character") {
             
-            # fetch and calculate entity coords first
-            if (grepl(x = a2$entity, pattern = "e\\d+")) {
-              exon_number <- grepl(x = a2$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
-              tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
-            } else if (grepl(x = a2$entity, pattern = "i\\d+")) {
-              intron_number <- grepl(x = a2$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
-              vector_junction_flanking_coords <- tibble_stable_id_entries[tibble_stable_id_entries$exon_number %in% c(intron_number, intron_number + 1), c("start", "end")] %>% unlist
-              vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-              tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
-            } else if (a2$entity == "junc") {
-              # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-              # vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$end %>% type.convert(as.is = TRUE)) + 1
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start %>% type.convert(as.is = TRUE)) - 1
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "junction"
-              tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
-            } else if (a2$entity == "join") {
-              # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-              # vector_junction_flanking_coords <- vector_junction_flanking_coords[vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+            # if it's a character entity detected in an anonymous opstack, we can't look it up - this is therefore unfinished. 
+            # switch to opstack output
+            if (!is.na(input_list_opstack$current_stable_id)) {
               
-              # can't join opposite strand together - throw error if so
-              if (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$strand != tibble_current_coords[nrow(tibble_current_coords), ] %>% .$strand) {
-                stop("tried to join entities with different strands")
+              if (data.class(tibble_current_coords) != "list") {
+                
+                if (nrow(tibble_current_coords) > 0) {
+                  
+                  tibble_current_coords <- list(
+                    "current_stable_id" = NA,
+                    "element_data" = list(
+                      list(
+                        "entity" = list(tibble_current_coords, a2$entity),
+                        "operations" = list("", a2$operations),
+                        "class" = c("entity_coord_plot_table", a2$class)
+                      )
+                    )
+                  )
+                  
+                } else {
+                  tibble_current_coords <- list(
+                    "current_stable_id" = NA,
+                    "element_data" = list(
+                      list(
+                        "entity" = list(a2$entity),
+                        "operations" = list(a2$operations),
+                        "class" = c(a2$class)
+                      )
+                    )
+                  )
+                }
               }
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$start %>% type.convert(as.is = TRUE)
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end %>% type.convert(as.is = TRUE)
-              tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "exon"
-              tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
-            }
+              
+            } else {
+              
+              # fetch and calculate entity coords first
+              if (grepl(x = a2$entity, pattern = "e\\d+")) {
+                exon_number <- grepl(x = a2$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
+              } else if (grepl(x = a2$entity, pattern = "i\\d+")) {
+                intron_number <- grepl(x = a2$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+                vector_junction_flanking_coords <- tibble_stable_id_entries[tibble_stable_id_entries$exon_number %in% c(intron_number, intron_number + 1), c("start", "end")] %>% unlist
+                vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
+              } else if (a2$entity == "junc") {
+                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
+                # vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$end %>% type.convert(as.is = TRUE)) + 1
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start %>% type.convert(as.is = TRUE)) - 1
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "junction"
+                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+              } else if (a2$entity == "join") {
+                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
+                # vector_junction_flanking_coords <- vector_junction_flanking_coords[vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
+                
+                # can't join opposite strand together - throw error if so
+                if (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$strand != tibble_current_coords[nrow(tibble_current_coords), ] %>% .$strand) {
+                  stop("tried to join entities with different strands")
+                }
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$start %>% type.convert(as.is = TRUE)
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end %>% type.convert(as.is = TRUE)
+                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "exon"
+                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+              }
+              
+              entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
+              
+              tibble_current_coords <- purrr::reduce(
+                .x = purrr::splice(tibble_current_coords, a2$operations %>% as.list),
+                .f = function(b1, b2) {
+                  
+                  # DEBUG ###
+                  ###########
+                  
+                  L2_tibble_current_coords <- b1
+                  
+                  if (grepl(x = b2, pattern = "fivep_d(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x = b2, pattern = "threep_d(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x = b2, pattern = "fivep_n(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x = b2, pattern = "threep_n(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x = b2, pattern = "^delta$")) {
+                    tibble_current_coords <- tibble_current_coords[-nrow(tibble_current_coords), ]
+                  } else if (grepl(x = b2, pattern = "^nabla$")) {
+                    tibble_current_coords[nrow(tibble_current_coords) - 1, "flag"] <- paste("insertion;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                  } else if (grepl(x = b2, pattern = "circ")) {
+                    tibble_current_coords[nrow(tibble_current_coords) - 1, "mod"] <- paste("circular;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                  } else if (grepl(x = b2, pattern = "rev")) {
+                    start <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start
+                    end <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end
+                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- vector_starts
+                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- vector_ends
+                  } else if (grepl(x = b2, pattern = "os")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "+"
+                    } else {
+                      tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "-"
+                    }
+                  }
+                  
+                } )
+              
+            } # endif
             
-            entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
-            
-            tibble_current_coords <- purrr::reduce(
-              .x = purrr::splice(tibble_current_coords, a2$operations %>% as.list),
+          } else if (a2 %>% data.class == "tbl_df") {
+            tibble_processed_transmitted_coords <- purrr::reduce(
+              .x = purrr::splice(a2$entity, a2$operations %>% as.list),
               .f = function(b1, b2) {
                 
                 # DEBUG ###
                 ###########
                 
-                L2_tibble_current_coords <- b1
+                L2_tibble_transmitted_coords <- b1
                 
                 if (grepl(x = b2, pattern = "fivep_d(\\d+)")) {
                   # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                  if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
                 } else if (grepl(x = b2, pattern = "threep_d(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
-                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
                 } else if (grepl(x = b2, pattern = "fivep_n(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
-                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
                 } else if (grepl(x = b2, pattern = "threep_n(\\d+)")) {
                   # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x = b2, pattern = "^delta$")) {
-                  tibble_current_coords <- tibble_current_coords[-nrow(tibble_current_coords), ]
-                } else if (grepl(x = b2, pattern = "^nabla$")) {
-                  tibble_current_coords[nrow(tibble_current_coords) - 1, "flag"] <- paste("insertion;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
-                } else if (grepl(x = b2, pattern = "circ")) {
-                  tibble_current_coords[nrow(tibble_current_coords) - 1, "mod"] <- paste("circular;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
-                } else if (grepl(x = b2, pattern = "rev")) {
-                  start <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start
-                  end <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end
-                  tibble_current_coords[nrow(tibble_current_coords), "end"] <- vector_starts
-                  tibble_current_coords[nrow(tibble_current_coords), "start"] <- vector_ends
-                } else if (grepl(x = b2, pattern = "os")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "+"
-                  } else {
-                    tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "-"
-                  }
-                }
-                
-              } )
-            
-          } else if (a2 %>% data.class == "tbl_df") {
-            tibble_processed_transmitted_coords <- purrr::reduce(
-              .x = purrr::splice(a2$entity, a2$operations %>% as.list),
-              .f = function(a1, a2) {
-                
-                # DEBUG ###
-                ###########
-                
-                L2_tibble_transmitted_coords <- a1
-                
-                if (grepl(x = a2, pattern = "fivep_d(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x = a2, pattern = "threep_d(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x = a2, pattern = "fivep_n(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x = a2, pattern = "threep_n(\\d+)")) {
-                  # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = a2, pattern = "threep_end")) {
+                } else if (grepl(x = b2, pattern = "threep_end")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
                     L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"]
                   } else {
                     L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"]
                   }
-                } else if (grepl(x = a2, pattern = "fivep_end")) {
+                } else if (grepl(x = b2, pattern = "fivep_end")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x = a2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = a2, pattern = "^delta$")) {
+                } else if (grepl(x = b2, pattern = "^delta$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
-                } else if (grepl(x = a2, pattern = "^nabla$")) {
+                } else if (grepl(x = b2, pattern = "^nabla$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
-                } else if (grepl(x = a2, pattern = "circ")) {
+                } else if (grepl(x = b2, pattern = "circ")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
-                } else if (grepl(x = a2, pattern = "rev")) {
+                } else if (grepl(x = b2, pattern = "rev")) {
                   vector_starts <- L2_tibble_transmitted_coords$start
                   vector_ends <- L2_tibble_transmitted_coords$end
                   L2_tibble_transmitted_coords$start <- vector_starts
                   L2_tibble_transmitted_coords$end <- vector_ends
-                } else if (grepl(x = a2, pattern = "os")) {
+                } else if (grepl(x = b2, pattern = "os")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
                     L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand == "-", "strand"] <- "+"
@@ -7085,7 +7131,19 @@ server <- function(input, output, session) {
                 
               } )
             
-            tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+            # opstack output if unfinished
+            if (data.class(tibble_current_coords) == "list") {
+              tibble_current_coords$element_data <- purrr::splice(
+                tibble_current_coords$element_data, 
+                list(
+                  "entity" = list(tibble_processed_transmitted_coords),
+                  "operations" = list(""),
+                  "class" = c("entity_coord_plot_table")
+                ) 
+              )
+            } else {
+              tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+            }
             
           }
           
@@ -7211,6 +7269,12 @@ server <- function(input, output, session) {
               
             }
             
+            if (c3 == length(b1)) {
+              revtrans_opstack_working_terms@status <- "COMPLETE"
+            } else {
+              revtrans_opstack_working_terms@status <- "UNFINISHED"
+            }
+            
             # apply and compute operations and un-nest
             # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
             # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
@@ -7246,7 +7310,16 @@ server <- function(input, output, session) {
                   
                   revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
                   
-                  revtrans_opstack_inprogress@status == "INIT"
+                  revtrans_opstack_inprogress@status <- "INIT"
+                  
+                # if a pending sector was being computed, then all subsequent sectors need to be placed in the first element of the opstack list to account for overarching operations.
+                } else if (revtrans_opstack_inprogress@status == "ASSEMBLINGPENDING") {
+                  
+                  tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                  
+                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                  
+                  revtrans_opstack_inprogress@status <- "INITQUEUE"
                   
                 # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
                 } else if (revtrans_opstack_inprogress@status == "PENDING") {
@@ -7257,7 +7330,7 @@ server <- function(input, output, session) {
                   
                   revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data$entity <- tibble_coords_sector_pending
                   
-                  # if not at the start of a string or already in the middle of a pending calculation of a sector for an overarching operation, add a new list element to compute the new sector
+                # if not at the start of a string or already in the middle of a pending calculation of a sector for an overarching operation, add a new list element to compute the new sector.
                 } else {
                   
                   revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
@@ -7271,16 +7344,12 @@ server <- function(input, output, session) {
                       )
                     ) )
                   
+                  revtrans_opstack_inprogress@status <- "PENDING"
+                  
                 }
                 
-                ## condition: if no STOP condition -> add to the operation stack
+              ## condition: if no STOP condition -> add to the operation stack
               } else {
-                
-                if (c3 == length(b1)) {
-                  revtrans_opstack_working_terms@status <- "COMPLETE"
-                } else {
-                  revtrans_opstack_working_terms@status <- "UNFINISHED"
-                }
                 
                 revtrans_opstack_working_terms@accumulated_terms <- c(revtrans_opstack_working_terms@accumulated_terms, term_right)
                 revtrans_opstack_working_terms@previous_term <- term_right
