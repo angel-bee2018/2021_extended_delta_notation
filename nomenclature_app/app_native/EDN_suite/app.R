@@ -6939,8 +6939,9 @@ server <- function(input, output, session) {
                     "element_data" = list(
                       list(
                         "entity" = list(tibble_current_coords, a2$entity),
+                        "entityclass" = c("entity_coord_plot_table", a2$entityclass),
                         "operations" = list("", a2$operations),
-                        "class" = c("entity_coord_plot_table", a2$class)
+                        "operationclass" = c("", a2$operationclass)
                       )
                     )
                   )
@@ -6951,8 +6952,9 @@ server <- function(input, output, session) {
                     "element_data" = list(
                       list(
                         "entity" = list(a2$entity),
+                        "entityclass" = c(a2$entityclass),
                         "operations" = list(a2$operations),
-                        "class" = c(a2$class)
+                        "operationclass" = c(a2$operationclass)
                       )
                     )
                   )
@@ -7137,8 +7139,9 @@ server <- function(input, output, session) {
                 tibble_current_coords$element_data, 
                 list(
                   "entity" = list(tibble_processed_transmitted_coords),
-                  "operations" = list(""),
-                  "class" = c("entity_coord_plot_table")
+                  "entityclass" = c("entity_coord_plot_table"),
+                  "operations" = character(""),
+                  "operationclass" = character("")
                 ) 
               )
             } else {
@@ -7187,7 +7190,7 @@ server <- function(input, output, session) {
     
     ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
-        
+      
       # DEBUG ###
       list_input <- revtrans_input_string_split_text_operators[[4]][[1]][[1]][[2]]
       tibble_gtf_table <- tibble_gtf_table
@@ -7222,190 +7225,430 @@ server <- function(input, output, session) {
         
       }
       
-        # operation stack should look like:
-        # 1 retrieval (all exons)
-        # 2 exon/intron modifiers
-        # 3 filtering for short-read mode
-        # 4 whole-transcript operations in order
-        # 5 break
-        # 6 <next hgnc stable ID>
-        ...
-        # 7 
-        
-        # initialise the opstack
-        revtrans_opstack_initial <-
-          methods::new(
-            Class = "revtrans_opstack",
-            "accumulated_terms" = character(),
-            "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
-            "list_operation_stacks" = list(),
-            "fslash_tracker" = tibble("level" = integer(), "iteration" = integer()),
-            "status" = "INIT"
-          )
-        
-        purrr::reduce2(
-          .x = purrr::splice(revtrans_opstack_initial, b1 %>% as.list), 
-          .y = 1:length(b1),
-          .f = function(c1, c2, c3) {
+      # operation stack should look like:
+      # 1 retrieval (all exons)
+      # 2 exon/intron modifiers
+      # 3 filtering for short-read mode
+      # 4 whole-transcript operations in order
+      # 5 break
+      # 6 <next hgnc stable ID>
+      ...
+      # 7 
+      
+      # initialise the opstack
+      revtrans_opstack_initial <-
+        methods::new(
+          Class = "revtrans_opstack",
+          "accumulated_terms" = character(),
+          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
+          "fslash_tracker" = tibble("level" = integer(), "iteration" = integer()),
+          "list_operation_stacks" = list()
+        )
+      
+      purrr::reduce2(
+        .x = purrr::splice(revtrans_opstack_initial, b1 %>% as.list), 
+        .y = 1:length(b1),
+        .f = function(c1, c2, c3) {
+          
+          function_F2 <<- sys.function(which = sys.nframe())
+          
+          revtrans_opstack_inprogress <- c1
+          term_previous <- revtrans_opstack_inprogress@accumulated_terms[[length(revtrans_opstack_inprogress@accumulated_terms)]]
+          term_current <- c2
+          
+          # if initial operation, import the initialised working list
+          if (c3 == 1) {
+            revtrans_opstack_inprogress@list_operation_stacks[[1]] <- list(
+              "current_stable_id" = character(),
+              "status" = "INIT",
+              "element_data" = list(
+                "entity" = list(),
+                "entityclass" = character(),
+                "operations" = list(),
+                "operationclass" = character()
+              )
+            )
             
-            function_F2 <<- sys.function(which = sys.nframe())
+          } else {
             
-            revtrans_opstack_inprogress <- c1
-            term_previous <- revtrans_opstack_inprogress@accumulated_terms[[length(revtrans_opstack_inprogress@accumulated_terms)]]
-            term_current <- c2
+          }
+          
+          previous_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
+          
+          # CHOMPING ###
+          
+          # apply and compute operations and un-nest
+          # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
+          # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
+          # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
+          
+          # there are only three classes of inputs to the loop:
+          # 1. character (entity or operator - all operators have been changed to character previously)
+          # 2. class revtrans_opstack
+          
+          # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
+          
+          # entity elements and their operations must always be preallocated when ready.
+          
+          if (data.class(term_right) == "character") {
             
-            # if initial operation, import the initialised working list
-            if (c3 == 1) {
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
-                "current_stable_id" = character(),
-                "element_data" = list(
-                  "entity" = list(),
-                  "operations" = list(),
-                  "class" = character()
+            # ENST CAPTURE
+            ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
+            ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
+            ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
+            
+            ## if there is no HGNC stable ID in the previous terms, then create a nested level immediately.
+            ## if they're operations, then wait till you get an enst, then it will be considered a nested level and the operations will be global on it.
+            ## if they're entities, then it will be considered to be part of the level above.
+            ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
+            if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
+              
+              # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
+              if (previous_status == "INIT") {
+                
+                new_status <- "ASSEMBLING"
+                
+                # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+              } else if (previous_status == "ASSEMBLING") {
+                
+                tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                
+                new_status <- "ASSEMBLING"
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks, 
+                  list(
+                    "current_stable_id" = term_right,
+                    "status" = "INIT",
+                    "element_data" = list(
+                      "entity" = list(),
+                      "entityclass" = character(),
+                      "operations" = list(),
+                      "operationclass" = character()
+                    )
+                  )
+                )
+                
+                # if a pending sector was being computed before but could not be finished, then all subsequent sectors need to be placed in the first element of the opstack list to account for overarching operations.
+              } else if (previous_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
+                
+                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
+                
+                new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks, 
+                  list(
+                    "current_stable_id" = term_right,
+                    "status" = "INIT",
+                    "element_data" = list(
+                      "entity" = list(),
+                      "entityclass" = character(),
+                      "operations" = list(),
+                      "operationclass" = character()
+                    )
+                  )
+                )
+                
+                # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
+              } else if (previous_status == "ASSEMBLING_OP_PENDING") {
+                
+                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # can't apply operations if not enough information provided.
+                if (data.class(tibble_coords_sector_pending == "list")) {
+                  stop()
+                }
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
+                
+                ## make another call to apply the overarching operation if possible
+                tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # if we get a tibble, it's finished. otherwise, if it's a list then it's incomplete.
+                if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
+                  new_status <- "ASSEMBLING"
+                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
+                } else if (data.class(tibble_coords_overarching_operation == "list")) {
+                  new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
+                }
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks, 
+                  list(
+                    "current_stable_id" = term_right,
+                    "status" = "INIT",
+                    "element_data" = list(
+                      "entity" = list(),
+                      "entityclass" = character(),
+                      "operations" = list(),
+                      "operationclass" = character()
+                    )
+                  )
+                )
+                
+                # we have a pending overarching operation, but previous terms were also incomplete
+                # it is not possible to have an incomplete table after an initial incomplete because they would have had an HGNC stable id already
+                # if it is an HGNC stable id without entities, it implies the full length transcript.
+                # what this means is that the number of elements in the opstack list is never going to back up.
+              } else if (previous_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
+                
+                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # can't apply operations if not enough information provided.
+                if (data.class(tibble_coords_sector_pending == "list")) {
+                  stop()
+                }
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
+                
+                ## make another call to apply the overarching operation. this can't not work.
+                tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
+                  new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data) + 1]]$entity <- tibble_coords_overarching_operation
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data) + 1]]$operations <- ""
+                } else if (data.class(tibble_coords_overarching_operation == "list")) {
+                  stop()
+                }
+               
+                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks, 
+                  list(
+                    "current_stable_id" = term_right,
+                    "status" = "INIT",
+                    "element_data" = list(list(
+                      "entity" = list(),
+                      "entityclass" = character(),
+                      "operations" = character(),
+                      "operationclass" = character()
+                    ))
+                  )
+                )
+                 
+              }
+             
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
+               
+            }
+            
+            ## condition: if not HGNC stable ID -> add to the operation stack
+          } else {
+            
+            # operation
+            if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+              
+              #
+              if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity %>% length == 0) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+                  term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "fivep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "fivep_n\\2"),
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                )
+                
+              } else if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity %>% length > 0) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+                  term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "threep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "threep_n\\2"),
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                )
+                
+              }
+              
+              #
+              if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                  "standard,onesided,quantitative",
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                )
+                
+              } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                  "mutation,onesided,quantitative",
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                )
+                
+              }
+              
+            } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
+              
+              #
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+                term_right %>% gsub(pattern = "d|del", replacement = "delta") %>% gsub(pattern = "n|ins", replacement = "nabla"),
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+              )
+              
+              #
+              if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                  "standard,onesided,qualitative",
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                )
+                
+              } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                  "mutation,onesided,qualitative",
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                )
+                
+              }
+              
+            } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+                list(
+                  "entity" = term_right,
+                  "entityclass" = "exonic",
+                  "operations" = character(),
+                  "operationclass" = character()
+                )
+              )
+                
+            } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+                list(
+                  "entity" = "junc",
+                  "entityclass" = "junction",
+                  "operations" = character(),
+                  "operationclass" = character()
                 )
               )
               
-            } else {
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+                list(
+                  "entity" = tibble(),
+                  "entityclass" = character(),
+                  "operations" = character(),
+                  "operationclass" = character()
+                )
+              )
               
-            }
-            
-            if (c3 == length(b1)) {
-              revtrans_opstack_working_terms@status <- "COMPLETE"
-            } else {
-              revtrans_opstack_working_terms@status <- "UNFINISHED"
-            }
-            
-            # apply and compute operations and un-nest
-            # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
-            # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
-            # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
-            
-            # there are only three classes of inputs to the loop:
-            # 1. character (entity or operator - all operators have been changed to character previously)
-            # 2. class revtrans_opstack
-            
-            # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
-            
-            if (data.class(term_right) == "character") {
+            } else if (grepl(x = term_right, pattern = "^(") == TRUE) {
               
-              # ENST CAPTURE
-              ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
-              ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
-              ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
+                "current_stable_id" = character(),
+                "status" = "INIT",
+                "element_data" = list(list(
+                  "entity" = list(),
+                  "entityclass" = character(),
+                  "operations" = character(),
+                  "operationclass" = character()
+                ))
+              )
               
-              ## if there is no HGNC stable ID in the previous terms, then create a nested level immediately.
-              ## if they're operations, then wait till you get an enst, then it will be considered a nested level and the operations will be global on it.
-              ## if they're entities, then it will be considered to be part of the level above.
-              ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
-              if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- "ASSEMBLING"
+              
+            # end of bracket - we need to:
+            # 1. apply overarching operations
+            # 2. if incomplete, integrate operation stack with upper level accumulation
+            } else if (grepl(x = term_right, pattern = "^)") == TRUE) {
+              
+              # inner call for all bracketed terms
+              tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+              # get rid of nested list element
+              revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+              
+              # fetch upper level status
+              upper_level_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
+              
+              # follow similar rules as end of line
+              if (upper_level_status %in% c("ASSEMBLING", "ASSEMBLING_PREVIOUS_INCOMPLETE")) {
                 
-                # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
-                if (revtrans_opstack_inprogress@status == "INIT") {
-                  # (nothing needed here)
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
+                  list(
+                    "entity" = tibble_coords_sector,
+                    "operations" = "",
+                    "class" = "coord_plot_table"
+                  )
+                )
+                
+                if (upper_level_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
                   
-                # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
-                } else if (revtrans_opstack_inprogress@status == "ASSEMBLING") {
-                  
-                  tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                  
-                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
-                  
-                  revtrans_opstack_inprogress@status <- "INIT"
-                  
-                # if a pending sector was being computed, then all subsequent sectors need to be placed in the first element of the opstack list to account for overarching operations.
-                } else if (revtrans_opstack_inprogress@status == "ASSEMBLINGPENDING") {
-                  
-                  tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                  
-                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
-                  
-                  revtrans_opstack_inprogress@status <- "INITQUEUE"
-                  
-                # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
-                } else if (revtrans_opstack_inprogress@status == "PENDING") {
-                  
-                  tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data$entity <- tibble_coords_sector_pending
-                  
-                # if not at the start of a string or already in the middle of a pending calculation of a sector for an overarching operation, add a new list element to compute the new sector.
-                } else {
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks, 
-                    list(
-                      "current_stable_id" = term_right,
-                      "element_data" = list(
-                        "entity" = list(),
-                        "operations" = list(),
-                        "class" = character()
-                      )
-                    ) )
-                  
-                  revtrans_opstack_inprogress@status <- "PENDING"
+                  # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
+                  if (data.class(tibble_coords_sector) == "list") {
+                    stop()
+                  }
                   
                 }
                 
-              ## condition: if no STOP condition -> add to the operation stack
-              } else {
+              } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING", "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE")) {
                 
-                revtrans_opstack_working_terms@accumulated_terms <- c(revtrans_opstack_working_terms@accumulated_terms, term_right)
-                revtrans_opstack_working_terms@previous_term <- term_right
-                
-                # operation
-                if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+                if (upper_level_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
                   
-                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
-                    tibble::add_row("element" = term_right, "class" = "operator_quantitative", .after = if (any(revtrans_opstack_working_terms@tibble_operation_stack$class == "entity")) {max(grep(x = revtrans_opstack_working_terms@tibble_operation_stack$class, pattern = "^entity"))} else {0} )
-                  
-                } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
-                  
-                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
-                    tibble::add_row("element" = term_right, "class" = "operator_unqualified", .after = if (any(revtrans_opstack_working_terms@tibble_operation_stack$class == "entity")) {max(grep(x = revtrans_opstack_working_terms@tibble_operation_stack$class, pattern = "^entity"))} else {0} )
-                  
-                } else if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") == TRUE) {
-                  
-                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
-                    tibble::add_row("element" = term_right, "class" = "entity_stableid", .before = 1)
-                  
-                } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
-                  
-                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
-                    tibble::add_row("element" = term_right, "class" = "entity_feature", .before = 1)
-                  
-                } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
-                  
-                  revtrans_opstack_working_terms@tibble_operation_stack <- revtrans_opstack_working_terms@tibble_operation_stack %>%
-                    tibble::add_row("element" = term_right, "class" = "operator_doublesided", .before = 1)
+                  # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
+                  if (data.class(tibble_coords_sector) == "list") {
+                    stop()
+                  }
                   
                 }
                 
-                list_working_terms[[1]] <- revtrans_opstack_working_terms
+                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector
                 
               }
+            }
+
+          # if a list is encountered, then it means it was previously unfinished
+          } else if (data.class(term_right) == "list") {
             
-            # if a revtrans_opstack is encountered, then it means it was previously unfinished
-            } else if (data.class(term_right) == "revtrans_opstack") {
-              
-              
-              
-            # if a tibble is encountered, then it means we have previously successfully converted to coords.
-            } else if (data.class(term_right) == "tbl_df") {
-              
-              
-              
+            if (!is.na(term_right$current_stable_id)) {
+              stop()
             }
             
+            revtrans_opstack_working_terms@list_operation_stacks$element_data <- revtrans_opstack_working_terms@list_operation_stacks$element_data %>% 
+              purrr::splice(
+                term_right$element_data
+              )
             
+          # if a tibble is encountered, then it means we have previously successfully converted to coords.
+          } else if (data.class(term_right) == "tbl_df") {
             
-            return(list_working_terms)
+            revtrans_opstack_working_terms@list_operation_stacks$element_data <- revtrans_opstack_working_terms@list_operation_stacks$element_data %>% 
+              purrr::splice(
+                list(
+                  "entity" = term_right,
+                  "operations" = "",
+                  "class" = "coord_plot_table"
+                )
+              )
             
-          } )
-        
-      }
+          }
+          
+          # case: end of string reached.
+        # 1. wrap up current string operations.
+        # 2. check for completeness
+        if (c3 == length(b1)) {
+         
+          
+           
+        }
+          
+          return(revtrans_opstack_working_terms)
+          
+        } )
       
+    }
+    
   } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
