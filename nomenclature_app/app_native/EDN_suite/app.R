@@ -7578,8 +7578,9 @@ server <- function(input, output, session) {
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
                   list(
                     "entity" = tibble_coords_sector,
+                    "entityclass" = "coord_plot_table",
                     "operations" = "",
-                    "class" = "coord_plot_table"
+                    "operationclass" = character()
                   )
                 )
                 
@@ -7627,29 +7628,96 @@ server <- function(input, output, session) {
               purrr::splice(
                 list(
                   "entity" = term_right,
+                  "entityclass" = "coord_plot_table",
                   "operations" = "",
-                  "class" = "coord_plot_table"
+                  "operationclass" = character()
                 )
               )
             
           }
           
-          # case: end of string reached.
-        # 1. wrap up current string operations.
-        # 2. check for completeness
-        if (c3 == length(b1)) {
+          #
+          # check if end of string reached.
+          # 1. wrap up current string operations.
+          # 2. check for completeness
+          ## note that "PREVIOUS_INCOMPLETE" cannot persist until the end of the string because it signifies the absence of an HGNC gene symbol.
+          if (c3 == length(b1)) {
+          
+            # check how many operation stacks are left. we should only have one left (or two if there is an unbracketed overarching operation pending)
+            if (length(revtrans_opstack_inprogress@list_operation_stacks) > 2) {
+              stop()
+            }
+            
+            # if previous sector is in INIT state, it probably means it is fresh from the end of a bracket or something. 
+            # in that case, we are done here. output the tibble of coords for drawing.
+            if (previous_status == "INIT") {
+            
+              tibble_final_coords <- revtrans_opstack_inprogress@output_coords
+              
+            # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+            } else if (previous_status == "ASSEMBLING") {
+              
+              tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+              
+              # can't apply operations if not enough information provided.
+              if (data.class(tibble_coords_sector == "list")) {
+                stop()
+              } else if (data.class(tibble_coords_sector == "tbl_df")) {
+                
+                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                
+              }
+              
+              # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
+            } else if (previous_status == "ASSEMBLING_OP_PENDING") {
+              
+              tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+              
+              # can't apply operations if not enough information provided.
+              if (data.class(tibble_coords_sector_pending == "list")) {
+                stop()
+              }
+              
+              revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+              
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
+              
+              ## make another call to apply the overarching operation.
+              ## this cannot be incomplete because it's the end of string.
+              tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+              
+              if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
+                new_status <- "ASSEMBLING"
+                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
+              } else if (data.class(tibble_coords_overarching_operation == "list")) {
+                stop()
+              }
+              
+              revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks, 
+                list(
+                  "current_stable_id" = term_right,
+                  "status" = "INIT",
+                  "element_data" = list(
+                    "entity" = list(),
+                    "entityclass" = character(),
+                    "operations" = list(),
+                    "operationclass" = character()
+                  )
+                )
+              )
+              
+            } 
+            
+          }
          
-          
-           
-        }
-          
-          return(revtrans_opstack_working_terms)
-          
-        } )
+        return(revtrans_opstack_working_terms)
+        
+    } )
       
-    }
-    
-  } )  # END REVERSE TRANSLATE ###
+  }
+  
+} )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
