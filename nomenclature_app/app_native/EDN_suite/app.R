@@ -6577,8 +6577,8 @@ server <- function(input, output, session) {
     ### throw a warning too if circ was specified but it returned a gene name.
     
     # strategy: unfold brackets into nested list elements along with their operations
-    revtrans_input_string_tolower <- revtrans_input_string %>% tolower()
-    # %>% gsub(pattern = " ", replacement = "")
+    revtrans_input_string_tolower <- revtrans_input_string %>% tolower() %>% 
+      gsub(pattern = "\\s*\\/\\s*", replacement = "\\/")
     
     # unfold brackets first
     # revtrans_input_string_unfolded <- revtrans_input_string_tolower %>% (
@@ -6899,7 +6899,7 @@ server <- function(input, output, session) {
       ###########
       
       # initialise the tibble of output coords
-      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character())
+      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
       
       if (!is.na(input_list_opstack$current_stable_id)) {
         
@@ -6913,6 +6913,16 @@ server <- function(input, output, session) {
         
       }
       
+      # completeness check for stable id
+      # we can only process opstacks without stable ids only when all entities are tibbles.
+      # scope lies in this function because there are many cases where the top level function will need to check this.
+      if (purrr::map(.x = input_list_opstack$element_data, .f = ~.x$entity %>% data.class == "character") %>% unlist %>% any == TRUE &
+          input_list_opstack$current_stable_id %>% is.na == TRUE) {
+        
+        return(input_list_opstack)
+        
+      } else {
+      
       tibble_output_coords <- purrr::reduce(
         .x = purrr::splice(tibble_output_coords_init, input_list_opstack$element_data),
         .f = function(a1, a2) {
@@ -6925,43 +6935,6 @@ server <- function(input, output, session) {
           tibble_current_coords <- a1
           
           if (a2$entity %>% data.class == "character") {
-            
-            # if it's a character entity detected in an anonymous opstack, we can't look it up - this is therefore unfinished. 
-            # switch to opstack output
-            if (!is.na(input_list_opstack$current_stable_id)) {
-              
-              if (data.class(tibble_current_coords) != "list") {
-                
-                if (nrow(tibble_current_coords) > 0) {
-                  
-                  tibble_current_coords <- list(
-                    "current_stable_id" = NA,
-                    "element_data" = list(
-                      list(
-                        "entity" = list(tibble_current_coords, a2$entity),
-                        "entityclass" = c("entity_coord_plot_table", a2$entityclass),
-                        "operations" = list("", a2$operations),
-                        "operationclass" = c("", a2$operationclass)
-                      )
-                    )
-                  )
-                  
-                } else {
-                  tibble_current_coords <- list(
-                    "current_stable_id" = NA,
-                    "element_data" = list(
-                      list(
-                        "entity" = list(a2$entity),
-                        "entityclass" = c(a2$entityclass),
-                        "operations" = list(a2$operations),
-                        "operationclass" = c(a2$operationclass)
-                      )
-                    )
-                  )
-                }
-              }
-              
-            } else {
               
               # fetch and calculate entity coords first
               if (grepl(x = a2$entity, pattern = "e\\d+")) {
@@ -7054,9 +7027,8 @@ server <- function(input, output, session) {
                   
                 } )
               
-            } # endif
-            
           } else if (a2 %>% data.class == "tbl_df") {
+            
             tibble_processed_transmitted_coords <- purrr::reduce(
               .x = purrr::splice(a2$entity, a2$operations %>% as.list),
               .f = function(b1, b2) {
@@ -7140,12 +7112,18 @@ server <- function(input, output, session) {
                 list(
                   "entity" = list(tibble_processed_transmitted_coords),
                   "entityclass" = c("entity_coord_plot_table"),
-                  "operations" = character(""),
-                  "operationclass" = character("")
+                  "operations" = c(""),
+                  "operationclass" = c(""),
+                  "alt" = c(""), 
+                  "segid" = numeric(), 
+                  "nestlevel" = numeric()
                 ) 
               )
+              
             } else {
+              
               tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+              
             }
             
           }
@@ -7153,6 +7131,8 @@ server <- function(input, output, session) {
           return(tibble_current_coords)
           
         } )
+      
+      }
       
       return(tibble_output_coords)
       
@@ -7183,10 +7163,13 @@ server <- function(input, output, session) {
     methods::setClass(
       Class = "revtrans_opstack",
       slots = c("accumulated_terms" = "character", 
-                "output_coords" = "tbl_df", 
+                "output_coords" = "tbl_df",
+                "fslash_tracker" = "tbl_df",
                 "list_operation_stacks" = "list",
                 "status" = "character")
     )
+    
+    global_temp_segid <- 1
     
     ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
@@ -7217,7 +7200,7 @@ server <- function(input, output, session) {
       #   
       # }
       
-      if (b1 %>% data.class != "character") {
+      if (list_input %>% data.class != "character") {
         
         print("function \"revtrans_reading_head\" checkpoint 1 observed input")
         print(a1)
@@ -7240,14 +7223,17 @@ server <- function(input, output, session) {
         methods::new(
           Class = "revtrans_opstack",
           "accumulated_terms" = character(),
-          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
-          "fslash_tracker" = tibble("level" = integer(), "iteration" = integer()),
-          "list_operation_stacks" = list()
+          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric()),
+          "fslash_tracker" = tibble("cluster" = integer(), "iteration" = integer()),
+          "list_operation_stacks" = list(),
+          "status" = character()
         )
       
+      temp_vector_elements_to_skip <- numeric()
+      
       purrr::reduce2(
-        .x = purrr::splice(revtrans_opstack_initial, b1 %>% as.list), 
-        .y = 1:length(b1),
+        .x = purrr::splice(revtrans_opstack_initial, list_input %>% as.list), 
+        .y = (1:length(list_input)) %>% as.list,
         .f = function(c1, c2, c3) {
           
           function_F2 <<- sys.function(which = sys.nframe())
@@ -7255,6 +7241,14 @@ server <- function(input, output, session) {
           revtrans_opstack_inprogress <- c1
           term_previous <- revtrans_opstack_inprogress@accumulated_terms[[length(revtrans_opstack_inprogress@accumulated_terms)]]
           term_current <- c2
+          term_next <- list_input %>% as.list %>% .[[c3]]
+          
+          # deal with skips
+          if (c3 %in% temp_vector_elements_to_skip) {
+            
+            return(revtrans_opstack_inprogress)
+            
+          } else {
           
           # if initial operation, import the initialised working list
           if (c3 == 1) {
@@ -7264,8 +7258,11 @@ server <- function(input, output, session) {
               "element_data" = list(
                 "entity" = list(),
                 "entityclass" = character(),
-                "operations" = list(),
-                "operationclass" = character()
+                "operations" = character(),
+                "operationclass" = character(),
+                "alt" = character(), 
+                "segid" = numeric(), 
+                "nestlevel" = numeric()
               )
             )
             
@@ -7292,7 +7289,7 @@ server <- function(input, output, session) {
           
           if (data.class(term_right) == "character") {
             
-            # ENST CAPTURE
+            # condition if HGNC stable id encountered on the RHS
             ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
             ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
             ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
@@ -7325,8 +7322,11 @@ server <- function(input, output, session) {
                     "element_data" = list(
                       "entity" = list(),
                       "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
+                      "operations" = character(),
+                      "operationclass" = character(),
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                     )
                   )
                 )
@@ -7350,8 +7350,11 @@ server <- function(input, output, session) {
                     "element_data" = list(
                       "entity" = list(),
                       "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
+                      "operations" = character(),
+                      "operationclass" = character(),
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                     )
                   )
                 )
@@ -7386,12 +7389,15 @@ server <- function(input, output, session) {
                   list(
                     "current_stable_id" = term_right,
                     "status" = "INIT",
-                    "element_data" = list(
+                    "element_data" = list( list(
                       "entity" = list(),
                       "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
-                    )
+                      "operations" = character(),
+                      "operationclass" = character(),
+                      "alt" = character(), 
+                      "segid" = global_temp_segid,
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
+                    ) )
                   )
                 )
                 
@@ -7433,7 +7439,10 @@ server <- function(input, output, session) {
                       "entity" = list(),
                       "entityclass" = character(),
                       "operations" = character(),
-                      "operationclass" = character()
+                      "operationclass" = character(),
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                     ))
                   )
                 )
@@ -7487,61 +7496,85 @@ server <- function(input, output, session) {
             } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
               
               #
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operations <- c(
                 term_right %>% gsub(pattern = "d|del", replacement = "delta") %>% gsub(pattern = "n|ins", replacement = "nabla"),
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operations
               )
               
               #
               if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operationclass <- c(
                   "standard,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operationclass
                 )
                 
               } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operationclass <- c(
                   "mutation,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$operationclass
                 )
                 
               }
               
             } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
-                list(
-                  "entity" = term_right,
-                  "entityclass" = "exonic",
-                  "operations" = character(),
-                  "operationclass" = character()
-                )
-              )
-                
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$entity <- term_right
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data)]]$entityclass <- "exonic"
+              
+            # if junction is encountered, put it as an entity so when we do the inner function, it will note down that the next two things are to be junctioned.
             } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
                 list(
                   "entity" = "junc",
                   "entityclass" = "junction",
                   "operations" = character(),
-                  "operationclass" = character()
+                  "operationclass" = character(),
+                  "alt" = character(), 
+                  "segid" = global_temp_segid,
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                 )
               )
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
                 list(
                   "entity" = tibble(),
                   "entityclass" = character(),
                   "operations" = character(),
-                  "operationclass" = character()
+                  "operationclass" = character(),
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                 )
               )
+              
+            } else if (grepl(x = term_right, pattern = "\\s") == TRUE) {
+              
+              # increment the cluster number if no more alts are encountered after a space etc..
+              # we might have to apply this logic at the start of entities and sectors though.
+              
+              # also remember this is a very important point because it's when we start preallocating the next opstack.
+              
+            } else if (grepl(x = term_right, pattern = "\\/") == TRUE) {
+              # when fwd. slash is encountered, retrospectively denote cluster to previous sector/entity (they would have already been marked as "previous".)
+              # then for every successive sector/entity, keep checking for the pending flag in revtrans_opstack_inprogress$fslash_tracker
+              
+              # fwd. slash also demarcates the end of immediate sector. compute and mark the cluster/iteration in the opstack
+              
+              if (previous_status == "INIT") {
+                
+                revtrans_opstack_inprogress@output_coords[revtrans_opstack_inprogress@output_coords$alt == "previous", "alt"] <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
+                
+              } else if (previous_status %in% c("ASSEMBLING", "ASSEMBLING_OP_PENDING", "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE")) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$alt <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
+               
+              }
               
             } else if (grepl(x = term_right, pattern = "^(") == TRUE) {
               
@@ -7552,7 +7585,10 @@ server <- function(input, output, session) {
                   "entity" = list(),
                   "entityclass" = character(),
                   "operations" = character(),
-                  "operationclass" = character()
+                  "operationclass" = character(),
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                 ))
               )
               
@@ -7574,13 +7610,21 @@ server <- function(input, output, session) {
               # follow similar rules as end of line
               if (upper_level_status %in% c("ASSEMBLING", "ASSEMBLING_PREVIOUS_INCOMPLETE")) {
                 
+                # check for alternative skip all
+                if (term_previous == "\\/") {
+                  tibble_coords_sector <- tibble_coords_sector %>% tibble::add_row(mod = "alt_skippage")
+                }
+                
                 revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
                   list(
                     "entity" = tibble_coords_sector,
                     "entityclass" = "coord_plot_table",
                     "operations" = "",
-                    "operationclass" = character()
+                    "operationclass" = "",
+                    "alt" = character(), 
+                    "segid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                   )
                 )
                 
@@ -7630,7 +7674,8 @@ server <- function(input, output, session) {
                   "entity" = term_right,
                   "entityclass" = "coord_plot_table",
                   "operations" = "",
-                  "operationclass" = character()
+                  "operationclass" = character(),
+                  "alt" = character()
                 )
               )
             
@@ -7701,8 +7746,9 @@ server <- function(input, output, session) {
                   "element_data" = list(
                     "entity" = list(),
                     "entityclass" = character(),
-                    "operations" = list(),
-                    "operationclass" = character()
+                    "operations" = character(),
+                    "operationclass" = character(),
+                    "alt" = character()
                   )
                 )
               )
@@ -7713,6 +7759,8 @@ server <- function(input, output, session) {
          
         return(revtrans_opstack_working_terms)
         
+          }
+          
     } )
       
   }
