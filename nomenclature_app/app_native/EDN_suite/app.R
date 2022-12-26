@@ -7305,19 +7305,18 @@ server <- function(input, output, session) {
                 # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
               } else if (previous_status == "ASSEMBLING") {
                 
-                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
                 
                 if (tibble.list_coords_sector %>% data.class == "list") {
                   
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)] <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)],
-                    tibble.list_coords_sector
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    tibble.list_coords_sector,
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
                   )
                   
                 } else if (tibble.list_coords_sector %>% data.class == "tibble") {
                   
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)] <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)],
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
                     list(
                       "current_stable_id" = NA,
                       "status" = "INIT",
@@ -7328,17 +7327,18 @@ server <- function(input, output, session) {
                       "alt" = character(), 
                       "segid" = global_temp_segid, 
                       "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
-                    )
+                    ),
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
                   )
                   
                 }
                 
-                new_status <- "ASSEMBLING"
-                
                 global_temp_segid <<- global_temp_segid + 1
                 
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
+                # preallocate for the next sector. 
+                # there is no entity currently specified but all we have is the HGNC stable id.
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], 
                   list(
                     "current_stable_id" = term_right,
                     "status" = "INIT",
@@ -7352,33 +7352,6 @@ server <- function(input, output, session) {
                   )
                 )
                 
-                # if a pending sector was being computed before but could not be finished, then all subsequent sectors need to be placed in the first element of the opstack list to account for overarching operations.
-              } else if (previous_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
-                
-                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
-                
-                new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
-                  list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "element_data" = list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = character(),
-                      "operationclass" = character(),
-                      "alt" = character(), 
-                      "segid" = global_temp_segid, 
-                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
-                    )
-                  )
-                )
                 
                 # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
               } else if (previous_status == "ASSEMBLING_OP_PENDING") {
