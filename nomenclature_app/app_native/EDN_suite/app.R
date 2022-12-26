@@ -7225,8 +7225,7 @@ server <- function(input, output, session) {
           "accumulated_terms" = character(),
           "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric()),
           "fslash_tracker" = tibble("cluster" = integer(), "iteration" = integer()),
-          "list_operation_stacks" = list(),
-          "status" = character()
+          "list_operation_stacks" = list()
         )
       
       temp_vector_elements_to_skip <- numeric()
@@ -7249,13 +7248,12 @@ server <- function(input, output, session) {
             return(revtrans_opstack_inprogress)
             
           } else {
-          
-          # if initial operation, import the initialised working list
-          if (c3 == 1) {
-            revtrans_opstack_inprogress@list_operation_stacks[[1]] <- list(
-              "current_stable_id" = character(),
-              "status" = "INIT",
-              "element_data" = list(
+            
+            # if initial operation, import the initialised working list
+            if (c3 == 1) {
+              revtrans_opstack_inprogress@list_operation_stacks[[1]] <- list(
+                "current_stable_id" = character(),
+                "status" = "INIT",
                 "entity" = list(),
                 "entityclass" = character(),
                 "operations" = character(),
@@ -7264,18 +7262,17 @@ server <- function(input, output, session) {
                 "segid" = numeric(), 
                 "nestlevel" = numeric()
               )
-            )
+              
+            } else {
+              
+            }
             
-          } else {
+            previous_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
             
-          }
-          
-          previous_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
-          
-          # CHOMPING ###
-          
-          # apply and compute operations and un-nest
-          # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
+            # CHOMPING ###
+            
+            # apply and compute operations and un-nest
+            # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
           # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
           # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
           
@@ -7308,26 +7305,50 @@ server <- function(input, output, session) {
                 # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
               } else if (previous_status == "ASSEMBLING") {
                 
-                tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
                 
-                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                if (tibble.list_coords_sector %>% data.class == "list") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)],
+                    tibble.list_coords_sector
+                  )
+                  
+                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)],
+                    list(
+                      "current_stable_id" = NA,
+                      "status" = "INIT",
+                      "entity" = tibble_coords_sector,
+                      "entityclass" = "coord_plot_table",
+                      "operations" = "",
+                      "operationclass" = "",
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
+                    )
+                  )
+                  
+                }
                 
                 new_status <- "ASSEMBLING"
+                
+                global_temp_segid <<- global_temp_segid + 1
                 
                 revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
                   revtrans_opstack_inprogress@list_operation_stacks, 
                   list(
                     "current_stable_id" = term_right,
                     "status" = "INIT",
-                    "element_data" = list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = character(),
-                      "operationclass" = character(),
-                      "alt" = character(), 
-                      "segid" = global_temp_segid, 
-                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
-                    )
+                    "entity" = list(),
+                    "entityclass" = character(),
+                    "operations" = character(),
+                    "operationclass" = character(),
+                    "alt" = character(), 
+                    "segid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks)
                   )
                 )
                 
