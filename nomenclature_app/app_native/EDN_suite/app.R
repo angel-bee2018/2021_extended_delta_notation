@@ -6873,8 +6873,8 @@ server <- function(input, output, session) {
     
     # function to interpret a completed operation stack and convert it into a tibble of output coords that are fed into the the graphical plotter
     # input: 
-    # 1. a list describing the operation stack - the list shall contain 2 elements: current_stable_id and element_data.
-    # element_data: a list of length "n" elements. Each list element contains: element, operations and class. Element may be either character, integer or a nested tibble which is in itself a tibble of output coordinates describing a previously completed operation that was nested. Operations are a list of character vectors each describing the order of operations which are to be applied to each element.
+    # 1. a list describing the operation stack - each element of the list is an "opstack list", describing an entity, it's HGNC id if applicable, and operations.
+    # Element may be either character, integer or a nested tibble which is in itself a tibble of output coordinates describing a previously completed operation that was nested. Operations are a list of character vectors each describing the order of operations which are to be applied to each element.
     # 2. a table/tibble of the reference GTF
     # output: a single tibble with columns chr, start, end, strand, mod, flag without any nesting. This will describe the way the structure is represented 
     
@@ -6911,24 +6911,22 @@ server <- function(input, output, session) {
         
       } else {
       
-      tibble_output_coords <- purrr::reduce(
-        .x = purrr::splice(tibble_output_coords_init, input_list_opstack),
-        .f = function(a1, a2) {
+      list_output_coords <- purrr::map(
+        .x = input_list_opstack,
+        .f = function(a1) {
           
           # DEBUG ###
           # a1 <- fsdf
-          # a2 <- fd
+          # a1 <- fd
           ###########
           
-          tibble_current_coords <- a1
+          # long_list_entities <- purrr::map2(.x = a1$entity, .y = a1$entityclass, .f = ~list("entity" = .x, "entityclass" = .y))
           
-          # long_list_entities <- purrr::map2(.x = a2$entity, .y = a2$entityclass, .f = ~list("entity" = .x, "entityclass" = .y))
-          
-          long_list_operations <- purrr::map2(.x = a2$operations, .y = a2$operationclass, .f = ~list("operations" = .x, "operationclass" = .y))
+          long_list_operations <- purrr::map2(.x = a1$operations, .y = a1$operationclass, .f = ~list("operations" = .x, "operationclass" = .y))
           
           if (!is.na(input_list_opstack$current_stable_id)) {
             
-            current_hgnc_stable_id <- a2$current_stable_id
+            current_hgnc_stable_id <- a1$current_stable_id
             
             if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
               tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
@@ -6937,37 +6935,20 @@ server <- function(input, output, session) {
             }
             
           }
-          
-          if (a2$entity %>% data.class == "character") {
+            
+          if (a1$entity %>% data.class == "character") {
               
               # fetch and calculate entity coords first
-              if (grepl(x = a2$entity, pattern = "e\\d+")) {
-                exon_number <- grepl(x = a2$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
-                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
-              } else if (grepl(x = a2$entity, pattern = "i\\d+")) {
-                intron_number <- grepl(x = a2$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+              if (grepl(x = a1$entity, pattern = "e\\d+")) {
+                exon_number <- grepl(x = a1$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+                tibble_current_coords <- tibble::tibble("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
+              } else if (grepl(x = a1$entity, pattern = "i\\d+")) {
+                intron_number <- grepl(x = a1$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
                 vector_junction_flanking_coords <- tibble_stable_id_entries[tibble_stable_id_entries$exon_number %in% c(intron_number, intron_number + 1), c("start", "end")] %>% unlist
                 vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
-              } else if (a2$entity == "junc") {
-                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-                # vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$end %>% type.convert(as.is = TRUE)) + 1
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start %>% type.convert(as.is = TRUE)) - 1
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "junction"
-                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
-              } else if (a2$entity == "join") {
-                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-                # vector_junction_flanking_coords <- vector_junction_flanking_coords[vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                
-                # can't join opposite strand together - throw error if so
-                if (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$strand != tibble_current_coords[nrow(tibble_current_coords), ] %>% .$strand) {
-                  stop("tried to join entities with different strands")
-                }
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$start %>% type.convert(as.is = TRUE)
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end %>% type.convert(as.is = TRUE)
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "exon"
-                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+                tibble_current_coords <- tibble::tibble("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
+              } else if (a1$entity == "join") {
+                tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
               }
               
               entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
@@ -7010,16 +6991,22 @@ server <- function(input, output, session) {
                       L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] + sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                     }
                   } else if (grepl(x =  b2, pattern = "^delta$")) {
-                    L2_tibble_current_coords <- L2_tibble_current_coords[-nrow(L2_tibble_current_coords), ]
+                    L2_tibble_current_coords[, "mod"] <- paste(L2_tibble_current_coords[, "mod"], ";delta", sep = "")
                   } else if (grepl(x =  b2, pattern = "^nabla$")) {
-                    L2_tibble_current_coords[nrow(L2_tibble_current_coords) - 1, "flag"] <- paste("insertion;", L2_tibble_current_coords[nrow(L2_tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                    L2_tibble_current_coords[, "mod"] <- paste("insertion;", L2_tibble_current_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "^juncleft$")) {
+                    L2_tibble_current_coords <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), ]
+                    L2_tibble_current_coords$start <- NA
+                  } else if (grepl(x =  b2, pattern = "^juncright$")) {
+                    L2_tibble_current_coords <- L2_tibble_current_coords[1, ]
+                    L2_tibble_current_coords$end <- NA
                   } else if (grepl(x =  b2, pattern = "circ")) {
-                    L2_tibble_current_coords[nrow(L2_tibble_current_coords) - 1, "mod"] <- paste("circular;", L2_tibble_current_coords[nrow(L2_tibble_current_coords) - 1, ] %>% .$flag, sep = "")
+                    L2_tibble_current_coords[, "mod"] <- paste("circular;", L2_tibble_current_coords[, "mod"], sep = "")
                   } else if (grepl(x =  b2, pattern = "rev")) {
-                    start <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start
-                    end <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end
-                    L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- vector_starts
-                    L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] <- vector_ends
+                    start <- L2_tibble_current_coords$start
+                    end <- L2_tibble_current_coords$end
+                    L2_tibble_current_coords[, "end"] <- vector_starts
+                    L2_tibble_current_coords[, "start"] <- vector_ends
                   } else if (grepl(x =  b2, pattern = "os")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
@@ -7033,7 +7020,7 @@ server <- function(input, output, session) {
                   
                 } )
               
-          } else if (a2 %>% data.class == "tbl_df") {
+          } else if (a1 %>% data.class == "tbl_df") {
             
             tibble_processed_transmitted_coords <- purrr::reduce(
               .x = purrr::splice(a2$entity, a2$operations %>% as.list),
@@ -7090,6 +7077,12 @@ server <- function(input, output, session) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
                 } else if (grepl(x =  b2, pattern = "^nabla$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
+                } else if (grepl(x =  b2, pattern = "^juncleft$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), ]
+                  L2_tibble_transmitted_coords$start <- NA
+                } else if (grepl(x =  b2, pattern = "^juncright$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, ]
+                  L2_tibble_transmitted_coords$end <- NA
                 } else if (grepl(x =  b2, pattern = "circ")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
@@ -7138,9 +7131,11 @@ server <- function(input, output, session) {
           
         } )
       
-      }
+      tibble_output_coords <- list_output_coords %>% data.table::rbindlist() %>% tibble::as_tibble()
       
       return(tibble_output_coords)
+      
+      }
       
     }
     
@@ -7535,8 +7530,25 @@ server <- function(input, output, session) {
                   "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
                   "entity" = tibble(),
                   "entityclass" = character(),
-                  "operations" = "junc",
+                  "operations" = "juncright",
                   "operationclass" = "junction",
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                  "index" = c3
+                )
+              )
+              
+            } else if (grepl(x = term_right, pattern = "\\_") == TRUE) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                list(
+                  "curernt_stable_id" = NA,
+                  "entity" = "join",
+                  "entityclass" = character(),
+                  "operations" = character(),
+                  "operationclass" = character(),
                   "alt" = character(), 
                   "segid" = global_temp_segid, 
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
