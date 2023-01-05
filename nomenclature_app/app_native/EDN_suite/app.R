@@ -6951,6 +6951,9 @@ server <- function(input, output, session) {
                 tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
               }
               
+            tibble_current_coords$segid <- a1$segid
+            tibble_current_coords$nestlevel <- a1$nestlevel
+            
               entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
               
               tibble_current_coords <- purrr::reduce(
@@ -7876,6 +7879,7 @@ server <- function(input, output, session) {
     # input: singular tibble. output: a list of tibbles, one element for each alt. segment
     # - merge junction pairs
     # - take care of underscore joins
+    # - add widths
     # - split up alternative segments
     tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft", "end"] <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft" + 1, "end"]
     
@@ -7888,6 +7892,8 @@ server <- function(input, output, session) {
     tibble_plotting_coords_raw <- tibble_plotting_coords_raw[-(tibble_plotting_coords_raw$mod == "join" + 1), ]
     
     tibble_plotting_coords_raw <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod != "join", ]
+    #
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw %>% dplyr::mutate("width" = `end` - `start` + 1)
     #
     list_plotting_coords <- purrr::map2(
       .x = tibble_plotting_coords_raw$fslash_tracker$cluster,
