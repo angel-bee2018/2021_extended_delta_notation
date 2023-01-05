@@ -6996,10 +6996,14 @@ server <- function(input, output, session) {
                     L2_tibble_current_coords[, "mod"] <- paste("insertion;", L2_tibble_current_coords[, "mod"], sep = "")
                   } else if (grepl(x =  b2, pattern = "^juncleft$")) {
                     L2_tibble_current_coords <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), ]
-                    L2_tibble_current_coords$start <- NA
+                    L2_tibble_current_coords$start <- L2_tibble_current_coords$end + 1
+                    L2_tibble_current_coords$end <- NA
+                    L2_tibble_current_coords[, "mod"] <- paste("juncleft;", L2_tibble_current_coords[, "mod"], sep = "")
                   } else if (grepl(x =  b2, pattern = "^juncright$")) {
                     L2_tibble_current_coords <- L2_tibble_current_coords[1, ]
-                    L2_tibble_current_coords$end <- NA
+                    L2_tibble_current_coords$end <- L2_tibble_current_coords$start - 1
+                    L2_tibble_current_coords$start <- NA
+                    L2_tibble_current_coords[, "mod"] <- paste("juncright;", L2_tibble_current_coords[, "mod"], sep = "")
                   } else if (grepl(x =  b2, pattern = "circ")) {
                     L2_tibble_current_coords[, "mod"] <- paste("circular;", L2_tibble_current_coords[, "mod"], sep = "")
                   } else if (grepl(x =  b2, pattern = "rev")) {
@@ -7079,10 +7083,14 @@ server <- function(input, output, session) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
                 } else if (grepl(x =  b2, pattern = "^juncleft$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), ]
-                  L2_tibble_transmitted_coords$start <- NA
+                  L2_tibble_transmitted_coords$start <- L2_tibble_transmitted_coords$end + 1
+                  L2_tibble_transmitted_coords$end <- NA
+                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncleft;", L2_tibble_transmitted_coords[, "mod"], sep = "")
                 } else if (grepl(x =  b2, pattern = "^juncright$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, ]
-                  L2_tibble_transmitted_coords$end <- NA
+                  L2_tibble_transmitted_coords$end <- L2_tibble_transmitted_coords$start - 1
+                  L2_tibble_transmitted_coords$start <- NA
+                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncright;", L2_tibble_transmitted_coords[, "mod"], sep = "")
                 } else if (grepl(x =  b2, pattern = "circ")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
@@ -7789,7 +7797,7 @@ server <- function(input, output, session) {
             # in that case, we are done here. output the tibble of coords for drawing.
             if (current_status == "INIT") {
             
-              tibble_final_coords <- revtrans_opstack_inprogress@output_coords
+              revtrans_opstack_inprogress@output_coords <- revtrans_opstack_inprogress@output_coords
               
             # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
             } else if (current_status == "ASSEMBLING") {
@@ -7861,6 +7869,31 @@ server <- function(input, output, session) {
     } )
   
     }
+    
+    tibble_plotting_coords_raw <- c$output_coords
+    
+    # clean up the plotting coords
+    # input: singular tibble. output: a list of tibbles, one element for each alt. segment
+    # - merge junction pairs
+    # - take care of underscore joins
+    # - split up alternative segments
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft", "end"] <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft" + 1, "end"]
+    
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod != "juncright", ]
+    
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft", "mod"] <- "junc"
+    #
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "join" - 1, "end"] <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "join" + 1, "end"]
+    
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw[-(tibble_plotting_coords_raw$mod == "join" + 1), ]
+    
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod != "join", ]
+    #
+    list_plotting_coords <- purrr::map2(
+      .x = tibble_plotting_coords_raw$fslash_tracker$cluster,
+      .y = tibble_plotting_coords_raw$fslash_tracker$iteration,
+      .f = tibble_plotting_coords_raw[is.na(tibble_plotting_coords_raw$mod) | tibble_plotting_coords_raw$mod == paste(.x, ",", .y, sep = ""), ]
+    )
       
 } )  # END REVERSE TRANSLATE ###
   
