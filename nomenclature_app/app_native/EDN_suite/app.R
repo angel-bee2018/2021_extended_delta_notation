@@ -7901,6 +7901,262 @@ server <- function(input, output, session) {
       .f = tibble_plotting_coords_raw[is.na(tibble_plotting_coords_raw$mod) | tibble_plotting_coords_raw$mod == paste(.x, ",", .y, sep = ""), ]
     )
       
+    
+    
+    
+    # CREATE GGPLOT
+    ggplot_final_plot <- list(
+      ggplot(),
+      # these mark the original viewing window
+      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
+      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
+      theme_bw(),
+      theme(text = element_text(family = "Helvetica"), legend.position = "none"),
+      ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
+      # brush resizing (x)
+      # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
+      coord_cartesian(xlim = workshop_plot_brush_ranges$x
+                      # ,
+                      # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
+      )
+    ) %>% 
+      
+      purrr::splice(
+        
+        # reference_transcripts
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")], 
+            .f = function(a1) {
+              
+              list(
+                
+                geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                # "thick" CDS
+                if (any(a1$type == "CDS") == TRUE) {
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                }
+                
+                # geom_text(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                
+              )
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # reference protein domains
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")], 
+            .f = function(a1) {
+              
+              list(
+                
+                # HGNC stable protein ID
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = id, height = 0.1, fill = region_class)),
+                # symbol in addition to colour to indicate domain/region type
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), fontface = "bold", colour = "white", size = 4, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
+                # domain description
+                geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
+                
+              ) 
+              
+            } ) %>% purrr::flatten() %>% 
+            purrr::splice(
+              scale_fill_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
+                                values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
+            )
+          
+        },
+        
+        # reference protein PTMs
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")], 
+            .f = function(a1) {
+              
+              list(
+                
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
+                
+              ) 
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # custom_gtf
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")],
+            .f = function(a2) {
+              
+              list(
+                
+                geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                # "thick" CDS
+                if (any(a1$type == "CDS") == TRUE) {
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                }
+                
+              )
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # user ranges
+        if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+          geom_curve(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id))
+        },
+        if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+          geom_segment(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id))
+        },
+        if (nrow(tibble_user_ranges_visible) > 1) {
+          geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
+        },
+        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
+        },
+        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
+        },
+        
+        # distance annotation
+        if (length(list_distances_between_user_ranges_and_reference_annotations) > 0) {
+          
+          purrr::map2(
+            .x = list_distances_between_user_ranges_and_reference_annotations,
+            .y = names(list_distances_between_user_ranges_and_reference_annotations),
+            .f = function(a1, a2) {
+              
+              # separate condition for interpro - plot each domain/region individually
+              if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = id, yend = id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+                # separate condition for dbPTM - plot by ENSP id
+              } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = protein_id, yend = protein_id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+              } else {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+              }
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # FACETS 
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
+        },
+        
+        # adaptive facet aspect ratio
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+                                    (function(x) {
+                                      if (sum(x) != 0) {
+                                        return(x/sum(x))
+                                      } else {
+                                        return(0)}
+                                    } ) )
+        },
+        
+        # facet-specific brush resizing (y)
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggh4x::facetted_pos_scales(
+            y = purrr::map2(.x = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
+          )
+        }
+        
+      )  %>% purrr::reduce(ggplot2:::`+.gg`)
+    
+    output$revtrans_plot_output <- renderPlot( {
+      
+      ggplot_final_plot
+      
+    }, height = plot_height, width = plot_width )
+    
+    output$revtrans_ref_table_output <- renderDataTable(
+      {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
+          (function(x ) {
+            
+            if (length(x) == 0) {
+              return(NULL)
+            } else {
+              
+              x %>%
+                rbindlist(use.names = TRUE, fill = TRUE) %>%
+                dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
+                (function(x2) { x2[mixedorder(x2 %>% dplyr::select(matches("hgnc_stable_.*_ID")) %>% unlist), ] %>% return } ) %>%
+                dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+                dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
+                return
+              
+            }
+            
+          } )
+      },
+      options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+    )
+    
+    # Create the button to download the scatterplot as PDF
+    output$workshop_download_plot <- downloadHandler(
+      filename = function() {
+        paste('EDN_workshop_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
+      },
+      content = function(file) {
+        
+        ggplot_final_plot <- ggplot_final_plot
+        
+        ggsave(file, ggplot_final_plot, width = 20, height = 20*(plot_height/plot_width), dpi = 600, units = "cm")
+      }
+    )
+    
 } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
