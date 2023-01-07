@@ -7578,8 +7578,9 @@ server <- function(input, output, session) {
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
                   list(
                     "entity" = tibble_coords_sector,
+                    "entityclass" = "coord_plot_table",
                     "operations" = "",
-                    "class" = "coord_plot_table"
+                    "operationclass" = character()
                   )
                 )
                 
@@ -7627,24 +7628,67 @@ server <- function(input, output, session) {
               purrr::splice(
                 list(
                   "entity" = term_right,
+                  "entityclass" = "coord_plot_table",
                   "operations" = "",
-                  "class" = "coord_plot_table"
+                  "operationclass" = character()
                 )
               )
             
           }
           
-          # case: end of string reached.
-        # 1. wrap up current string operations.
-        # 2. check for completeness
-        if (c3 == length(b1)) {
-         
+          #
+          # check if end of string reached.
+          # 1. wrap up current string operations.
+          # 2. check for completeness
+          if (c3 == length(b1)) {
+            
+            # check for ongoing operation
+            revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]
+            
+            # check how many operation stacks are left. we should only have one left
+            
+            # follow similar rules as end of line
+            if (upper_level_status %in% c("ASSEMBLING", "ASSEMBLING_PREVIOUS_INCOMPLETE")) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
+                list(
+                  "entity" = tibble_coords_sector,
+                  "entityclass" = "coord_plot_table",
+                  "operations" = "",
+                  "operationclass" = character()
+                )
+              )
+              
+              if (upper_level_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
+                
+                # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
+                if (data.class(tibble_coords_sector) == "list") {
+                  stop()
+                }
+                
+              }
+              
+            } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING", "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE")) {
+              
+              if (upper_level_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
+                
+                # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
+                if (data.class(tibble_coords_sector) == "list") {
+                  stop()
+                }
+                
+              }
+              
+              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector
+              
+            }
+          }
           
-           
         }
-          
-          return(revtrans_opstack_working_terms)
-          
+        
+        return(revtrans_opstack_working_terms)
+        
         } )
       
     }
