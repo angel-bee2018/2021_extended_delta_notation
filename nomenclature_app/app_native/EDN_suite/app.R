@@ -6577,8 +6577,8 @@ server <- function(input, output, session) {
     ### throw a warning too if circ was specified but it returned a gene name.
     
     # strategy: unfold brackets into nested list elements along with their operations
-    revtrans_input_string_tolower <- revtrans_input_string %>% tolower()
-    # %>% gsub(pattern = " ", replacement = "")
+    revtrans_input_string_tolower <- revtrans_input_string %>% tolower() %>% 
+      gsub(pattern = "\\s*\\/\\s*", replacement = "\\/")
     
     # unfold brackets first
     # revtrans_input_string_unfolded <- revtrans_input_string_tolower %>% (
@@ -6873,8 +6873,8 @@ server <- function(input, output, session) {
     
     # function to interpret a completed operation stack and convert it into a tibble of output coords that are fed into the the graphical plotter
     # input: 
-    # 1. a list describing the operation stack - the list shall contain 2 elements: current_stable_id and element_data.
-    # element_data: a list of length "n" elements. Each list element contains: element, operations and class. Element may be either character, integer or a nested tibble which is in itself a tibble of output coordinates describing a previously completed operation that was nested. Operations are a list of character vectors each describing the order of operations which are to be applied to each element.
+    # 1. a list describing the operation stack - each element of the list is an "opstack list", describing an entity, it's HGNC id if applicable, and operations.
+    # Element may be either character, integer or a nested tibble which is in itself a tibble of output coordinates describing a previously completed operation that was nested. Operations are a list of character vectors each describing the order of operations which are to be applied to each element.
     # 2. a table/tibble of the reference GTF
     # output: a single tibble with columns chr, start, end, strand, mod, flag without any nesting. This will describe the way the structure is represented 
     
@@ -6899,104 +6899,65 @@ server <- function(input, output, session) {
       ###########
       
       # initialise the tibble of output coords
-      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character())
+      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
       
-      if (!is.na(input_list_opstack$current_stable_id)) {
+      # completeness check for stable id
+      # we can only process opstacks without stable ids only when all entities are tibbles.
+      # scope lies in this function because there are many cases where the top level function will need to check this.
+      if (purrr::map(.x = input_list_opstack, .f = ~.x$entity %>% is.na == FALSE & .x$entity %>% length > 0 &
+          .x$current_stable_id %>% is.na == TRUE) %>% unlist) {
         
-        current_hgnc_stable_id <- input_list_opstack$current_stable_id
+        return(input_list_opstack)
         
-        if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
-          tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
-        } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
-          tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
-        }
-        
-      }
+      } else {
       
-      tibble_output_coords <- purrr::reduce(
-        .x = purrr::splice(tibble_output_coords_init, input_list_opstack$element_data),
-        .f = function(a1, a2) {
+      list_output_coords <- purrr::map(
+        .x = input_list_opstack,
+        .f = function(a1) {
           
           # DEBUG ###
           # a1 <- fsdf
-          # a2 <- fd
+          # a1 <- fd
           ###########
           
-          tibble_current_coords <- a1
+          # long_list_entities <- purrr::map2(.x = a1$entity, .y = a1$entityclass, .f = ~list("entity" = .x, "entityclass" = .y))
           
-          if (a2$entity %>% data.class == "character") {
+          long_list_operations <- purrr::map2(.x = a1$operations, .y = a1$operationclass, .f = ~list("operations" = .x, "operationclass" = .y))
+          
+          if (!is.na(input_list_opstack$current_stable_id)) {
             
-            # if it's a character entity detected in an anonymous opstack, we can't look it up - this is therefore unfinished. 
-            # switch to opstack output
-            if (!is.na(input_list_opstack$current_stable_id)) {
-              
-              if (data.class(tibble_current_coords) != "list") {
-                
-                if (nrow(tibble_current_coords) > 0) {
-                  
-                  tibble_current_coords <- list(
-                    "current_stable_id" = NA,
-                    "element_data" = list(
-                      list(
-                        "entity" = list(tibble_current_coords, a2$entity),
-                        "entityclass" = c("entity_coord_plot_table", a2$entityclass),
-                        "operations" = list("", a2$operations),
-                        "operationclass" = c("", a2$operationclass)
-                      )
-                    )
-                  )
-                  
-                } else {
-                  tibble_current_coords <- list(
-                    "current_stable_id" = NA,
-                    "element_data" = list(
-                      list(
-                        "entity" = list(a2$entity),
-                        "entityclass" = c(a2$entityclass),
-                        "operations" = list(a2$operations),
-                        "operationclass" = c(a2$operationclass)
-                      )
-                    )
-                  )
-                }
-              }
-              
-            } else {
+            current_hgnc_stable_id <- a1$current_stable_id
+            
+            if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
+              tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
+            } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
+              tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+            }
+            
+          }
+            
+          if (a1$entity %>% data.class == "character") {
               
               # fetch and calculate entity coords first
-              if (grepl(x = a2$entity, pattern = "e\\d+")) {
-                exon_number <- grepl(x = a2$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
-                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
-              } else if (grepl(x = a2$entity, pattern = "i\\d+")) {
-                intron_number <- grepl(x = a2$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+              if (grepl(x = a1$entity, pattern = "e\\d+")) {
+                exon_number <- grepl(x = a1$entity, pattern = "e(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
+                tibble_current_coords <- tibble::tibble("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "start"] %>% unlist, "end" = tibble_stable_id_entries[tibble_stable_id_entries$exon_number == exon_number, "end"] %>% unlist, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "exon", "flag" = NA)
+              } else if (grepl(x = a1$entity, pattern = "i\\d+")) {
+                intron_number <- grepl(x = a1$entity, pattern = "i(\\d+)", replacement = "\\1") %>% type.convert(as.is = TRUE)
                 vector_junction_flanking_coords <- tibble_stable_id_entries[tibble_stable_id_entries$exon_number %in% c(intron_number, intron_number + 1), c("start", "end")] %>% unlist
                 vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                tibble_current_coords <- tibble::add_row("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
-              } else if (a2$entity == "junc") {
-                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-                # vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$end %>% type.convert(as.is = TRUE)) + 1
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start %>% type.convert(as.is = TRUE)) - 1
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "junction"
-                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
-              } else if (a2$entity == "join") {
-                # vector_junction_flanking_coords <- tibble_current_coords[(nrow(tibble_current_coords) - 1):nrow(tibble_current_coords), c("start", "end")] %>% unlist
-                # vector_junction_flanking_coords <- vector_junction_flanking_coords[vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
-                
-                # can't join opposite strand together - throw error if so
-                if (tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$strand != tibble_current_coords[nrow(tibble_current_coords), ] %>% .$strand) {
-                  stop("tried to join entities with different strands")
-                }
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "start"] <- tibble_current_coords[(nrow(tibble_current_coords) - 1), ] %>% .$start %>% type.convert(as.is = TRUE)
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "end"] <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end %>% type.convert(as.is = TRUE)
-                tibble_current_coords[(nrow(tibble_current_coords) - 1), "mod"] <- "exon"
-                tibble_current_coords <- tibble_current_coords[1:(nrow(tibble_current_coords) - 1), ]
+                tibble_current_coords <- tibble::tibble("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
+              } else if (a1$entity == "join") {
+                tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
               }
               
+            tibble_current_coords$segid <- a1$segid
+            tibble_current_coords$nestlevel <- a1$nestlevel
+            
               entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
               
               tibble_current_coords <- purrr::reduce(
-                .x = purrr::splice(tibble_current_coords, a2$operations %>% as.list),
+                .x = purrr::splice(tibble_current_coords, long_list_operations),
                 .f = function(b1, b2) {
                   
                   # DEBUG ###
@@ -7004,123 +6965,144 @@ server <- function(input, output, session) {
                   
                   L2_tibble_current_coords <- b1
                   
-                  if (grepl(x = b2, pattern = "fivep_d(\\d+)")) {
+                  if (grepl(x =  b2, pattern = "fivep_d(\\d+)")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
-                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] - sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                     } else {
-                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] + sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                     }
-                  } else if (grepl(x = b2, pattern = "threep_d(\\d+)")) {
+                  } else if (grepl(x =  b2, pattern = "threep_d(\\d+)")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
-                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] + sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                     } else {
-                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] - sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                     }
-                  } else if (grepl(x = b2, pattern = "fivep_n(\\d+)")) {
+                  } else if (grepl(x =  b2, pattern = "fivep_n(\\d+)")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
-                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] + sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                     } else {
-                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] - sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                     }
-                  } else if (grepl(x = b2, pattern = "threep_n(\\d+)")) {
+                  } else if (grepl(x =  b2, pattern = "threep_n(\\d+)")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
-                      tibble_current_coords[nrow(tibble_current_coords), "start"] <- tibble_current_coords[nrow(tibble_current_coords), "start"] - sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "start"] - sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                     } else {
-                      tibble_current_coords[nrow(tibble_current_coords), "end"] <- tibble_current_coords[nrow(tibble_current_coords), "end"] + sign((tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end) - (tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), "end"] + sign((L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$end) - (L2_tibble_current_coords[nrow(L2_tibble_current_coords), ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                     }
-                  } else if (grepl(x = b2, pattern = "^delta$")) {
-                    tibble_current_coords <- tibble_current_coords[-nrow(tibble_current_coords), ]
-                  } else if (grepl(x = b2, pattern = "^nabla$")) {
-                    tibble_current_coords[nrow(tibble_current_coords) - 1, "flag"] <- paste("insertion;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
-                  } else if (grepl(x = b2, pattern = "circ")) {
-                    tibble_current_coords[nrow(tibble_current_coords) - 1, "mod"] <- paste("circular;", tibble_current_coords[nrow(tibble_current_coords) - 1, ] %>% .$flag, sep = "")
-                  } else if (grepl(x = b2, pattern = "rev")) {
-                    start <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$start
-                    end <- tibble_current_coords[nrow(tibble_current_coords), ] %>% .$end
-                    tibble_current_coords[nrow(tibble_current_coords), "end"] <- vector_starts
-                    tibble_current_coords[nrow(tibble_current_coords), "start"] <- vector_ends
-                  } else if (grepl(x = b2, pattern = "os")) {
+                  } else if (grepl(x =  b2, pattern = "^delta$")) {
+                    L2_tibble_current_coords[, "mod"] <- paste(L2_tibble_current_coords[, "mod"], ";delta", sep = "")
+                  } else if (grepl(x =  b2, pattern = "^nabla$")) {
+                    L2_tibble_current_coords[, "mod"] <- paste("insertion;", L2_tibble_current_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "^juncleft$")) {
+                    L2_tibble_current_coords <- L2_tibble_current_coords[nrow(L2_tibble_current_coords), ]
+                    L2_tibble_current_coords$start <- L2_tibble_current_coords$end + 1
+                    L2_tibble_current_coords$end <- NA
+                    L2_tibble_current_coords[, "mod"] <- paste("juncleft;", L2_tibble_current_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "^juncright$")) {
+                    L2_tibble_current_coords <- L2_tibble_current_coords[1, ]
+                    L2_tibble_current_coords$end <- L2_tibble_current_coords$start - 1
+                    L2_tibble_current_coords$start <- NA
+                    L2_tibble_current_coords[, "mod"] <- paste("juncright;", L2_tibble_current_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "circ")) {
+                    L2_tibble_current_coords[, "mod"] <- paste("circular;", L2_tibble_current_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "rev")) {
+                    start <- L2_tibble_current_coords$start
+                    end <- L2_tibble_current_coords$end
+                    L2_tibble_current_coords[, "end"] <- vector_starts
+                    L2_tibble_current_coords[, "start"] <- vector_ends
+                  } else if (grepl(x =  b2, pattern = "os")) {
                     # assume positive strand if strand info is not provided
                     if (entity_strand == "-") {
-                      tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "+"
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "strand"] <- "+"
                     } else {
-                      tibble_current_coords[nrow(tibble_current_coords), "strand"] <- "-"
+                      L2_tibble_current_coords[nrow(L2_tibble_current_coords), "strand"] <- "-"
                     }
                   }
                   
+                  return(L2_tibble_current_coords)
+                  
                 } )
               
-            } # endif
+          } else if (a1 %>% data.class == "tbl_df") {
             
-          } else if (a2 %>% data.class == "tbl_df") {
             tibble_processed_transmitted_coords <- purrr::reduce(
               .x = purrr::splice(a2$entity, a2$operations %>% as.list),
-              .f = function(b1, b2) {
+              .f = function(b1,  b2) {
                 
                 # DEBUG ###
                 ###########
                 
                 L2_tibble_transmitted_coords <- b1
                 
-                if (grepl(x = b2, pattern = "fivep_d(\\d+)")) {
+                if (grepl(x =  b2, pattern = "fivep_d(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = b2, pattern = "threep_d(\\d+)")) {
+                } else if (grepl(x =  b2, pattern = "threep_d(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = b2, pattern = "fivep_n(\\d+)")) {
+                } else if (grepl(x =  b2, pattern = "fivep_n(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = b2, pattern = "threep_n(\\d+)")) {
+                } else if (grepl(x =  b2, pattern = "threep_n(\\d+)")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = b2, pattern = "threep_end")) {
+                } else if (grepl(x =  b2, pattern = "threep_end")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
                     L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"]
                   } else {
                     L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"]
                   }
-                } else if (grepl(x = b2, pattern = "fivep_end")) {
+                } else if (grepl(x =  b2, pattern = "fivep_end")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   } else {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x = b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
                   }
-                } else if (grepl(x = b2, pattern = "^delta$")) {
+                } else if (grepl(x =  b2, pattern = "^delta$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
-                } else if (grepl(x = b2, pattern = "^nabla$")) {
+                } else if (grepl(x =  b2, pattern = "^nabla$")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
-                } else if (grepl(x = b2, pattern = "circ")) {
+                } else if (grepl(x =  b2, pattern = "^juncleft$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), ]
+                  L2_tibble_transmitted_coords$start <- L2_tibble_transmitted_coords$end + 1
+                  L2_tibble_transmitted_coords$end <- NA
+                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncleft;", L2_tibble_transmitted_coords[, "mod"], sep = "")
+                } else if (grepl(x =  b2, pattern = "^juncright$")) {
+                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, ]
+                  L2_tibble_transmitted_coords$end <- L2_tibble_transmitted_coords$start - 1
+                  L2_tibble_transmitted_coords$start <- NA
+                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncright;", L2_tibble_transmitted_coords[, "mod"], sep = "")
+                } else if (grepl(x =  b2, pattern = "circ")) {
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
                   L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
-                } else if (grepl(x = b2, pattern = "rev")) {
+                } else if (grepl(x =  b2, pattern = "rev")) {
                   vector_starts <- L2_tibble_transmitted_coords$start
                   vector_ends <- L2_tibble_transmitted_coords$end
                   L2_tibble_transmitted_coords$start <- vector_starts
                   L2_tibble_transmitted_coords$end <- vector_ends
-                } else if (grepl(x = b2, pattern = "os")) {
+                } else if (grepl(x =  b2, pattern = "os")) {
                   # assume positive strand if strand info is not provided
                   if (entity_strand == "-") {
                     L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand == "-", "strand"] <- "+"
@@ -7135,17 +7117,23 @@ server <- function(input, output, session) {
             
             # opstack output if unfinished
             if (data.class(tibble_current_coords) == "list") {
-              tibble_current_coords$element_data <- purrr::splice(
-                tibble_current_coords$element_data, 
+              tibble_current_coords <- purrr::splice(
+                tibble_current_coords, 
                 list(
                   "entity" = list(tibble_processed_transmitted_coords),
                   "entityclass" = c("entity_coord_plot_table"),
-                  "operations" = character(""),
-                  "operationclass" = character("")
+                  "operations" = c(""),
+                  "operationclass" = c(""),
+                  "alt" = c(""), 
+                  "segid" = numeric(), 
+                  "nestlevel" = numeric()
                 ) 
               )
+              
             } else {
+              
               tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+              
             }
             
           }
@@ -7154,7 +7142,11 @@ server <- function(input, output, session) {
           
         } )
       
+      tibble_output_coords <- list_output_coords %>% data.table::rbindlist() %>% tibble::as_tibble()
+      
       return(tibble_output_coords)
+      
+      }
       
     }
     
@@ -7183,10 +7175,13 @@ server <- function(input, output, session) {
     methods::setClass(
       Class = "revtrans_opstack",
       slots = c("accumulated_terms" = "character", 
-                "output_coords" = "tbl_df", 
+                "output_coords" = "tbl_df",
+                "fslash_tracker" = "tbl_df",
                 "list_operation_stacks" = "list",
                 "status" = "character")
     )
+    
+    global_temp_segid <- 1
     
     ## this function incurs GTF searching
     revtrans_reading_head <- function(list_input, tibble_gtf_table) {
@@ -7217,7 +7212,7 @@ server <- function(input, output, session) {
       #   
       # }
       
-      if (b1 %>% data.class != "character") {
+      if (list_input %>% data.class != "character") {
         
         print("function \"revtrans_reading_head\" checkpoint 1 observed input")
         print(a1)
@@ -7240,45 +7235,66 @@ server <- function(input, output, session) {
         methods::new(
           Class = "revtrans_opstack",
           "accumulated_terms" = character(),
-          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character()),
-          "fslash_tracker" = tibble("level" = integer(), "iteration" = integer()),
+          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric(), "index" = numeric()),
+          "fslash_tracker" = tibble("cluster" = integer(), "iteration" = integer()),
           "list_operation_stacks" = list()
         )
       
+      temp_vector_elements_to_skip <- numeric()
+      
       purrr::reduce2(
-        .x = purrr::splice(revtrans_opstack_initial, b1 %>% as.list), 
-        .y = 1:length(b1),
+        .x = purrr::splice(revtrans_opstack_initial, list_input %>% as.list), 
+        .y = (1:length(list_input)) %>% as.list,
         .f = function(c1, c2, c3) {
           
           function_F2 <<- sys.function(which = sys.nframe())
           
           revtrans_opstack_inprogress <- c1
           term_previous <- revtrans_opstack_inprogress@accumulated_terms[[length(revtrans_opstack_inprogress@accumulated_terms)]]
-          term_current <- c2
+          term_right <- c2
+          term_next <- list_input %>% as.list %>% .[[c3 + 1]]
           
-          # if initial operation, import the initialised working list
-          if (c3 == 1) {
-            revtrans_opstack_inprogress@list_operation_stacks[[1]] <- list(
-              "current_stable_id" = character(),
-              "status" = "INIT",
-              "element_data" = list(
-                "entity" = list(),
-                "entityclass" = character(),
-                "operations" = list(),
-                "operationclass" = character()
-              )
-            )
+          # fetch current level list indices of the previously completed sectors or entities
+          L2_indexes_previous_completed <- purrr::map(.x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], .f = ~.x$index) %>% unlist
+          
+          # fetch L2 list indices where the current_stable_id is not NA
+          L2_indexes_previous_completed_with_hgnc_id <- base::intersect(
+            purrr::map(.x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], .f = ~is.na(.x$current_stable_id) == FALSE & length(.x$current_stable_id) == 1),
+            L2_indexes_previous_completed
+          )
+          
+          # deal with skips
+          if (c3 %in% temp_vector_elements_to_skip) {
+            
+            return(revtrans_opstack_inprogress)
             
           } else {
             
-          }
-          
-          previous_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
-          
-          # CHOMPING ###
-          
-          # apply and compute operations and un-nest
-          # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
+            # if initial operation, import the initialised working list
+            if (c3 == 1) {
+              revtrans_opstack_inprogress@list_operation_stacks[[1]] <- list(
+                "current_stable_id" = character(),
+                "status" = "INIT",
+                "entity" = list(),
+                "entityclass" = character(),
+                "operations" = character(),
+                "operationclass" = character(),
+                "alt" = character(), 
+                "segid" = numeric(), 
+                "nestlevel" = numeric(),
+                "index" = c3
+              )
+              
+            } else {
+              
+            }
+            
+            current_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
+            
+            # CHOMPING ###
+            
+            # apply and compute operations and un-nest
+            # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
           # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
           # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
           
@@ -7292,7 +7308,7 @@ server <- function(input, output, session) {
           
           if (data.class(term_right) == "character") {
             
-            # ENST CAPTURE
+            # condition if HGNC stable id encountered on the RHS
             ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
             ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
             ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
@@ -7303,183 +7319,174 @@ server <- function(input, output, session) {
             ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
             if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
               
+              # scrub any already preallocated blank entities under the previous HGNC id
+              if ( (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == FALSE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == 1) & (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == TRUE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == 0) ) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                
+              }
+              
               # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
-              if (previous_status == "INIT") {
+              if (current_status == "INIT") {
                 
                 new_status <- "ASSEMBLING"
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
                 
                 # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
-              } else if (previous_status == "ASSEMBLING") {
+              } else if (current_status == "ASSEMBLING") {
                 
-                tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
                 
-                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                if (tibble.list_coords_sector %>% data.class == "list") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    tibble.list_coords_sector,
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                  )
+                  
+                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    list(
+                      "current_stable_id" = NA,
+                      "status" = "INIT",
+                      "entity" = tibble_coords_sector,
+                      "entityclass" = "coord_plot_table",
+                      "operations" = "",
+                      "operationclass" = "",
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                      "index" = c3
+                    ),
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                  )
+                  
+                }
+                
+                global_temp_segid <<- global_temp_segid + 1
+                
+                # preallocate for the next sector. 
+                # there is no entity currently specified but all we have is the HGNC stable id.
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], 
+                  list(
+                    "current_stable_id" = term_right,
+                    "status" = "INIT",
+                    "entity" = list(),
+                    "entityclass" = character(),
+                    "operations" = character(),
+                    "operationclass" = character(),
+                    "alt" = character(), 
+                    "segid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = c3
+                  )
+                )
+                
+                # we have a pending overarching operation on the sector (because the user was too lazy to put down brackets)
+                # we had to treat the sector as a nested level to accomplish this
+              } else if (current_status == "ASSEMBLING_OP_PENDING") {
+                
+                # compute current sector
+                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # temporarily store the next preallocated entity
+                list_opstack_next_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
+                
+                # remove the virtual nested sector
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                # there is NO WAY the pending sector will be incomplete because for a pending sector to be created in the first place, an HGNC id needs to be there.
+                
+                if (tibble.list_coords_sector %>% data.class == "list") {
+
+                  # temporarily store the previous entity which houses the operations because we wont need it anymore now that we're shoving the whole list in instead
+                  list_opstack_previous_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
+
+                  # remove the previous entity
+                  revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+
+                  # fetch the previous HGNC id
+                  upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
+
+                  # add in pending operations AT THE END because they are outside the brackets
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    purrr::map(.x = tibble.list_coords_sector,
+                               .f = function(b1) {
+                                 b1$operations <- c(b1$operations, list_opstack_previous_entity$operations);
+                                 b1$operationclass <- c(b1$operationclass, list_opstack_previous_entity$operationclass);
+                                 if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
+                                   b1$current_stable_id <- upper_level_previous_HGNC_id
+                                 };
+                                 return(b1)})
+
+                  )
+
+                } else
+                
+                if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
+                  
+                }
+                
+                global_temp_segid <<- global_temp_segid + 1
+                
+                # add back the next preallocated entity
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                  list(list_opstack_next_entity)
+                )
                 
                 new_status <- "ASSEMBLING"
                 
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
-                  list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "element_data" = list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
-                    )
-                  )
-                )
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
                 
-                # if a pending sector was being computed before but could not be finished, then all subsequent sectors need to be placed in the first element of the opstack list to account for overarching operations.
-              } else if (previous_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
-                
-                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
-                
-                new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
-                  list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "element_data" = list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
-                    )
-                  )
-                )
-                
-                # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
-              } else if (previous_status == "ASSEMBLING_OP_PENDING") {
-                
-                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                # can't apply operations if not enough information provided.
-                if (data.class(tibble_coords_sector_pending == "list")) {
-                  stop()
-                }
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
-                
-                ## make another call to apply the overarching operation if possible
-                tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                # if we get a tibble, it's finished. otherwise, if it's a list then it's incomplete.
-                if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
-                  new_status <- "ASSEMBLING"
-                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
-                } else if (data.class(tibble_coords_overarching_operation == "list")) {
-                  new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
-                }
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
-                  list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "element_data" = list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = list(),
-                      "operationclass" = character()
-                    )
-                  )
-                )
-                
-                # we have a pending overarching operation, but previous terms were also incomplete
-                # it is not possible to have an incomplete table after an initial incomplete because they would have had an HGNC stable id already
-                # if it is an HGNC stable id without entities, it implies the full length transcript.
-                # what this means is that the number of elements in the opstack list is never going to back up.
-              } else if (previous_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
-                
-                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                # can't apply operations if not enough information provided.
-                if (data.class(tibble_coords_sector_pending == "list")) {
-                  stop()
-                }
-                
-                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector_pending
-                
-                ## make another call to apply the overarching operation. this can't not work.
-                tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-                
-                if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
-                  new_status <- "ASSEMBLING_PREVIOUS_INCOMPLETE"
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data) + 1]]$entity <- tibble_coords_overarching_operation
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data) + 1]]$operations <- ""
-                } else if (data.class(tibble_coords_overarching_operation == "list")) {
-                  stop()
-                }
-               
-                revtrans_opstack_inprogress@list_operation_stacks <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks, 
-                  list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "element_data" = list(list(
-                      "entity" = list(),
-                      "entityclass" = character(),
-                      "operations" = character(),
-                      "operationclass" = character()
-                    ))
-                  )
-                )
-                 
               }
-             
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
-               
-            }
-            
-            ## condition: if not HGNC stable ID -> add to the operation stack
-          } else {
-            
-            # operation
-            if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
               
-              #
-              if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity %>% length == 0) {
+              # check for completeness
+              # we cannot have an undeclared HGNC id in the first entity in the top level
+              if (revtrans_opstack_inprogress@list_operation_stacks[[1]][[1]]$current_stable_id %>% length == 0) {
+                stop()
+              }
+              
+              ## condition: if not HGNC stable ID -> add to the operation stack
+            # if the next term is an operation
+            } else if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+              
+              # check for whether our operation is on the left or right of the entity
+              if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$entity %>% length == 0) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
                   term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "fivep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "fivep_n\\2"),
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
                 )
                 
-              } else if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity %>% length > 0) {
+              } else if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity %>% length > 0) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
                   term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "threep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "threep_n\\2"),
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
                 )
                 
               }
               
-              #
+              # check for whether our operation is on the left or right of the entity
               if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass <- c(
                   "standard,onesided,quantitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass
                 )
                 
               } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
                   "mutation,onesided,quantitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
                 )
                 
               }
@@ -7487,59 +7494,170 @@ server <- function(input, output, session) {
             } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
               
               #
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations <- c(
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
                 term_right %>% gsub(pattern = "d|del", replacement = "delta") %>% gsub(pattern = "n|ins", replacement = "nabla"),
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operations
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
               )
               
               #
               if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
                   "standard,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
                 )
                 
               } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
                   "mutation,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$operationclass
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
                 )
                 
               }
               
             } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
-                list(
-                  "entity" = term_right,
-                  "entityclass" = "exonic",
-                  "operations" = character(),
-                  "operationclass" = character()
-                )
-              )
-                
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- term_right
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entityclass <- "exonic"
+              
+            # if junction is encountered, put it as an entity so when we do the inner function, it will note down that the next two things are to be junctioned.
             } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations,
+                "juncleft"
+              )
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass <- c(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass,
+                "junction"
+              )
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
                 list(
-                  "entity" = "junc",
-                  "entityclass" = "junction",
-                  "operations" = character(),
-                  "operationclass" = character()
+                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                  "entity" = tibble(),
+                  "entityclass" = character(),
+                  "operations" = "juncright",
+                  "operationclass" = "junction",
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                  "index" = c3
                 )
               )
               
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data,
+            } else if (grepl(x = term_right, pattern = "\\_") == TRUE) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
                 list(
-                  "entity" = tibble(),
+                  "curernt_stable_id" = NA,
+                  "entity" = "join",
                   "entityclass" = character(),
                   "operations" = character(),
-                  "operationclass" = character()
+                  "operationclass" = character(),
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                  "index" = c3
+                )
+              )
+              
+            } else if (grepl(x = term_right, pattern = "\\s") == TRUE) {
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                list(
+                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                  "entity" = tibble(),
+                  "entityclass" = character(),
+                  "operations" = "juncright",
+                  "operationclass" = "junction",
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                  "index" = NA
+                )
+              )
+              
+              # this is a very important point because it's when we start preallocating the opstack for the next entity.
+              
+            } else if (grepl(x = term_right, pattern = "\\/") == TRUE) {
+              # when fwd. slash is encountered, retrospectively denote cluster to previous sector/entity (they would have already been marked as "previous".)
+              # then for every successive sector/entity, keep checking for the pending flag in revtrans_opstack_inprogress$fslash_tracker
+              
+              # fwd. slash also demarcates the end of immediate sector. compute and mark the cluster/iteration in the opstack
+              
+              # remove the preallocated entity term (if it exists)
+              if (revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity) {
+                
+              }
+              
+              # check for already existing alternative segments
+              if (grepl(x = term_right, pattern = "\\/") %>% all == FALSE & revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster == "ongoing") {
+                
+                # increment the iteration and close off the cluster
+                revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster
+                
+                revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$iteration + 1
+                
+              } else {
+                
+                revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
+                  tibble::add_row("cluster" = revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster + 1,
+                                  "iteration" = 1)
+                
+              }
+              
+              # check for alternative skip all
+              # if it is specified, add it to the last opstack on this level.
+              if (term_previous == "\\/") {
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                  list(
+                    "curernt_stable_id" = NA,
+                    "entity" = "alt_skippage",
+                    "entityclass" = "junction",
+                    "operations" = character(),
+                    "operationclass" = character(),
+                    "alt" = character(), 
+                    "segid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = c3
+                  )
+                )
+              }
+              
+              # apply the alt tag
+              # exclude the current c3 because we want the highest last recorded.
+              L2_index_previously_completed <- which(L2_indexes_previous_completed[L2_indexes_previous_completed != c3] == max(L2_indexes_previous_completed[L2_indexes_previous_completed != c3]))
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed] <- purrr::map(
+                .x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed],
+                .f = .x$alt <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
+              )
+              
+              # indicate existing for next steps
+              revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
+                tibble::add_row("cluster" = "ongoing")
+              
+              # preallocate next entity
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                list(
+                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                  "entity" = tibble(),
+                  "entityclass" = character(),
+                  "operations" = "junc",
+                  "operationclass" = "junction",
+                  "alt" = character(), 
+                  "segid" = global_temp_segid, 
+                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                  "index" = NA
                 )
               )
               
@@ -7548,152 +7666,498 @@ server <- function(input, output, session) {
               revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
                 "current_stable_id" = character(),
                 "status" = "INIT",
-                "element_data" = list(list(
-                  "entity" = list(),
-                  "entityclass" = character(),
-                  "operations" = character(),
-                  "operationclass" = character()
-                ))
+                "entity" = list(),
+                "entityclass" = character(),
+                "operations" = character(),
+                "operationclass" = character(),
+                "alt" = character(), 
+                "segid" = global_temp_segid, 
+                "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                "index" = c3
               )
               
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- "ASSEMBLING"
-              
-            # end of bracket - we need to:
-            # 1. apply overarching operations
-            # 2. if incomplete, integrate operation stack with upper level accumulation
-            } else if (grepl(x = term_right, pattern = "^)") == TRUE) {
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- "ASSEMBLING"
+                  
+                  # end of bracket - we need to:
+                  # 1. apply overarching operations
+                  # 2. if incomplete, integrate operation stack with upper level accumulation
+              } else if (grepl(x = term_right, pattern = "^)") == TRUE) {
+                
+                # check for alternative skip all
+                # if it is specified, add it to the last opstack on this level.
+              if (term_previous == "\\/") {
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                  list(
+                    "curernt_stable_id" = NA,
+                    "entity" = "alt_skippage",
+                    "entityclass" = "junction",
+                    "operations" = character(),
+                    "operationclass" = character(),
+                    "alt" = character(), 
+                    "segid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = c3
+                  )
+                )
+              }
               
               # inner call for all bracketed terms
-              tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+              tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+              
               # get rid of nested list element
               revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
               
               # fetch upper level status
-              upper_level_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status
+              upper_level_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$status
+              
+              # fetch upper level HGNC id because maybe the nested sector is incomplete and it needs the preceding HGNC id.
+              upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
               
               # follow similar rules as end of line
-              if (upper_level_status %in% c("ASSEMBLING", "ASSEMBLING_PREVIOUS_INCOMPLETE")) {
+              if (upper_level_status %in% c("ASSEMBLING")) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
-                  list(
-                    "entity" = tibble_coords_sector,
-                    "entityclass" = "coord_plot_table",
-                    "operations" = "",
-                    "operationclass" = character()
+                if (tibble.list_coords_sector %>% data.class == "list") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    tibble.list_coords_sector
+                    
                   )
-                )
-                
-                if (upper_level_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
                   
-                  # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
-                  if (data.class(tibble_coords_sector) == "list") {
-                    stop()
-                  }
+                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    list(
+                      "current_stable_id" = NA,
+                      "status" = "INIT",
+                      "entity" = tibble.list_coords_sector,
+                      "entityclass" = "coord_plot_table",
+                      "operations" = "",
+                      "operationclass" = "",
+                      "alt" = character(), 
+                      "segid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                      "index" = c3
+                    )
+                  )
                   
                 }
+              
+              # if there's a pending op, tack the nested segment onto the end of the upper level (which is still being assembled)
+              # if the nested segment is a tibble, add as previous entity
+              # if the nested segment is a list of opstacks (incomplete), then operations have to be distributed into the segment and the whole thing spliced after
+              } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING")) {
                 
-              } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING", "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE")) {
-                
-                if (upper_level_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
+                if (tibble.list_coords_sector %>% data.class == "list") {
                   
-                  # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
-                  if (data.class(tibble_coords_sector) == "list") {
-                    stop()
-                  }
+                  # add in pending operations AT THE END because they are outside the brackets
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    purrr::map(.x = tibble.list_coords_sector, 
+                               .f = function(d1) {
+                                 d1$operations <- c(d1$operations, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations); 
+                                 d1$operationclass <- c(d1$operationclass, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass);
+                                 if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
+                                   d1$current_stable_id <- upper_level_previous_HGNC_id
+                                 };
+                                 return(d1)})
+                    
+                  )
+                  
+                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
                   
                 }
-                
-                revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector
                 
               }
-            }
 
-          # if a list is encountered, then it means it was previously unfinished
-          } else if (data.class(term_right) == "list") {
-            
-            if (!is.na(term_right$current_stable_id)) {
-              stop()
-            }
-            
-            revtrans_opstack_working_terms@list_operation_stacks$element_data <- revtrans_opstack_working_terms@list_operation_stacks$element_data %>% 
-              purrr::splice(
-                term_right$element_data
-              )
-            
-          # if a tibble is encountered, then it means we have previously successfully converted to coords.
-          } else if (data.class(term_right) == "tbl_df") {
-            
-            revtrans_opstack_working_terms@list_operation_stacks$element_data <- revtrans_opstack_working_terms@list_operation_stacks$element_data %>% 
-              purrr::splice(
-                list(
-                  "entity" = term_right,
-                  "entityclass" = "coord_plot_table",
-                  "operations" = "",
-                  "operationclass" = character()
-                )
-              )
-            
+              global_temp_segid <<- global_temp_segid + 1
+              
+              new_status <- "INIT"
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
+              
           }
           
+          }
+            
           #
           # check if end of string reached.
           # 1. wrap up current string operations.
           # 2. check for completeness
+          ## note that "PREVIOUS_INCOMPLETE" cannot persist until the end of the string because it signifies the absence of an HGNC gene symbol.
           if (c3 == length(b1)) {
+          
+            # check how many operation stacks are left. we should only have one left (or two if there is an unbracketed overarching operation pending)
+            if (length(revtrans_opstack_inprogress@list_operation_stacks) > 2) {
+              stop()
+            }
             
-            # check for ongoing operation
-            revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]
+            # if previous sector is in INIT state, it probably means it is fresh from the end of a bracket or something. 
+            # in that case, we are done here. output the tibble of coords for drawing.
+            if (current_status == "INIT") {
             
-            # check how many operation stacks are left. we should only have one left
-            
-            # follow similar rules as end of line
-            if (upper_level_status %in% c("ASSEMBLING", "ASSEMBLING_PREVIOUS_INCOMPLETE")) {
+              revtrans_opstack_inprogress@output_coords <- revtrans_opstack_inprogress@output_coords
               
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$element_data,
-                list(
-                  "entity" = tibble_coords_sector,
-                  "entityclass" = "coord_plot_table",
-                  "operations" = "",
-                  "operationclass" = character()
-                )
+            # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+            } else if (current_status == "ASSEMBLING") {
+              
+              tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+              
+              # can't apply operations if not enough information provided.
+              if (data.class(tibble_coords_sector == "list")) {
+                stop()
+              } else if (data.class(tibble_coords_sector == "tbl_df")) {
+                
+                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                
+              }
+              
+              # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
+            } else if (current_status == "ASSEMBLING_OP_PENDING") {
+              
+              tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+              
+              # can't apply operations if not enough information provided.
+              if (data.class(tibble_coords_sector_pending == "list")) {
+                stop()
+              }
+              
+              revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble_coords_sector_pending
+              
+              ## make another call to apply the overarching operation.
+              ## this must not be incomplete because it's the end of string.
+              tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+              
+              if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
+                new_status <- "ASSEMBLING"
+                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
+              } else if (data.class(tibble_coords_overarching_operation == "list")) {
+                stop()
+              }
+              
+            } 
+            
+          }
+            
+            # deal with lingering checks here
+            
+            ## forward slash wrap-up
+            if (grepl(x = term_right, pattern = "\\/") %>% all == FALSE & revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster == "ongoing") {
+              
+              # increment the iteration and close off the cluster
+              revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster
+              
+              revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$iteration + 1
+              
+              # exclude the current c3 because we want the highest last recorded.
+              L2_index_previously_completed <- which(L2_indexes == c3)
+              
+              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed] <- purrr::map(
+                .x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed],
+                .f = .x$alt <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
               )
               
-              if (upper_level_status == "ASSEMBLING_PREVIOUS_INCOMPLETE") {
-                
-                # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
-                if (data.class(tibble_coords_sector) == "list") {
-                  stop()
-                }
-                
-              }
-              
-            } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING", "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE")) {
-              
-              if (upper_level_status == "ASSEMBLING_OP_PENDING_PREVIOUS_INCOMPLETE") {
-                
-                # we CANNOT have two incompletes in a row. that would be uninterpreble. throw error.
-                if (data.class(tibble_coords_sector) == "list") {
-                  stop()
-                }
-                
-              }
-              
-              revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data[[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)]$element_data)]]$entity <- tibble_coords_sector
-              
             }
-          }
-          
-        }
-        
+             
         return(revtrans_opstack_working_terms)
-        
-        } )
-      
+       
+          }
+             
+    } )
+  
     }
     
-  } )  # END REVERSE TRANSLATE ###
+    tibble_plotting_coords_raw <- c$output_coords
+    
+    # clean up the plotting coords
+    # input: singular tibble. output: a list of tibbles, one element for each alt. segment
+    # - merge junction pairs
+    # - take care of underscore joins
+    # - add widths
+    # - split up alternative segments
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft", "end"] <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft" + 1, "end"]
+    
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod != "juncright", ]
+    
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "juncleft", "mod"] <- "junc"
+    #
+    tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "join" - 1, "end"] <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod == "join" + 1, "end"]
+    
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw[-(tibble_plotting_coords_raw$mod == "join" + 1), ]
+    
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw[tibble_plotting_coords_raw$mod != "join", ]
+    #
+    tibble_plotting_coords_raw <- tibble_plotting_coords_raw %>% dplyr::mutate("width" = `end` - `start` + 1)
+    #
+    list_plotting_coords <- purrr::map2(
+      .x = tibble_plotting_coords_raw$fslash_tracker$cluster,
+      .y = tibble_plotting_coords_raw$fslash_tracker$iteration,
+      .f = tibble_plotting_coords_raw[is.na(tibble_plotting_coords_raw$mod) | tibble_plotting_coords_raw$mod == paste(.x, ",", .y, sep = ""), ]
+    )
+      
+    
+    
+    
+    # CREATE GGPLOT
+    ggplot_final_plot <- list(
+      ggplot(),
+      # these mark the original viewing window
+      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
+      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
+      theme_bw(),
+      theme(text = element_text(family = "Helvetica"), legend.position = "none"),
+      ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
+      # brush resizing (x)
+      # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
+      coord_cartesian(xlim = workshop_plot_brush_ranges$x
+                      # ,
+                      # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
+      )
+    ) %>% 
+      
+      purrr::splice(
+        
+        # reference_transcripts
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference transcripts")], 
+            .f = function(a1) {
+              
+              list(
+                
+                geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                # "thick" CDS
+                if (any(a1$type == "CDS") == TRUE) {
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                }
+                
+                # geom_text(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))
+                
+              )
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # reference protein domains
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*interpro")], 
+            .f = function(a1) {
+              
+              list(
+                
+                # HGNC stable protein ID
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = id, height = 0.1, fill = region_class)),
+                # symbol in addition to colour to indicate domain/region type
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), fontface = "bold", colour = "white", size = 4, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map(.x = region_class, .f = function(b1) { if (b1 == "Domain") {"D"} else if (b1 == "Family") {"F"} else if (b1 == "Homologous_superfamily") {"H"} else if (b1 == "biomart") {""} else if (b1 == "Repeat") {"R"} else if (grep(x = b1, pattern = "site|PTM", ignore.case = TRUE)) {"S"} } ) %>% unlist ) ),
+                # geom_linerange(data = a1 %>% dplyr::filter(type == "exon"), position = position_dodge(), mapping = aes(xmin = start, xmax = max, ymin = id, ymax = id, colour = region_class), size = 100),
+                # domain description
+                geom_label(data = a1, nudge_y = -0.15, mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = region_type))
+                
+              ) 
+              
+            } ) %>% purrr::flatten() %>% 
+            purrr::splice(
+              scale_fill_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
+                                values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
+            )
+          
+        },
+        
+        # reference protein PTMs
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Reference protein.*ptm")], 
+            .f = function(a1) {
+              
+              list(
+                
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
+                
+              ) 
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # custom_gtf
+        if (length(list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")]) > 0) {
+          
+          purrr::map(
+            .x = list_tibbles_track_features_visible_flattened[grep(x = names(list_tibbles_track_features_visible_flattened), pattern = "^Custom GTF")],
+            .f = function(a2) {
+              
+              list(
+                
+                geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
+                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                # geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
+                geom_tile(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
+                geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                # "thick" CDS
+                if (any(a1$type == "CDS") == TRUE) {
+                  geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
+                }
+                
+              )
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # user ranges
+        if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+          geom_curve(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Junction" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 2, curvature = -0.25, mapping = aes(x = start, xend = end, y = id, yend = id))
+        },
+        if (nrow(tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ]) > 0) {
+          geom_segment(data = tibble_user_ranges_visible[tibble_user_ranges_visible$range_type == "Exon" & tibble_user_ranges_visible$id != "0", ], colour = "grey50", size = 5, mapping = aes(x = start, xend = end, y = id, yend = id))
+        },
+        if (nrow(tibble_user_ranges_visible) > 1) {
+          geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
+        },
+        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
+        },
+        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
+        },
+        
+        # distance annotation
+        if (length(list_distances_between_user_ranges_and_reference_annotations) > 0) {
+          
+          purrr::map2(
+            .x = list_distances_between_user_ranges_and_reference_annotations,
+            .y = names(list_distances_between_user_ranges_and_reference_annotations),
+            .f = function(a1, a2) {
+              
+              # separate condition for interpro - plot each domain/region individually
+              if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = id, yend = id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+                # separate condition for dbPTM - plot by ENSP id
+              } else if (grepl(x = a2, pattern = "Reference protein.*ptm") == TRUE) {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = protein_id, yend = protein_id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+              } else {
+                
+                list(
+                  
+                  if (any(a1$ref_vertex_minus_query_vertex != 0)) {
+                    geom_segment(data = a1[a1$ref_vertex_minus_query_vertex != 0, ], colour = "red", arrow = arrow(angle = 30), mapping = aes(x = ref_vertex, xend = query_vertex, y = transcript_id, yend = transcript_id))
+                  },
+                  ggrepel::geom_label_repel(data = a1, colour = "red", nudge_y = 0.25, mapping = aes(x = purrr::map2(.x = ref_vertex, .y = query_vertex, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = purrr::map2(.x = pct_overlap, .y = ref_vertex_minus_query_vertex, .f = function(b1, b2) {if (b1 == 0) { b2 } else { paste(b2, " (", b1 %>% signif(digits = 2), " %)", sep = "") }}) %>% unlist ))
+                  
+                ) %>% return
+                
+              }
+              
+            } ) %>% purrr::flatten()
+          
+        },
+        
+        # FACETS 
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
+        },
+        
+        # adaptive facet aspect ratio
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+                                    (function(x) {
+                                      if (sum(x) != 0) {
+                                        return(x/sum(x))
+                                      } else {
+                                        return(0)}
+                                    } ) )
+        },
+        
+        # facet-specific brush resizing (y)
+        if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
+          ggh4x::facetted_pos_scales(
+            y = purrr::map2(.x = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
+          )
+        }
+        
+      )  %>% purrr::reduce(ggplot2:::`+.gg`)
+    
+    output$revtrans_plot_output <- renderPlot( {
+      
+      ggplot_final_plot
+      
+    }, height = plot_height, width = plot_width )
+    
+    output$revtrans_ref_table_output <- renderDataTable(
+      {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
+          (function(x ) {
+            
+            if (length(x) == 0) {
+              return(NULL)
+            } else {
+              
+              x %>%
+                rbindlist(use.names = TRUE, fill = TRUE) %>%
+                dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
+                (function(x2) { x2[mixedorder(x2 %>% dplyr::select(matches("hgnc_stable_.*_ID")) %>% unlist), ] %>% return } ) %>%
+                dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
+                dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
+                return
+              
+            }
+            
+          } )
+      },
+      options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+    )
+    
+    # Create the button to download the scatterplot as PDF
+    output$workshop_download_plot <- downloadHandler(
+      filename = function() {
+        paste('EDN_workshop_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
+      },
+      content = function(file) {
+        
+        ggplot_final_plot <- ggplot_final_plot
+        
+        ggsave(file, ggplot_final_plot, width = 20, height = 20*(plot_height/plot_width), dpi = 600, units = "cm")
+      }
+    )
+    
+} )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
