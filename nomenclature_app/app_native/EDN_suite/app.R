@@ -34,7 +34,7 @@ options(future.globals.maxSize = 30000000000, future.fork.enable = TRUE)
 
 options(shiny.maxRequestSize = 1500*1024^2)
 
-setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 
 # tibble_ref_gtf <- rtracklayer::import(con = "data/latest_ensembl_GTF.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
 
@@ -6174,16 +6174,16 @@ server <- function(input, output, session) {
                 x %>%
                   rbindlist(use.names = TRUE, fill = TRUE) %>%
                   dplyr::select(contains("hgnc_stable_transcript_ID"), contains("transcript_version"), contains("type"), contains("exon_number"), contains("seqnames"), contains("start"), contains("end"), contains("width"), contains("strand"), contains("gene_id"), contains("transcript_id"), contains("protein_id"), contains("gene_biotype"), contains("transcript_biotype"), contains("panel"), contains("retirement_status"), contains("release_last_seen")) %>%
-                  (function(x2) { x2[mixedorder(x2 %>% dplyr::select(matches("hgnc_stable_.*_ID")) %>% unlist), ] %>% return } ) %>%
+                  (function(x2) { x2[mixedorder(x2 %>% dplyr::select(matches("hgnc_stable_.*_ID")) %>% .[, 1] %>% unlist), ] %>% return } ) %>%
                   dplyr::rename_all(function(x) {x %>% stringr::str_to_sentence() %>% gsub(pattern = "\\_", replacement = " ") %>% return}) %>%
                   dplyr::mutate("id" = 1:nrow(.), .before = 1) %>%
                   return
                 
               }
               
-            } )
+            } ) %>% tibble::as_tibble()
             },
-        options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")))
+        options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")), serverSide = TRUE, searching = TRUE)
       )
       
       # Create the button to download the scatterplot as PDF
