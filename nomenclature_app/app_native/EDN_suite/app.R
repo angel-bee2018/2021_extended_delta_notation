@@ -3298,7 +3298,7 @@ parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromo
   #     "1:2-3:+"
   # )
   
-  # input_coordinates <- "X:11759402-11759875"
+  # input_coordinates <- "18 	79486248	79486630"
   # expect_stranded <- TRUE
   # tibble_gtf_table <- tibble_ref_gtf
   
@@ -3307,14 +3307,25 @@ parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromo
   # split into vector of chr start end strand.
   vector_chr_start_end_strand <- input_coordinates %>% trimws() %>% gsub(pattern = "[^0-9a-zA-Z]", replacement = " ") %>% stringr::str_squish() %>% strsplit(split = " ") %>% unlist
   
-  # if length is 2, then it's a single nt. do a +/- 50nt window
-  if (vector_chr_start_end_strand %>% length == 2) {
-    output <- c(vector_chr_start_end_strand[1], vector_chr_start_end_strand[2] - 50, vector_chr_start_end_strand[2] + 50)
-    # if length is 3, then it's a geniune range.
-  } else if (vector_chr_start_end_strand %>% length == 3 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert)) {
-    output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
-  } else if (vector_chr_start_end_strand %>% length == 4 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert)) {
-    output <- c(vector_chr_start_end_strand[1], min(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]), max(vector_chr_start_end_strand[2], vector_chr_start_end_strand[3]))
+  # check for expected format
+  if (vector_chr_start_end_strand %>% length > 1) {
+    
+    if (data.class(vector_chr_start_end_strand[-1] %>% type.convert(as.is = TRUE)) == "numeric") {
+      
+      # if length is 2, then it's a single nt. do a +/- 50nt window
+      if (vector_chr_start_end_strand %>% length == 2) {
+        output <- list(vector_chr_start_end_strand[1], vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE) - 50, vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE) + 50)
+        # if length is 3, then it's a geniune range.
+      } else if (vector_chr_start_end_strand %>% length == 3 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE)) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))) {
+        output <- list(vector_chr_start_end_strand[1], min(c(vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE), vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))), max(c(vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE), vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))))
+      } else if (vector_chr_start_end_strand %>% length == 4 & is.numeric(vector_chr_start_end_strand[2] %>% type.convert) & is.numeric(vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))) {
+        output <- list(vector_chr_start_end_strand[1], min(c(vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE), vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))), max(c(vector_chr_start_end_strand[2] %>% type.convert(as.is = TRUE), vector_chr_start_end_strand[3] %>% type.convert(as.is = TRUE))))
+      }
+      
+    } else {
+      output <- "non_coord"
+    }
+    
   } else {
     output <- "non_coord"
   }
@@ -4936,15 +4947,15 @@ server <- function(input, output, session) {
     # parse input coords
     parse_result <- parse_input_coordinates(input_coordinates = input$workshop_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
     
-    if (parse_result == "non_coord") {
+    if (parse_result[[1]] == "non_coord") {
       
       output$workshop_nomenclature_output <- renderText({"triage fail"})
       
     } else {
       
-      input_chr <- parse_result[1]
-      input_start <- parse_result[2] %>% type.convert
-      input_end <- parse_result[3] %>% type.convert
+      input_chr <- parse_result[[1]]
+      input_start <- parse_result[[2]]
+      input_end <- parse_result[[3]]
       input_strand <- "*"
       
       workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
@@ -5096,6 +5107,8 @@ server <- function(input, output, session) {
     workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
     workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
     
+    print("chkD")
+    
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # deal with user deleting loaded annotation
@@ -5196,9 +5209,9 @@ server <- function(input, output, session) {
       
     } else {
       
-      input_chr <- parse_result[1]
-      input_start <- parse_result[2] %>% type.convert
-      input_end <- parse_result[3] %>% type.convert
+      input_chr <- parse_result[[1]]
+      input_start <- parse_result[[2]] %>% type.convert
+      input_end <- parse_result[[3]] %>% type.convert
       input_strand <- "*"
       
       workshop_reactiveValues_current_plot_range$chr <- input_chr
