@@ -3697,8 +3697,8 @@ ui <- fluidPage(
                                              value = 1500),
                                  
                                  sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
-                                             min = -5, max = 1.5, step = 0.01,
-                                             value = 1),
+                                             min = -20, max = 20, step = 0.1,
+                                             value = 0),
                                  sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
                                              min = -5, max = 5, step = 0.01,
                                              value = 1.45),
@@ -5309,8 +5309,8 @@ server <- function(input, output, session) {
     print(workshop_reactiveValues_current_plot_range$end)
     
     # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
-    plot_view_initial_x_start0 <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
-    plot_view_initial_x_end0 <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - (plot_x_scale^3)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+    plot_view_initial_x_start0 <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + sinh(plot_x_scale)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+    plot_view_initial_x_end0 <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - sinh(plot_x_scale)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
     
     print("plot_view_initial_x_start middle")
     print(plot_view_initial_x_start0)
@@ -5437,9 +5437,9 @@ server <- function(input, output, session) {
         .f = function(a1, a2, a3) {
           
           # DEBUG ###
-          # a1 <- global_1_list_tibbles_track_features_visible_flattened[[2]]
-          # a2 <- names(global_1_list_tibbles_track_features_visible_flattened)[[2]]
-          # a3 <- global_1_list_tibbles_track_features_all_flattened[gsub(x = global_1_list_tibbles_track_features_visible_flattened %>% names, pattern = "^[^\\:]+\\: (.*)", replacement = "\\1")] %>% .[[2]]
+          # a1 <- global_1_list_tibbles_track_features_visible_flattened[[1]]
+          # a2 <- names(global_1_list_tibbles_track_features_visible_flattened)[[1]]
+          # a3 <- global_1_list_tibbles_track_features_all_flattened[gsub(x = global_1_list_tibbles_track_features_visible_flattened %>% names, pattern = "^[^\\:]+\\: (.*)", replacement = "\\1")] %>% .[[1]]
           # selected_user_range_chr <- global_selected_user_range_chr
           # selected_user_range_start <- global_selected_user_range_start
           # selected_user_range_end <- global_selected_user_range_end
@@ -5971,8 +5971,8 @@ server <- function(input, output, session) {
                   geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
                   geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
-                  geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
-                  geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
+                  if (a1 %>% dplyr::filter(type == "exon") %>% nrow > 0) {geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))},
+                  if (a1 %>% dplyr::filter(type == "exon") %>% nrow > 0) {geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))},
                   # "thick" CDS
                   if (any(a1$type == "CDS") == TRUE) {
                     geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "black", fill = alpha(colour = "black", alpha = 0), size = 2, mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))
