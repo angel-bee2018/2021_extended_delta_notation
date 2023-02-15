@@ -3567,7 +3567,7 @@ ui <- fluidPage(
                                # Let user import a custom GTF
                                selectInput(inputId = "workshop_import_file_type_selection", 
                                            label = "Choose the annotation files to import", 
-                                           choices = list("Reference transcripts" = c("Ensembl", "RefSeq", "LRG"),
+                                           choices = list("Reference transcripts" = c("Ensembl"),
                                                           "Reference protein features" = c("Interpro + BioMart (ens98)", "dbPTM (ens98)", "Interpro + BioMart (ens75)", "dbPTM (ens75)"),
                                                           "Upload custom GTF" = c("Upload custom GTF", "Upload custom BED file")),
                                            width = "200px"),
@@ -3795,27 +3795,28 @@ ui <- fluidPage(
                         
                       )
                       
-             ), # tabPanel
-             
-             tabPanel("EDN Reverse Translate",
-                      
-                      fluidRow(column(width = 12,
-                                      br(),
-                                      p("Coming soon...",)
-                      )
-                      )
-                      
-             ), # tabPanel
-             
-             tabPanel("Library of EDN",
-                      
-                      fluidRow(column(width = 12,
-                                      br(),
-                                      p("Coming soon...",)
-                      )
-                      )
-                      
-             ) # tabPanel
+             )
+             # , # tabPanel
+             # 
+             # tabPanel("EDN Reverse Translate",
+             #          
+             #          fluidRow(column(width = 12,
+             #                          br(),
+             #                          p("Coming soon...",)
+             #          )
+             #          )
+             #          
+             # ), # tabPanel
+             # 
+             # tabPanel("Library of EDN",
+             #          
+             #          fluidRow(column(width = 12,
+             #                          br(),
+             #                          p("Coming soon...",)
+             #          )
+             #          )
+             #          
+             # ) # tabPanel
              
   ) # navbarPage
   
