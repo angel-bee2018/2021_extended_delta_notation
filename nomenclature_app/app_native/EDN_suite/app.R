@@ -1,4 +1,4 @@
-# The EDN Suite, a collection of 3 tools to aid the usage of Extended Delta Notation
+# The EDN Suite, a collection of tools to aid the usage of Extended Delta Notation
 #
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
@@ -3347,7 +3347,7 @@ ui <- fluidPage(
                         column(width = 12, ######
                                
                                h4(strong("About this app")),
-                               p("This is a collection of 4 tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
+                               p("This is a collection of tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
                                  br(),
                                  br(),
                                  strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
