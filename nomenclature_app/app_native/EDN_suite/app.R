@@ -3339,26 +3339,37 @@ parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromo
 
 ui <- fluidPage(
   
-  navbarPage(title = "EDN Suite",               
+  navbarPage(title = div(img(src = "EDN_suite_hex_sticker-03.png", alt = "EDN Suite hex sticker", width = "32px"), "EDN Suite", style = "position: relative; left: -5px; top: -5px;"),
              tabPanel(icon("info"),
                       
                       fluidRow(
                         
                         column(width = 12, ######
                                
-                               br(),
+                               h4(strong("About this app")),
                                p("This is a collection of 4 tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
                                  br(),
                                  br(),
                                  strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
                                  br(),
-                                 strong("EDN Workshop: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.",
-                                 br(),
-                                 strong("EDN Reverse Translate: "), "From any user-given EDN, produces genomic co-ordinates, draws a schematic defined by the shorthand and the associated reference transcripts. It also checks whether a pair of shorthands are equivalent.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px",
-                                 br(),
-                                 strong("Library of EDN: "), "A collection of curated literature re-annotations using EDN. Any researcher is free to submit a re-annotation of a splicing event previously described in literature using EDN. Multiple pieces of evidence are required in the submission. Once submitted, articles are curated and checked for duplication, before being added to a public collection. In this way, splicing events in literature are all in one place and searchable using EDN with a single click. There is also a leaderboard for high scores - this ranks researchers according to the number of submissions they have made.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
+                                 strong("EDN Workshop: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
                                br(),
-                               p("All reference data is retrieved from Ensembl and RefSeq.", style="text-align:justify; color:black; background-color:papayawhip; padding:15px ;border-radius:10px")
+                               h4(strong("Data information and download")),
+                               div("All reference data is retrieved from Ensembl. Use the below options to retrieve the Ensembl annotations and other databases which have been reannotated with HGNC stable IDs. Also available are the raw intermediate files used to generate the HGNC stable ID information.",
+                                   br(),
+                                   br(),
+                                   selectInput("info_annotationtable_downloadchoice", 
+                                               label = "Select the annotation file to download", 
+                                               choices = list("Ensembl" = list.files(path = "data/", pattern = "annotated_ensembl_gtf_release_.*.txt", full.names = FALSE),
+                                                              "biomart" = list.files(path = "data/", pattern = "biomart_tracks_.*.txt", full.names = FALSE),
+                                                              "dbPTM" = list.files(path = "data/", pattern = "dbPTM_tracks_.*.txt", full.names = FALSE),
+                                                              "Other" = c("ENSP_retirement_status.txt", "ENST_retirement_status.txt", "total_mapping_table_proteins.txt", "total_mapping_table_transcripts.txt", "all_files.zip")
+                                               ), 
+                                               width = "300px"
+                                   ),
+                                   downloadButton("info_annotationtable_downloadbutton", "Download Results"),
+                                   style="text-align:justify; color:black; background-color:papayawhip; padding:15px ;border-radius:10px"),
+                               
                         ),
                         
                         # save this for publication link shenanigans.
@@ -3376,6 +3387,73 @@ ui <- fluidPage(
                       
              ), # tabPanel
              
+             tabPanel("Examples",
+                      
+                      fluidRow(
+                        column(width = 12,
+                               p(
+                                 h2("Examples"),
+                                 navbarPage(title = NULL, 
+                                            
+                                            tabPanel("EDN Automator",
+                                                     fluidRow(
+                                                       column(width = 12,
+                                                              p(
+                                                                h3("Example: naming a splice junction in C1GALT1 given hg38 coordinates 7:7157427-7234302"),
+                                                                "1.	Import the annotations for the hg38 genome assembly",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 1 of Automator, step 1", width = "256px"),
+                                                                br(),
+                                                                "2.	 Select the option to name a single junction",
+                                                                br(),
+                                                                img(src = "example_1_automator_step2.png", alt = "Example 1 of Automator, step 2", width = "256px"),
+                                                                br(),
+                                                                "3.	Type in the desired co-ordinates",
+                                                                br(),
+                                                                img(src = "example_1_automator_step3.png", alt = "Example 1 of Automator, step 3", width = "256px"),
+                                                                br(),
+                                                                "4.	Click “Generate shorthand” and the correct nomenclature is generated",
+                                                                br(),
+                                                                img(src = "example_1_automator_step4.png", alt = "Example 1 of Automator, step 4", width = "256px")
+                                                              ))
+                                                     )),
+                                            
+                                            tabPanel("EDN Workshop",
+                                                     fluidRow(
+                                                       column(width = 12,
+                                                              p(
+                                                                h3("Example: visualising the relative position of an internal exon in SUGCT given hg38 coordinates 7:40815512-40815803"),
+                                                                "1.	Import the annotations for the hg38 genome assembly",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
+                                                                br(),
+                                                                "2.	Select “Exon” as the type of range to describe",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 2", width = "256px"),
+                                                                br(),
+                                                                "3.	Enter the co-ordinates and click “Add range”. It should say “triage successful”, indicating the format of co-ordinates is correct",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 3", width = "256px"),
+                                                                br(),
+                                                                "4.	The Schematic should now display your exon of interest in the bottom panel. The dotted red lines display the exon’s position with respect to the reference genome. The red arrows and their associated numbers indicate how far the nearest reference exon is from the 5’ or 3’ of the exon of interest. 
+
+Unsurprisingly, the schematic shows no exons within the viewing area near the exon of interest. In this case however, there seems to be reference exons nearby on both sides. We therefore need to zoom out in order to see the bigger picture.",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 4", width = "256px"),
+                                                                br(),
+                                                                "5.	To zoom out, we change the “Base zoom x-axis” option:",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 5", width = "256px"),
+                                                                br(),
+                                                                "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
+                                                                br(),
+                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 6", width = "256px")
+                                                              ))
+                                                     ))
+                                 )
+                               ))
+                      )),
+             
              tabPanel("EDN Automator",
                       
                       fluidRow(
@@ -3385,14 +3463,14 @@ ui <- fluidPage(
                                titlePanel("EDN Automator"),
                                
                                selectInput("automator_structure_type", 
-                                           label = "Select the type of splice structure to describe", 
+                                           label = "STEP 1: Select the type of splice structure to describe", 
                                            choices = list("Full-length isoform" = c("Upload assembled transcriptome (GTF)", "Manually enter exon co-ordinates"), 
                                                           "Alternative splicing" = c("Alternative exon", "Alternative junction", "Local Isoform Segment (LIS)"), 
                                                           "Alternatively spliced regions" = c("VSR Exons", "VSR Junctions", "Local Splice Variation (LSV) (junctions only)")),
                                            width = "300px"),
                                
                                selectInput("automator_genome_assembly", 
-                                           label = "Select the genome assembly to use (Ensembl release)", 
+                                           label = "STEP 2: Select the genome assembly to use (Ensembl release)", 
                                            choices = list("GRCh38 (hg38)" = "104",
                                                           "GRCh37 (hg19)" = "75",
                                                           "NCBI36 (hg18)" = "54"
@@ -3436,45 +3514,45 @@ ui <- fluidPage(
                                # generate an upload box for users to upload full-length reconstructed isoforms
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Upload assembled transcriptome (GTF)'",
-                                 fileInput("automator_path_full_length_recon_gtf", "Choose GTF file",
+                                 fileInput("automator_path_full_length_recon_gtf", "STEP 3: Choose GTF file",
                                            accept = c(".gtf"), 
                                            width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of furrr multilayer cores
-                               conditionalPanel(
-                                 condition = "input.automator_structure_type == 'Upload assembled transcriptome (GTF)'",
-                                 textInput("automator_ncores", label = "Specify the number of parallel processing cores (default: 1 (serial)) (example: 8x4, 4)", value = 1, width = "300px")
-                               ),
+                               # conditionalPanel(
+                               #   condition = "input.automator_structure_type == 'Upload assembled transcriptome (GTF)'",
+                               #   textInput("automator_ncores", label = "STEP 4: Specify the number of parallel processing cores (default: 1 (serial)) (example: 8x4, 4)", value = 1, width = "300px")
+                               # ),
                                
                                # generate a text box for users to state the number of exons in the full length isoform
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Manually enter exon co-ordinates'",
-                                 textInput("automator_full_length_number_of_exons", label = "Enter the number of exons in the transcript", value = 1, width = "300px"),
+                                 textInput("automator_full_length_number_of_exons", label = "STEP 3: Enter the number of exons in the transcript", value = 1, width = "300px"),
                                ),
                                
                                # generate a text box for users to enter the genome-relative coords of alternative exon
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Alternative exon'",
-                                 textInput("automator_alternative_exon_coords", label = "Enter the genome-relative co-ordinates of the exon", placeholder = "e.g. 16:2756334-2756606", width = "300px")
+                                 textInput("automator_alternative_exon_coords", label = "STEP 3: Enter the genome-relative co-ordinates of the exon", placeholder = "e.g. 16:2756334-2756606", width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of exons in the full length isoform
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Alternative junction'",
-                                 textInput("automator_alternative_junc_coords", label = "Enter the genome-relative co-ordinates of the junction", placeholder = "e.g. 16:2756607-2757471", width = "300px")
+                                 textInput("automator_alternative_junc_coords", label = "STEP 3: Enter the genome-relative co-ordinates of the junction", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of exons in the LIS
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)'",
-                                 textInput("automator_LIS_number_of_exons", label = "Enter the number of exons inside the LIS (not including the constitutive exons at the ends)", value = 1, width = "300px")
+                                 textInput("automator_LIS_number_of_exons", label = "STEP 3: Enter the number of exons inside the LIS (not including the constitutive exons at the ends)", value = 1, width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of exons in the LIS
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)' || input.automator_structure_type == 'VSR Exons'",
-                                 textInput("automator_alternative_event_region", label = "Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471", width = "300px")
+                                 textInput("automator_alternative_event_region", label = "STEP 4: Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of independent splicing events to be included in the VSR
@@ -3824,6 +3902,13 @@ ui <- fluidPage(
 
 # Define server logic required to generate the nomenclature
 server <- function(input, output, session) {
+  
+  # handle downloading of annotation files
+  output$info_annotationtable_downloadbutton <- downloadHandler(
+    filename = input$info_annotationtable_downloadchoice,
+    content = function(file) {
+      file.copy(paste("data/", input$info_annotationtable_downloadchoice, sep = ""), file)
+    } )
   
   # AUTOMATOR ###
   
@@ -6576,7 +6661,7 @@ server <- function(input, output, session) {
       
     }
     
-    tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+    # tibble_gtf_table <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
     
     global_vector_warnings <- c()
     
