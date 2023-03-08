@@ -3425,29 +3425,29 @@ ui <- fluidPage(
                                                                 h3("Example: visualising the relative position of an internal exon in SUGCT given hg38 coordinates 7:40815512-40815803"),
                                                                 "1.	Import the annotations for the hg38 genome assembly",
                                                                 br(),
-                                                                img(src = "example_2_automator_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
+                                                                img(src = "example_viewer_1_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
                                                                 br(),
                                                                 "2.	Select “Exon” as the type of range to describe",
                                                                 br(),
-                                                                img(src = "example_2_automator_step2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
+                                                                img(src = "example_viewer_1_step2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
                                                                 br(),
                                                                 "3.	Enter the co-ordinates and click “Add range”. It should say “triage successful”, indicating the format of co-ordinates is correct",
                                                                 br(),
-                                                                img(src = "example_2_automator_step3.png", alt = "Example 2 of Automator, step 3", width = "256px"),
+                                                                img(src = "example_viewer_1_step3.png", alt = "Example 2 of Automator, step 3", width = "256px"),
                                                                 br(),
                                                                 "4.	The Schematic should now display your exon of interest in the bottom panel. The dotted red lines display the exon’s position with respect to the reference genome. The red arrows and their associated numbers indicate how far the nearest reference exon is from the 5’ or 3’ of the exon of interest. 
 
 Unsurprisingly, the schematic shows no exons within the viewing area near the exon of interest. In this case however, there seems to be reference exons nearby on both sides. We therefore need to zoom out in order to see the bigger picture.",
                                                                 br(),
-                                                                img(src = "example_2_automator_step4.png", alt = "Example 2 of Automator, step 4", width = "512px"),
+                                                                img(src = "example_viewer_1_step4.png", alt = "Example 2 of Automator, step 4", width = "512px"),
                                                                 br(),
                                                                 "5.	To zoom out, we change the “Base zoom x-axis” option:",
                                                                 br(),
-                                                                img(src = "example_2_automator_step5.png", alt = "Example 2 of Automator, step 5", width = "256px"),
+                                                                img(src = "example_viewer_1_step5.png", alt = "Example 2 of Automator, step 5", width = "256px"),
                                                                 br(),
                                                                 "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
                                                                 br(),
-                                                                img(src = "example_2_automator_step6.png", alt = "Example 2 of Automator, step 6", width = "256px")
+                                                                img(src = "example_viewer_1_step6.png", alt = "Example 2 of Automator, step 6", width = "256px")
                                                               ))
                                                      ))
                                  )
@@ -4469,7 +4469,7 @@ server <- function(input, output, session) {
   
   # END AUTOMATOR ###
   
-  # WORKSHOP ###
+  # VIEWER ###
   
   # import files
   
@@ -6446,7 +6446,7 @@ server <- function(input, output, session) {
   #         y = list(NULL, NULL)
   #     )
   
-  # END WORKSHOP ###
+  # END VIEWER ###
   
   # START REVERSE TRANSLATE ###
   
