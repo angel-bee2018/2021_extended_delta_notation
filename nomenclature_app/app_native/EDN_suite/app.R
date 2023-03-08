@@ -3447,7 +3447,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                                                 br(),
                                                                 "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
                                                                 br(),
-                                                                img(src = "example_viewer_1_step6.png", alt = "Example 2 of Automator, step 6", width = "256px")
+                                                                img(src = "example_viewer_1_step6.png", alt = "Example 2 of Automator, step 6", width = "512px")
                                                               ))
                                                      ))
                                  )
