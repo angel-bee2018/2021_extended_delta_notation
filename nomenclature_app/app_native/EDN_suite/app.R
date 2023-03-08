@@ -3352,7 +3352,7 @@ ui <- fluidPage(
                                  br(),
                                  strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
                                  br(),
-                                 strong("EDN Workshop: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
+                                 strong("EDN Viewer: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
                                br(),
                                h4(strong("Data information and download")),
                                div("All reference data is retrieved from Ensembl. Use the below options to retrieve the Ensembl annotations and other databases which have been reannotated with HGNC stable IDs. Also available are the raw intermediate files used to generate the HGNC stable ID information.",
@@ -3418,36 +3418,36 @@ ui <- fluidPage(
                                                               ))
                                                      )),
                                             
-                                            tabPanel("EDN Workshop",
+                                            tabPanel("EDN Viewer",
                                                      fluidRow(
                                                        column(width = 12,
                                                               p(
                                                                 h3("Example: visualising the relative position of an internal exon in SUGCT given hg38 coordinates 7:40815512-40815803"),
                                                                 "1.	Import the annotations for the hg38 genome assembly",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
+                                                                img(src = "example_2_automator_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
                                                                 br(),
                                                                 "2.	Select “Exon” as the type of range to describe",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 2", width = "256px"),
+                                                                img(src = "example_2_automator_step2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
                                                                 br(),
                                                                 "3.	Enter the co-ordinates and click “Add range”. It should say “triage successful”, indicating the format of co-ordinates is correct",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 3", width = "256px"),
+                                                                img(src = "example_2_automator_step3.png", alt = "Example 2 of Automator, step 3", width = "256px"),
                                                                 br(),
                                                                 "4.	The Schematic should now display your exon of interest in the bottom panel. The dotted red lines display the exon’s position with respect to the reference genome. The red arrows and their associated numbers indicate how far the nearest reference exon is from the 5’ or 3’ of the exon of interest. 
 
 Unsurprisingly, the schematic shows no exons within the viewing area near the exon of interest. In this case however, there seems to be reference exons nearby on both sides. We therefore need to zoom out in order to see the bigger picture.",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 4", width = "256px"),
+                                                                img(src = "example_2_automator_step4.png", alt = "Example 2 of Automator, step 4", width = "512px"),
                                                                 br(),
                                                                 "5.	To zoom out, we change the “Base zoom x-axis” option:",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 5", width = "256px"),
+                                                                img(src = "example_2_automator_step5.png", alt = "Example 2 of Automator, step 5", width = "256px"),
                                                                 br(),
                                                                 "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
                                                                 br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 2 of Automator, step 6", width = "256px")
+                                                                img(src = "example_2_automator_step6.png", alt = "Example 2 of Automator, step 6", width = "256px")
                                                               ))
                                                      ))
                                  )
@@ -3633,17 +3633,17 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                       
              ), # tabPanel
              
-             tabPanel("EDN Workshop",
+             tabPanel("EDN Viewer",
                       
                       fluidRow(
                         
                         column(width = 3,
                                
                                # Application title
-                               titlePanel("EDN Workshop"),
+                               titlePanel("EDN Viewer"),
                                
                                # Let user import a custom GTF
-                               selectInput(inputId = "workshop_import_file_type_selection", 
+                               selectInput(inputId = "viewer_import_file_type_selection", 
                                            label = "Choose the annotation files to import", 
                                            choices = list("Reference transcripts" = c("Ensembl"),
                                                           "Reference protein features" = c("Interpro + BioMart (ens98)", "dbPTM (ens98)", "Interpro + BioMart (ens75)", "dbPTM (ens75)"),
@@ -3651,8 +3651,8 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                            width = "200px"),
                                
                                conditionalPanel(
-                                 condition = "input.workshop_import_file_type_selection == 'Ensembl'",
-                                 selectInput("workshop_genome_assembly", 
+                                 condition = "input.viewer_import_file_type_selection == 'Ensembl'",
+                                 selectInput("viewer_genome_assembly", 
                                              label = "Select the genome assembly to use (Ensembl release)", 
                                              choices = list("GRCh38 (hg38)" = "104",
                                                             "GRCh37 (hg19)" = "75",
@@ -3662,18 +3662,18 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                ),
                                
                                conditionalPanel(
-                                 condition = "input.workshop_import_file_type_selection == 'Upload custom GTF'",
-                                 fileInput("workshop_path_to_custom_gtf", "Choose GTF file",
+                                 condition = "input.viewer_import_file_type_selection == 'Upload custom GTF'",
+                                 fileInput("viewer_path_to_custom_gtf", "Choose GTF file",
                                            accept = c(".gtf"), 
                                            width = "200px")
                                ),
                                
                                conditionalPanel(
-                                 condition = "input.workshop_import_file_type_selection == 'Upload custom GTF'",
-                                 textInput("workshop_custom_file_import_name", label = "Enter a name for this file", placeholder = "e.g. Fibroblast nanopore assembly", width = "200px")
+                                 condition = "input.viewer_import_file_type_selection == 'Upload custom GTF'",
+                                 textInput("viewer_custom_file_import_name", label = "Enter a name for this file", placeholder = "e.g. Fibroblast nanopore assembly", width = "200px")
                                ),
                                
-                               actionButton("workshop_button_import_annotation_file", "Import", icon = icon("file-import"),
+                               actionButton("viewer_button_import_annotation_file", "Import", icon = icon("file-import"),
                                             class = "btn btn-primary", width = "200px"),
                                
                                br(),
@@ -3684,13 +3684,13 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                    
                                    shinyWidgets::dropdownButton(
                                      
-                                     textInput("workshop_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                     textInput("viewer_left_query_end_shift", label = "Left (5') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
                                      
-                                     textInput("workshop_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
+                                     textInput("viewer_right_query_end_shift", label = "Right (3') query end shift (default = 0)", value = 0, placeholder = "e.g. 0"),
                                      
-                                     textInput("workshop_left_match_tolerance", label = "Left (5') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                     textInput("viewer_left_match_tolerance", label = "Left (5') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
                                      
-                                     textInput("workshop_right_match_tolerance", label = "Right (3') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
+                                     textInput("viewer_right_match_tolerance", label = "Right (3') match tolerance (default = 1)", value = 1, placeholder = "e.g. 0"),
                                      
                                      circle = FALSE, status = "info", icon = icon("wrench"),
                                      label = "Tweak match tolerances",
@@ -3701,16 +3701,16 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                br(),
                                
-                               selectInput("workshop_range_type", 
+                               selectInput("viewer_range_type", 
                                            label = "Select the type of range to describe", 
                                            choices = list("Exon", 
                                                           "Junction"), 
                                            width = "200px", 
                                ),
                                
-                               textInput("workshop_input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+", width = "200px"),
+                               textInput("viewer_input_range", label = "Enter genome-relative co-ordinates", placeholder = "e.g. 16:2756607-2757471:+", width = "200px"),
                                
-                               actionButton("workshop_add_user_range", "Add range", icon = icon("plus"),
+                               actionButton("viewer_add_user_range", "Add range", icon = icon("plus"),
                                             class = "btn btn-primary", width = "200px"),
                                
                                #        div(style = "text-align:center;
@@ -3725,7 +3725,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
         width: 200px;
         padding-top: 40px;
         position: relative;",
-                                   verbatimTextOutput("workshop_nomenclature_output", placeholder = TRUE)
+                                   verbatimTextOutput("viewer_nomenclature_output", placeholder = TRUE)
                                ),
                                
                                div(style = "text-align: center;
@@ -3734,14 +3734,14 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
         height: 400px;
         padding-top: 40px;
         position: relative;",
-                                   verbatimTextOutput("workshop_graph_click_info", placeholder = TRUE)
+                                   verbatimTextOutput("viewer_graph_click_info", placeholder = TRUE)
                                )
                                
                         ),
                         
                         column(width = 9,
                                
-                               shinyWidgets::materialSwitch(inputId = "workshop_plot_is_active", label = "Interactive", status = "success", value = FALSE, right = FALSE, inline =TRUE),
+                               shinyWidgets::materialSwitch(inputId = "viewer_plot_is_active", label = "Interactive", status = "success", value = FALSE, right = FALSE, inline =TRUE),
                                
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
                                    br()
@@ -3749,7 +3749,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                # manage user ranges
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
-                                   uiOutput("workshop_reactive_UI_1")
+                                   uiOutput("viewer_reactive_UI_1")
                                ),
                                
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
@@ -3758,7 +3758,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                # manage imported annotation
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
-                                   uiOutput("workshop_reactive_UI_2")
+                                   uiOutput("viewer_reactive_UI_2")
                                ),
                                
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
@@ -3767,38 +3767,38 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                shinyWidgets::dropdownButton(
                                  
-                                 sliderInput("workshop_slider_plot_width", "Plot width:",
+                                 sliderInput("viewer_slider_plot_width", "Plot width:",
                                              min = 100, max = 4000, step = 100,
                                              value = 800),
-                                 sliderInput("workshop_slider_plot_height", "Plot height:",
+                                 sliderInput("viewer_slider_plot_height", "Plot height:",
                                              min = 100, max = 4000, step = 100,
                                              value = 1500),
                                  
-                                 sliderInput("workshop_slider_plot_x_scale", "Base zoom x-axis:",
+                                 sliderInput("viewer_slider_plot_x_scale", "Base zoom x-axis:",
                                              min = -20, max = 20, step = 0.1,
                                              value = 0),
-                                 sliderInput("workshop_slider_plot_y_scale", "Base zoom y-axis:",
+                                 sliderInput("viewer_slider_plot_y_scale", "Base zoom y-axis:",
                                              min = -5, max = 5, step = 0.01,
                                              value = 1.45),
                                  
-                                 sliderInput("workshop_slider_plot_x_offset", "Base offset left/right:",
+                                 sliderInput("viewer_slider_plot_x_offset", "Base offset left/right:",
                                              min = -5, max = 5, step = 0.01,
                                              value = 0),
-                                 sliderInput("workshop_slider_plot_y_offset", "Base offset up/down:",
+                                 sliderInput("viewer_slider_plot_y_offset", "Base offset up/down:",
                                              min = -5, max = 5, step = 0.01,
                                              value = 0),
                                  
-                                 sliderInput("workshop_slider_table_height", "Height of table:",
+                                 sliderInput("viewer_slider_table_height", "Height of table:",
                                              min = 100, max = 3000, step = 50,
                                              value = 250),
-                                 sliderInput("workshop_slider_table_width", "Width of table:",
+                                 sliderInput("viewer_slider_table_width", "Width of table:",
                                              min = 100, max = 3000, step = 50,
                                              value = 800),
-                                 sliderInput("workshop_slider_table_font_size", "Table font size (%):",
+                                 sliderInput("viewer_slider_table_font_size", "Table font size (%):",
                                              min = 10, max = 800, step = 5,
                                              value = 80),
                                  
-                                 actionButton("workshop_reset_sliders", "Reset sliders",
+                                 actionButton("viewer_reset_sliders", "Reset sliders",
                                               class = "btn btn-primary", width = "200px"),
                                  
                                  circle = FALSE, status = "info", icon = icon("cog"),
@@ -3814,11 +3814,11 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                # generate an download box for users to save the plot
                                div(style = "display: inline-block; position: relative; top: 15px; float: right;",
-                                   downloadButton("workshop_download_table", "Save Table", style = "padding: 7.5px;")
+                                   downloadButton("viewer_download_table", "Save Table", style = "padding: 7.5px;")
                                ),
                                
                                # exon table
-                               uiOutput("workshop_reactive_exon_table"),
+                               uiOutput("viewer_reactive_exon_table"),
                                
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
                                    h3("Schematic")
@@ -3833,7 +3833,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                
                                # manage plot panels
                                div(style = "display: inline-block; position: relative; top: 5.5px; align: left;",
-                                   uiOutput("workshop_reactive_UI_3")
+                                   uiOutput("viewer_reactive_UI_3")
                                ),
                                
                                div(style = "display: inline-block; vertical-align: middle; align: left;",
@@ -3844,30 +3844,30 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                ),
                                
                                div(style = "display: inline-block; position: relative; top: 6px; width: 200px;",
-                                   textInput("workshop_jump_to_coords", label = NULL, placeholder = "e.g. 16:2756607-2757471")
+                                   textInput("viewer_jump_to_coords", label = NULL, placeholder = "e.g. 16:2756607-2757471")
                                ),
                                
                                div(style = "display: inline-block; position: relative; top: 5px;",
-                                   actionButton("workshop_coord_jump_button", "Jump to", icon = icon("fast-forward"),
+                                   actionButton("viewer_coord_jump_button", "Jump to", icon = icon("fast-forward"),
                                                 class = "btn btn-primary", width = "100px")
                                ),
                                
                                # generate an download box for users to save the plot
                                div(style = "display: inline-block; position: relative; top: 15px; float: right;",
-                                   downloadButton("workshop_download_plot", "Save Plot", style = "padding: 7.5px;")
+                                   downloadButton("viewer_download_plot", "Save Plot", style = "padding: 7.5px;")
                                ),
                                
                                h5("Click and drag + double-click to zoom. Double-click to reset."),
                                
-                               plotOutput("workshop_plot_output", height = 300,
-                                          click = "workshop_plot_output_sglclick",
-                                          dblclick = "workshop_plot_output_dblclick",
+                               plotOutput("viewer_plot_output", height = 300,
+                                          click = "viewer_plot_output_sglclick",
+                                          dblclick = "viewer_plot_output_dblclick",
                                           brush = brushOpts(
-                                            id = "workshop_plot_output_brush",
+                                            id = "viewer_plot_output_brush",
                                             resetOnNew = TRUE
                                           ))
                                
-                               # plotly::plotlyOutput("workshop_plotly_output", width = paste(100, "%", sep = ""), height = paste(1500, "px", sep = ""))
+                               # plotly::plotlyOutput("viewer_plotly_output", width = paste(100, "%", sep = ""), height = paste(1500, "px", sep = ""))
                                
                         )
                         
@@ -4473,11 +4473,11 @@ server <- function(input, output, session) {
   
   # import files
   
-  workshop_reactive_button_import_annotation_file <- reactive({input$workshop_button_import_annotation_file}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_button_import_annotation_file <- reactive({input$viewer_button_import_annotation_file}) %>% debounce(1000) %>% throttle(1000)
   
   ## deal with the annotation tracks
   ## create metadata
-  workshop_reactiveValues_annotation_files <- reactiveValues( 
+  viewer_reactiveValues_annotation_files <- reactiveValues( 
     "annotation_files" = list(
       "reference_transcripts" = list(),
       "reference_protein_features" = list(),
@@ -4485,38 +4485,38 @@ server <- function(input, output, session) {
     )
   )
   
-  workshop_reactiveValues_custom_file_import_name <- reactiveValues(
-    "workshop_custom_file_import_name" = character()
+  viewer_reactiveValues_custom_file_import_name <- reactiveValues(
+    "viewer_custom_file_import_name" = character()
   )
   
   observe( {
-    workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- input$workshop_custom_file_import_name
+    viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- input$viewer_custom_file_import_name
   } )
   
   ## import reference/custom GTF
-  observeEvent(workshop_reactive_button_import_annotation_file(), {
+  observeEvent(viewer_reactive_button_import_annotation_file(), {
     
-    if (input$workshop_import_file_type_selection == "Ensembl") {
+    if (input$viewer_import_file_type_selection == "Ensembl") {
       
-      showModal(modalDialog(paste("Importing release ", input$workshop_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
+      showModal(modalDialog(paste("Importing release ", input$viewer_genome_assembly, ". Please wait...\n", sep = ""), footer = NULL))
       
-    } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)") {
+    } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens98)") {
       
       showModal(modalDialog(paste("Importing Interpro + BioMart (ens98). Please wait...\n", sep = ""), footer = NULL))
       
-    } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)") {
+    } else if (input$viewer_import_file_type_selection == "dbPTM (ens98)") {
       
       showModal(modalDialog(paste("Importing dbPTM (ens98). Please wait...\n", sep = ""), footer = NULL))
       
-    } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)") {
+    } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens75)") {
       
       showModal(modalDialog(paste("Importing Interpro + BioMart (ens75). Please wait...\n", sep = ""), footer = NULL))
       
-    } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)") {
+    } else if (input$viewer_import_file_type_selection == "dbPTM (ens75)") {
       
       showModal(modalDialog(paste("Importing dbPTM (ens75). Please wait...\n", sep = ""), footer = NULL))
       
-    }else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+    }else if (input$viewer_import_file_type_selection == "Upload custom GTF" & is.null(input$viewer_path_to_custom_gtf$datapath) == FALSE) {
       
       showModal(modalDialog(paste("Importing custom GTF. Please wait...\n", sep = ""), footer = NULL))
       
@@ -4524,47 +4524,47 @@ server <- function(input, output, session) {
     
   }, ignoreNULL = FALSE, ignoreInit = TRUE )
   
-  workshop_reactive_temp_imported_annotation_tibble <- eventReactive(workshop_reactive_button_import_annotation_file(), {
+  viewer_reactive_temp_imported_annotation_tibble <- eventReactive(viewer_reactive_button_import_annotation_file(), {
     
     # tibble_ref_gtf <- data.table::fread(file = "/mnt/LTS/projects/2020_isoform_nomenclature/nomenclature_app/app_native/EDN_suite/data/annotated_ensembl_gtf_release_104.txt", sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
     
-    if (input$workshop_import_file_type_selection == "Ensembl") {
+    if (input$viewer_import_file_type_selection == "Ensembl") {
       
-      import_tibble <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$workshop_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
+      import_tibble <- data.table::fread(file = paste("data/annotated_ensembl_gtf_release_", input$viewer_genome_assembly, ".txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
       
-      workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- paste("ensembl_", input$workshop_genome_assembly, sep = "")
+      viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- paste("ensembl_", input$viewer_genome_assembly, sep = "")
       
-    } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)") {
+    } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens98)") {
       
       import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% mutate_at(.vars = "id", as.character)
       
-      workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart_ens98"
+      viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- "interpro_biomart_ens98"
       
-    } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)") {
+    } else if (input$viewer_import_file_type_selection == "dbPTM (ens98)") {
       
       import_tibble <- data.table::fread(file = paste("data/dbPTM_tracks_gene_centric_ensembl_98.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
       
-      workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm_ens98"
+      viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- "dbptm_ens98"
       
-    } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)") {
+    } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens75)") {
       
       import_tibble <- data.table::fread(file = paste("data/biomart_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% mutate_at(.vars = "id", as.character)
       
-      workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "interpro_biomart_ens75"
+      viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- "interpro_biomart_ens75"
       
-    } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)") {
+    } else if (input$viewer_import_file_type_selection == "dbPTM (ens75)") {
       
       import_tibble <- data.table::fread(file = paste("data/dbPTM_tracks_gene_centric_ensembl_75.txt", sep = ""), sep = "\t", stringsAsFactors = FALSE, header = TRUE, check.names = FALSE) %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character)
       
-      workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name <- "dbptm_ens75"
+      viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name <- "dbptm_ens75"
       
-    } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
+    } else if (input$viewer_import_file_type_selection == "Upload custom GTF" & is.null(input$viewer_path_to_custom_gtf$datapath) == FALSE) {
       
       # import_tibble <- rtracklayer::import(con = "/mnt/LTS/projects/2019_hmsc_spliceome/Kassem_OB/analysis_strawberry/results_assemblyonly/merged/BM_MSC_to_OB_3d_denovo_reconstructed_stringtiemerged.gtf", format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() 
       
-      workshop_path_recon_GTF <- input$workshop_path_to_custom_gtf$datapath
+      viewer_path_recon_GTF <- input$viewer_path_to_custom_gtf$datapath
       
-      import_tibble <- rtracklayer::import(con = workshop_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() %>% dplyr::rename("exon_number" = "exon_id")
+      import_tibble <- rtracklayer::import(con = viewer_path_recon_GTF, format = "gtf") %>% as_tibble %>% dplyr::mutate_if(is.factor, as.character) %>% readr::type_convert() %>% dplyr::rename("exon_number" = "exon_id")
       
       # remove chrX... etc if required
       import_tibble$seqnames <- gsub(x = import_tibble$seqnames, pattern = "chr(.*)", replacement = "\\1")
@@ -4577,69 +4577,69 @@ server <- function(input, output, session) {
     
   }, ignoreNULL = FALSE, ignoreInit = TRUE )
   
-  observeEvent(workshop_reactive_temp_imported_annotation_tibble(), {
+  observeEvent(viewer_reactive_temp_imported_annotation_tibble(), {
     
     # check if file has indeed been imported
-    if (!(input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == TRUE)) {
+    if (!(input$viewer_import_file_type_selection == "Upload custom GTF" & is.null(input$viewer_path_to_custom_gtf$datapath) == TRUE)) {
       
-      input_annotation_tibble <- workshop_reactive_temp_imported_annotation_tibble()
+      input_annotation_tibble <- viewer_reactive_temp_imported_annotation_tibble()
       
       # Reference transcripts
-      if (input$workshop_import_file_type_selection %in% c("Ensembl", "RefSeq", "LRG") & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)) {
-        workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts <- workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference transcripts: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      if (input$viewer_import_file_type_selection %in% c("Ensembl", "RefSeq", "LRG") & !viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name %in% names(viewer_reactiveValues_annotation_files$annotation_files$reference_transcripts)) {
+        viewer_reactiveValues_annotation_files$annotation_files$reference_transcripts <- viewer_reactiveValues_annotation_files$annotation_files$reference_transcripts %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference transcripts: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_transcripts)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$reference_transcripts)[length(viewer_reactiveValues_annotation_files$annotation_files$reference_transcripts)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_transcripts", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_transcripts", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         # Reference Interpro + BioMart - ens98
-      } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens98)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
-        workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens98)" & !viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name %in% names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+        viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features <- viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         # dbPTM
-      } else if (input$workshop_import_file_type_selection == "dbPTM (ens98)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
-        workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      } else if (input$viewer_import_file_type_selection == "dbPTM (ens98)" & !viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name %in% names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+        viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features <- viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         # Reference Interpro + BioMart - ens75
-      } else if (input$workshop_import_file_type_selection == "Interpro + BioMart (ens75)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
-        workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      } else if (input$viewer_import_file_type_selection == "Interpro + BioMart (ens75)" & !viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name %in% names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+        viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features <- viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         # dbPTM - ens75
-      } else if (input$workshop_import_file_type_selection == "dbPTM (ens75)" & !workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name %in% names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
-        workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features <- workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      } else if (input$viewer_import_file_type_selection == "dbPTM (ens75)" & !viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name %in% names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)) {
+        viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features <- viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Reference protein features: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(workshop_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)[length(viewer_reactiveValues_annotation_files$annotation_files$reference_protein_features)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("reference_protein_features", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         # Custom GTF
-      } else if (input$workshop_import_file_type_selection == "Upload custom GTF" & is.null(input$workshop_path_to_custom_gtf$datapath) == FALSE) {
-        workshop_reactiveValues_annotation_files$annotation_files$custom_gtf <- workshop_reactiveValues_annotation_files$annotation_files$custom_gtf %>% purrr::splice(
-          input_annotation_tibble %>% tibble::add_column("panel" = paste("Custom GTF: ", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+      } else if (input$viewer_import_file_type_selection == "Upload custom GTF" & is.null(input$viewer_path_to_custom_gtf$datapath) == FALSE) {
+        viewer_reactiveValues_annotation_files$annotation_files$custom_gtf <- viewer_reactiveValues_annotation_files$annotation_files$custom_gtf %>% purrr::splice(
+          input_annotation_tibble %>% tibble::add_column("panel" = paste("Custom GTF: ", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
         )
-        names(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)[length(workshop_reactiveValues_annotation_files$annotation_files$custom_gtf)] <- workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name
+        names(viewer_reactiveValues_annotation_files$annotation_files$custom_gtf)[length(viewer_reactiveValues_annotation_files$annotation_files$custom_gtf)] <- viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name
         # automatically checkbox the added GTF
-        workshop_reactiveValues_annotation_files_selected$vector_checked_items <- c(workshop_reactiveValues_annotation_files_selected$vector_checked_items, paste("custom_gtf", "|", workshop_reactiveValues_custom_file_import_name$workshop_custom_file_import_name, sep = ""))
+        viewer_reactiveValues_annotation_files_selected$vector_checked_items <- c(viewer_reactiveValues_annotation_files_selected$vector_checked_items, paste("custom_gtf", "|", viewer_reactiveValues_custom_file_import_name$viewer_custom_file_import_name, sep = ""))
       }
       
-      # print("workshop_reactiveValues_annotation_files")
-      # print(workshop_reactiveValues_annotation_files %>% reactiveValuesToList())
+      # print("viewer_reactiveValues_annotation_files")
+      # print(viewer_reactiveValues_annotation_files %>% reactiveValuesToList())
       
-      # global_workshop_reactiveValues_annotation_files <<- workshop_reactiveValues_annotation_files %>% reactiveValuesToList()
+      # global_viewer_reactiveValues_annotation_files <<- viewer_reactiveValues_annotation_files %>% reactiveValuesToList()
       
-      output$workshop_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
+      output$viewer_nomenclature_output <- renderPrint( { cat("Importing done.\n") })
       
       removeModal()
       
@@ -4649,31 +4649,31 @@ server <- function(input, output, session) {
   
   # reactive ui ####
   ## this is for managing the user ranges
-  output$workshop_reactive_UI_1 <- renderUI( {
+  output$viewer_reactive_UI_1 <- renderUI( {
     
     shinyWidgets::dropdownButton(
       
       label = "Manage ranges",
       
       div(style = "display: inline-block; float: left",
-          actionButton("workshop_select_user_range", "Select",
+          actionButton("viewer_select_user_range", "Select",
                        class = "btn btn-primary", inline = TRUE)
       ),
       
       div(style = "display: inline-block; float: right",
-          actionButton("workshop_reset_user_table", "Delete all ranges", icon = icon("eraser"),
+          actionButton("viewer_reset_user_table", "Delete all ranges", icon = icon("eraser"),
                        class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
       ),
       
       div(style = "display: inline-block; float: right",
-          actionButton("workshop_delete_user_range", "Delete", icon = icon("eraser"),
+          actionButton("viewer_delete_user_range", "Delete", icon = icon("eraser"),
                        class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
       ),
       
       br(),
       br(),
       
-      if (length(workshop_reactiveValues_user_ranges$id) > 1) {
+      if (length(viewer_reactiveValues_user_ranges$id) > 1) {
         
         div(style = "display: block; text-align: left; font-size: 150%",
             c("Input range history")
@@ -4681,21 +4681,21 @@ server <- function(input, output, session) {
         
       },
       
-      if (length(workshop_reactiveValues_user_ranges$id) > 1) {
+      if (length(viewer_reactiveValues_user_ranges$id) > 1) {
         
         radioButtons(
-          inputId = "workshop_user_range_id_selection", 
+          inputId = "viewer_user_range_id_selection", 
           label = NULL, 
-          choiceValues = workshop_reactiveValues_user_ranges$id %>% .[2:length(workshop_reactiveValues_user_ranges$id)],
-          choiceNames = purrr::map(.x = 2:length(workshop_reactiveValues_user_ranges$id), .f = function(a1) {
+          choiceValues = viewer_reactiveValues_user_ranges$id %>% .[2:length(viewer_reactiveValues_user_ranges$id)],
+          choiceNames = purrr::map(.x = 2:length(viewer_reactiveValues_user_ranges$id), .f = function(a1) {
             
-            range_id <- workshop_reactiveValues_user_ranges$id %>% .[a1]
+            range_id <- viewer_reactiveValues_user_ranges$id %>% .[a1]
             
-            range_chr <- workshop_reactiveValues_user_ranges$chr %>% .[a1]
-            range_start <- workshop_reactiveValues_user_ranges$start %>% .[a1]
-            range_end <- workshop_reactiveValues_user_ranges$end %>% .[a1]
-            range_strand <- workshop_reactiveValues_user_ranges$strand %>% .[a1]
-            range_range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[a1]
+            range_chr <- viewer_reactiveValues_user_ranges$chr %>% .[a1]
+            range_start <- viewer_reactiveValues_user_ranges$start %>% .[a1]
+            range_end <- viewer_reactiveValues_user_ranges$end %>% .[a1]
+            range_strand <- viewer_reactiveValues_user_ranges$strand %>% .[a1]
+            range_range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[a1]
             
             paste("#", range_id, "    ", range_chr, ":", range_start, "-", range_end, ":", range_strand, "  -  ", range_range_type, sep = "") %>% return
             
@@ -4711,30 +4711,30 @@ server <- function(input, output, session) {
   
   # reactive ui ####
   ## this is for managing the annotation tables
-  output$workshop_reactive_UI_2 <- renderUI( {
+  output$viewer_reactive_UI_2 <- renderUI( {
     
-    print("workshop_reactiveValues_annotation_files")
-    print(workshop_reactiveValues_annotation_files %>% reactiveValuesToList())
-    print(names(workshop_reactiveValues_annotation_files %>% reactiveValuesToList() %>% .$annotation_files %>% flatten))
+    print("viewer_reactiveValues_annotation_files")
+    print(viewer_reactiveValues_annotation_files %>% reactiveValuesToList())
+    print(names(viewer_reactiveValues_annotation_files %>% reactiveValuesToList() %>% .$annotation_files %>% flatten))
     
     shinyWidgets::dropdownButton(
       
       label = "Manage annotations",
       
       div(style = "display: inline-block; float: right",
-          actionButton("workshop_delete_all_annotation", "Delete all annotations", icon = icon("eraser"),
+          actionButton("viewer_delete_all_annotation", "Delete all annotations", icon = icon("eraser"),
                        class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
       ),
       
       div(style = "display: inline-block; float: right",
-          actionButton("workshop_delete_annotation", "Delete", icon = icon("eraser"),
+          actionButton("viewer_delete_annotation", "Delete", icon = icon("eraser"),
                        class = "btn btn-primary", style = "color: #fff; background-color: #ff0000", inline = TRUE)
       ),
       
       br(),
       br(),
       
-      if (length(workshop_reactiveValues_annotation_files$annotation_files %>% flatten) > 0) {
+      if (length(viewer_reactiveValues_annotation_files$annotation_files %>% flatten) > 0) {
         
         div(style = "display: block; text-align: left; font-size: 150%",
             c("Annotations loaded")
@@ -4748,14 +4748,14 @@ server <- function(input, output, session) {
         
       },
       
-      if (length(workshop_reactiveValues_annotation_files$annotation_files %>% flatten) > 0) {
+      if (length(viewer_reactiveValues_annotation_files$annotation_files %>% flatten) > 0) {
         
         radioButtons(
-          inputId = "workshop_annotation_file_name_selection", 
+          inputId = "viewer_annotation_file_name_selection", 
           label = NULL, 
           choiceValues = purrr::map2(
-            .x = workshop_reactiveValues_annotation_files$annotation_files,
-            .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+            .x = viewer_reactiveValues_annotation_files$annotation_files,
+            .y = names(viewer_reactiveValues_annotation_files$annotation_files),
             .f = function(a1, a2) {
               
               purrr::map2(
@@ -4770,8 +4770,8 @@ server <- function(input, output, session) {
               
             } ) %>% unlist(use.names = FALSE),
           choiceNames = purrr::map2(
-            .x = workshop_reactiveValues_annotation_files$annotation_files,
-            .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+            .x = viewer_reactiveValues_annotation_files$annotation_files,
+            .y = names(viewer_reactiveValues_annotation_files$annotation_files),
             .f = function(a1, a2) {
               
               purrr::map2(
@@ -4786,8 +4786,8 @@ server <- function(input, output, session) {
               
             } ) %>% unlist(use.names = FALSE),
           selected = purrr::map2(
-            .x = workshop_reactiveValues_annotation_files$annotation_files,
-            .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+            .x = viewer_reactiveValues_annotation_files$annotation_files,
+            .y = names(viewer_reactiveValues_annotation_files$annotation_files),
             .f = function(a1, a2) {
               
               purrr::map2(
@@ -4811,20 +4811,20 @@ server <- function(input, output, session) {
   
   # reactive ui ####
   ## this is for managing the plot panels
-  output$workshop_reactive_UI_3 <- renderUI( {
+  output$viewer_reactive_UI_3 <- renderUI( {
     
     shinyWidgets::dropdownButton(
       
       label = "Show/hide panels",
       
       checkboxGroupInput(
-        inputId = "workshop_select_plot_panels",
+        inputId = "viewer_select_plot_panels",
         label = NULL,
         inline = FALSE,
         choices = NULL,
         choiceNames = purrr::map2(
-          .x = workshop_reactiveValues_annotation_files$annotation_files,
-          .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+          .x = viewer_reactiveValues_annotation_files$annotation_files,
+          .y = names(viewer_reactiveValues_annotation_files$annotation_files),
           .f = function(a1, a2) {
             
             purrr::map2(
@@ -4839,8 +4839,8 @@ server <- function(input, output, session) {
             
           } ) %>% unlist(use.names = FALSE),
         choiceValues = purrr::map2(
-          .x = workshop_reactiveValues_annotation_files$annotation_files,
-          .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+          .x = viewer_reactiveValues_annotation_files$annotation_files,
+          .y = names(viewer_reactiveValues_annotation_files$annotation_files),
           .f = function(a1, a2) {
             
             purrr::map2(
@@ -4854,9 +4854,9 @@ server <- function(input, output, session) {
               } )
             
           } ) %>% unlist(use.names = FALSE),
-        selected = workshop_reactiveValues_annotation_files_selected$vector_checked_items %>% .[. %in% (purrr::map2(
-          .x = workshop_reactiveValues_annotation_files$annotation_files,
-          .y = names(workshop_reactiveValues_annotation_files$annotation_files),
+        selected = viewer_reactiveValues_annotation_files_selected$vector_checked_items %>% .[. %in% (purrr::map2(
+          .x = viewer_reactiveValues_annotation_files$annotation_files,
+          .y = names(viewer_reactiveValues_annotation_files$annotation_files),
           .f = function(a1, a2) {
             
             purrr::map2(
@@ -4878,51 +4878,51 @@ server <- function(input, output, session) {
     
   } ) # renderUI
   
-  workshop_reactive_slider_table_height <- reactive({input$workshop_slider_table_height})
-  workshop_reactive_slider_table_width <- reactive({input$workshop_slider_table_width})
-  workshop_reactive_slider_table_font_size <- reactive({input$workshop_slider_table_font_size})
+  viewer_reactive_slider_table_height <- reactive({input$viewer_slider_table_height})
+  viewer_reactive_slider_table_width <- reactive({input$viewer_slider_table_width})
+  viewer_reactive_slider_table_font_size <- reactive({input$viewer_slider_table_font_size})
   
-  output$workshop_reactive_exon_table <- renderUI( {
+  output$viewer_reactive_exon_table <- renderUI( {
     
-    div(style = paste("height: ", as.numeric(workshop_reactive_slider_table_height()), "px; width: ", as.numeric(workshop_reactive_slider_table_width()), "px; overflow-y: scroll; overflow-x: scroll; font-size: ", as.numeric(workshop_reactive_slider_table_font_size()), "%", sep = ""), 
-        dataTableOutput("workshop_ref_table_output")
+    div(style = paste("height: ", as.numeric(viewer_reactive_slider_table_height()), "px; width: ", as.numeric(viewer_reactive_slider_table_width()), "px; overflow-y: scroll; overflow-x: scroll; font-size: ", as.numeric(viewer_reactive_slider_table_font_size()), "%", sep = ""), 
+        dataTableOutput("viewer_ref_table_output")
     )
     
   } ) # renderUI
   
   # handle plot
-  workshop_reactive_plot_width <- reactive({input$workshop_slider_plot_width}) %>% debounce(1000) %>% throttle(1000)
-  workshop_reactive_plot_height <- reactive({input$workshop_slider_plot_height}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_width <- reactive({input$viewer_slider_plot_width}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_height <- reactive({input$viewer_slider_plot_height}) %>% debounce(1000) %>% throttle(1000)
   
-  workshop_reactive_plot_x_scale <- reactive({input$workshop_slider_plot_x_scale}) %>% debounce(1000) %>% throttle(1000)
-  workshop_reactive_plot_y_scale <- reactive({input$workshop_slider_plot_y_scale}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_x_scale <- reactive({input$viewer_slider_plot_x_scale}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_y_scale <- reactive({input$viewer_slider_plot_y_scale}) %>% debounce(1000) %>% throttle(1000)
   
-  workshop_reactive_plot_x_offset <- reactive({input$workshop_slider_plot_x_offset}) %>% debounce(1000) %>% throttle(1000)
-  workshop_reactive_plot_y_offset <- reactive({input$workshop_slider_plot_y_offset}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_x_offset <- reactive({input$viewer_slider_plot_x_offset}) %>% debounce(1000) %>% throttle(1000)
+  viewer_reactive_plot_y_offset <- reactive({input$viewer_slider_plot_y_offset}) %>% debounce(1000) %>% throttle(1000)
   
-  observeEvent(input$workshop_reset_sliders, {
-    updateSliderInput(session, "workshop_slider_plot_width", value = 800)
-    updateSliderInput(session, "workshop_slider_plot_height", value = 1500)
+  observeEvent(input$viewer_reset_sliders, {
+    updateSliderInput(session, "viewer_slider_plot_width", value = 800)
+    updateSliderInput(session, "viewer_slider_plot_height", value = 1500)
     
-    updateSliderInput(session, "workshop_slider_plot_x_scale", value = 1)
-    updateSliderInput(session, "workshop_slider_plot_y_scale", value = 0)
+    updateSliderInput(session, "viewer_slider_plot_x_scale", value = 1)
+    updateSliderInput(session, "viewer_slider_plot_y_scale", value = 0)
     
-    updateSliderInput(session, "workshop_slider_plot_x_offset", value = 0)
-    updateSliderInput(session, "workshop_slider_plot_y_offset", value = 0)
+    updateSliderInput(session, "viewer_slider_plot_x_offset", value = 0)
+    updateSliderInput(session, "viewer_slider_plot_y_offset", value = 0)
     
-    updateSliderInput(session, "workshop_slider_table_height", value = 250)
-    updateSliderInput(session, "workshop_slider_table_width", value = 800)
-    updateSliderInput(session, "workshop_slider_table_font_size", value = 80)
+    updateSliderInput(session, "viewer_slider_table_height", value = 250)
+    updateSliderInput(session, "viewer_slider_table_width", value = 800)
+    updateSliderInput(session, "viewer_slider_table_font_size", value = 80)
   } )
   
   # handle user selection
-  workshop_reactive_user_range_id_selection <- reactive({input$workshop_user_range_id_selection})
-  workshop_reactive_annotation_file_name_selection <- reactive({input$workshop_annotation_file_name_selection})
+  viewer_reactive_user_range_id_selection <- reactive({input$viewer_user_range_id_selection})
+  viewer_reactive_annotation_file_name_selection <- reactive({input$viewer_annotation_file_name_selection})
   
   # observe( {
   
   # initialise user table
-  workshop_reactiveValues_user_ranges <- reactiveValues( 
+  viewer_reactiveValues_user_ranges <- reactiveValues( 
     id = 0,
     chr = "3",
     start = 11807833,
@@ -4932,7 +4932,7 @@ server <- function(input, output, session) {
     panel = "user_ranges"
   )
   
-  workshop_reactiveValues_selected_user_range <- reactiveValues( 
+  viewer_reactiveValues_selected_user_range <- reactiveValues( 
     id = 0,
     chr = "3",
     start = 11807833,
@@ -4944,22 +4944,22 @@ server <- function(input, output, session) {
   
   # deal with user editing plot panels
   # we also have to keep a record of what has been selected in the past, so the the checkbox doesn't automatically reset itself when files are loaded of removed.
-  workshop_reactiveValues_annotation_files_selected <- reactiveValues(
+  viewer_reactiveValues_annotation_files_selected <- reactiveValues(
     "vector_checked_items" = c(),
     "annotation_files" = list(),
     "annotation_index" = list()
   )
   
-  observeEvent(input$workshop_select_plot_panels, {
+  observeEvent(input$viewer_select_plot_panels, {
     
-    if (input$workshop_select_plot_panels %>% length > 0 | workshop_reactiveValues_annotation_files_selected$annotation_files %>% length > 0) {
+    if (input$viewer_select_plot_panels %>% length > 0 | viewer_reactiveValues_annotation_files_selected$annotation_files %>% length > 0) {
       
-      workshop_reactiveValues_annotation_files_selected$vector_checked_items <- input$workshop_select_plot_panels
+      viewer_reactiveValues_annotation_files_selected$vector_checked_items <- input$viewer_select_plot_panels
       
-      if (input$workshop_select_plot_panels %>% length > 0) {
+      if (input$viewer_select_plot_panels %>% length > 0) {
         
         # list-ify
-        list_selected_plot_panels <- input$workshop_select_plot_panels %>% 
+        list_selected_plot_panels <- input$viewer_select_plot_panels %>% 
           strsplit(split = "\\|") %>%
           purrr::map(~.x %>% unlist)
         
@@ -4979,20 +4979,20 @@ server <- function(input, output, session) {
           set_names(nm = names(list_selected_plot_panels) %>% unique)
         
         # subset the annotation files according to selection
-        workshop_reactiveValues_annotation_files_selected$annotation_files <- purrr::map2(
-          .x = workshop_reactiveValues_annotation_files$annotation_files %>% .[names(list_selected_plot_panels)],
+        viewer_reactiveValues_annotation_files_selected$annotation_files <- purrr::map2(
+          .x = viewer_reactiveValues_annotation_files$annotation_files %>% .[names(list_selected_plot_panels)],
           .y = list_selected_plot_panels,
           .f = ~.x[.y]
         )
         
-        if (!is.null(workshop_reactiveValues_annotation_files_selected$annotation_files)) {
+        if (!is.null(viewer_reactiveValues_annotation_files_selected$annotation_files)) {
           
-          if (length(workshop_reactiveValues_annotation_files_selected$annotation_files) > 0) {
+          if (length(viewer_reactiveValues_annotation_files_selected$annotation_files) > 0) {
             
             # create index
-            long_tibble_selected_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten() %>% data.table::rbindlist(use.names = TRUE, fill = TRUE)
+            long_tibble_selected_annotation_files <- viewer_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten() %>% data.table::rbindlist(use.names = TRUE, fill = TRUE)
             
-            workshop_reactiveValues_annotation_files_selected$annotation_index <- list(
+            viewer_reactiveValues_annotation_files_selected$annotation_index <- list(
               if (any(long_tibble_selected_annotation_files$type == "gene")) {long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_name$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
               if (any(long_tibble_selected_annotation_files$type == "gene")) {long_tibble_selected_annotation_files %>% .[.$type == "gene", ] %>% dplyr::select(seqnames, start, end, matches("^gene_id$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
               if (any(long_tibble_selected_annotation_files$type == "transcript")) {long_tibble_selected_annotation_files %>% .[.$type == "transcript", ] %>% dplyr::select(seqnames, start, end, matches("^hgnc_stable_transcript_ID$", ignore.case = TRUE)) %>% setNames(c("seqnames", "start", "end", "feature")) %>% na.omit %>% unique},
@@ -5008,34 +5008,34 @@ server <- function(input, output, session) {
         
       } else {
         
-        workshop_reactiveValues_annotation_files_selected$annotation_files <- list() 
-        workshop_reactiveValues_annotation_files_selected$annotation_index <- list() 
+        viewer_reactiveValues_annotation_files_selected$annotation_files <- list() 
+        viewer_reactiveValues_annotation_files_selected$annotation_index <- list() 
         
       }
       
     }
     
-    print("workshop_reactiveValues_annotation_files_selected")
-    print(workshop_reactiveValues_annotation_files_selected)
-    global_workshop_annotation_files_selected <<- workshop_reactiveValues_annotation_files_selected %>% reactiveValuesToList()
+    print("viewer_reactiveValues_annotation_files_selected")
+    print(viewer_reactiveValues_annotation_files_selected)
+    global_viewer_annotation_files_selected <<- viewer_reactiveValues_annotation_files_selected %>% reactiveValuesToList()
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
-  # observeEvent(workshop_reactiveValues_annotation_files_selected$vector_checked_items, {
+  # observeEvent(viewer_reactiveValues_annotation_files_selected$vector_checked_items, {
   #   
   #   
   #   
   # }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
   # deal with user adding range values
-  observeEvent(input$workshop_add_user_range, {
+  observeEvent(input$viewer_add_user_range, {
     
     # parse input coords
-    parse_result <- parse_input_coordinates(input_coordinates = input$workshop_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
+    parse_result <- parse_input_coordinates(input_coordinates = input$viewer_input_range, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
     
     if (parse_result[[1]] == "non_coord") {
       
-      output$workshop_nomenclature_output <- renderText({"triage fail"})
+      output$viewer_nomenclature_output <- renderText({"triage fail"})
       
     } else {
       
@@ -5044,176 +5044,176 @@ server <- function(input, output, session) {
       input_end <- parse_result[[3]]
       input_strand <- "*"
       
-      workshop_reactiveValues_user_ranges$id <- c(workshop_reactiveValues_user_ranges$id, if (length(workshop_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(workshop_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
-      workshop_reactiveValues_user_ranges$chr <- c(workshop_reactiveValues_user_ranges$chr, input_chr)
-      workshop_reactiveValues_user_ranges$start <- c(workshop_reactiveValues_user_ranges$start, input_start)
-      workshop_reactiveValues_user_ranges$end <- c(workshop_reactiveValues_user_ranges$end, input_end)
-      workshop_reactiveValues_user_ranges$strand <- c(workshop_reactiveValues_user_ranges$strand, input_strand)
-      workshop_reactiveValues_user_ranges$range_type <- c(workshop_reactiveValues_user_ranges$range_type, input$workshop_range_type)
-      workshop_reactiveValues_user_ranges$panel <- c(workshop_reactiveValues_user_ranges$panel, "user_ranges")
+      viewer_reactiveValues_user_ranges$id <- c(viewer_reactiveValues_user_ranges$id, if (length(viewer_reactiveValues_user_ranges$id) == 0) {"1"} else {as.character(max(viewer_reactiveValues_user_ranges$id %>% as.numeric) + 1)} )
+      viewer_reactiveValues_user_ranges$chr <- c(viewer_reactiveValues_user_ranges$chr, input_chr)
+      viewer_reactiveValues_user_ranges$start <- c(viewer_reactiveValues_user_ranges$start, input_start)
+      viewer_reactiveValues_user_ranges$end <- c(viewer_reactiveValues_user_ranges$end, input_end)
+      viewer_reactiveValues_user_ranges$strand <- c(viewer_reactiveValues_user_ranges$strand, input_strand)
+      viewer_reactiveValues_user_ranges$range_type <- c(viewer_reactiveValues_user_ranges$range_type, input$viewer_range_type)
+      viewer_reactiveValues_user_ranges$panel <- c(viewer_reactiveValues_user_ranges$panel, "user_ranges")
       
-      output$workshop_nomenclature_output <- renderText({"triage successful"})
+      output$viewer_nomenclature_output <- renderText({"triage successful"})
       
       # automatically select the one that was added
-      workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[length(workshop_reactiveValues_user_ranges$id)]
-      workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[length(workshop_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$id <- viewer_reactiveValues_user_ranges$id %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$chr <- viewer_reactiveValues_user_ranges$chr %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$start <- viewer_reactiveValues_user_ranges$start %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$end <- viewer_reactiveValues_user_ranges$end %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$strand <- viewer_reactiveValues_user_ranges$strand %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[length(viewer_reactiveValues_user_ranges$id)]
+      viewer_reactiveValues_selected_user_range$panel <- viewer_reactiveValues_user_ranges$panel %>% .[length(viewer_reactiveValues_user_ranges$id)]
       
-      updateRadioButtons(session, inputId = "workshop_user_range_id_selection", selected = workshop_reactiveValues_user_ranges$id %>% .[length(workshop_reactiveValues_user_ranges$id)])
+      updateRadioButtons(session, inputId = "viewer_user_range_id_selection", selected = viewer_reactiveValues_user_ranges$id %>% .[length(viewer_reactiveValues_user_ranges$id)])
       
-      print("workshop_reactiveValues_selected_user_range$id outside")
-      print(workshop_reactiveValues_selected_user_range$id)
+      print("viewer_reactiveValues_selected_user_range$id outside")
+      print(viewer_reactiveValues_selected_user_range$id)
       
       # autojump to selected range
-      workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-      workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-      workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
+      viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_selected_user_range$chr
+      viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_selected_user_range$start
+      viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_selected_user_range$end
       
     }
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # deal with user selecting range from the list
-  observeEvent(input$workshop_select_user_range, {
+  observeEvent(input$viewer_select_user_range, {
     
-    workshop_user_range_id_selection <- workshop_reactive_user_range_id_selection() %>% type.convert
+    viewer_user_range_id_selection <- viewer_reactive_user_range_id_selection() %>% type.convert
     
-    vector_subsetting_condition <- workshop_reactiveValues_user_ranges$id == workshop_user_range_id_selection
+    vector_subsetting_condition <- viewer_reactiveValues_user_ranges$id == viewer_user_range_id_selection
     
     # automatically select the one that was added
-    workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$id <- viewer_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$chr <- viewer_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$start <- viewer_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$end <- viewer_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$strand <- viewer_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_selected_user_range$panel <- viewer_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
     
-    print("workshop_reactiveValues_selected_user_range$id outside")
-    print(workshop_reactiveValues_selected_user_range$id)
+    print("viewer_reactiveValues_selected_user_range$id outside")
+    print(viewer_reactiveValues_selected_user_range$id)
     
     # autojump to selected range
-    workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-    workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-    workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
+    viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_selected_user_range$chr
+    viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_selected_user_range$start
+    viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_selected_user_range$end
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # deal with user deleting range from the list
-  observeEvent(input$workshop_delete_user_range, {
+  observeEvent(input$viewer_delete_user_range, {
     
-    workshop_user_range_id_selection <- workshop_reactive_user_range_id_selection() %>% type.convert
+    viewer_user_range_id_selection <- viewer_reactive_user_range_id_selection() %>% type.convert
     
-    vector_subsetting_condition <- (workshop_reactiveValues_user_ranges$id != workshop_user_range_id_selection)
+    vector_subsetting_condition <- (viewer_reactiveValues_user_ranges$id != viewer_user_range_id_selection)
     
-    workshop_reactiveValues_user_ranges$id <- workshop_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$chr <- workshop_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$start <- workshop_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$end <- workshop_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$strand <- workshop_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
-    workshop_reactiveValues_user_ranges$panel <- workshop_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$id <- viewer_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$chr <- viewer_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$start <- viewer_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$end <- viewer_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$strand <- viewer_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+    viewer_reactiveValues_user_ranges$panel <- viewer_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
     
-    print("workshop_reactiveValues_user_ranges")
-    print(reactiveValuesToList(workshop_reactiveValues_user_ranges))
+    print("viewer_reactiveValues_user_ranges")
+    print(reactiveValuesToList(viewer_reactiveValues_user_ranges))
     
-    print("workshop_reactiveValues_selected_user_range")
-    print(reactiveValuesToList(workshop_reactiveValues_selected_user_range))
+    print("viewer_reactiveValues_selected_user_range")
+    print(reactiveValuesToList(viewer_reactiveValues_selected_user_range))
     
     # check for out of bounds and no items left after delete
-    if (!workshop_user_range_id_selection %in% workshop_reactiveValues_user_ranges$id & length(workshop_reactiveValues_user_ranges$id) > 1) {
+    if (!viewer_user_range_id_selection %in% viewer_reactiveValues_user_ranges$id & length(viewer_reactiveValues_user_ranges$id) > 1) {
       
-      vector_subsetting_condition <- length(workshop_reactiveValues_user_ranges$id)
+      vector_subsetting_condition <- length(viewer_reactiveValues_user_ranges$id)
       
-      workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
-      workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
-      
-      # autojump to selected range
-      workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-      workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-      workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
-      
-    } else if (length(workshop_reactiveValues_user_ranges$id) == 1) {
-      
-      workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[1]
-      workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[1]
-      workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[1]
-      workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[1]
-      workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[1]
-      workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
-      workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
+      viewer_reactiveValues_selected_user_range$id <- viewer_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$chr <- viewer_reactiveValues_user_ranges$chr %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$start <- viewer_reactiveValues_user_ranges$start %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$end <- viewer_reactiveValues_user_ranges$end %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$strand <- viewer_reactiveValues_user_ranges$strand %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[vector_subsetting_condition]
+      viewer_reactiveValues_selected_user_range$panel <- viewer_reactiveValues_user_ranges$panel %>% .[vector_subsetting_condition]
       
       # autojump to selected range
-      workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-      workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-      workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
+      viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_selected_user_range$chr
+      viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_selected_user_range$start
+      viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_selected_user_range$end
+      
+    } else if (length(viewer_reactiveValues_user_ranges$id) == 1) {
+      
+      viewer_reactiveValues_selected_user_range$id <- viewer_reactiveValues_user_ranges$id %>% .[1]
+      viewer_reactiveValues_selected_user_range$chr <- viewer_reactiveValues_user_ranges$chr %>% .[1]
+      viewer_reactiveValues_selected_user_range$start <- viewer_reactiveValues_user_ranges$start %>% .[1]
+      viewer_reactiveValues_selected_user_range$end <- viewer_reactiveValues_user_ranges$end %>% .[1]
+      viewer_reactiveValues_selected_user_range$strand <- viewer_reactiveValues_user_ranges$strand %>% .[1]
+      viewer_reactiveValues_selected_user_range$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[1]
+      viewer_reactiveValues_selected_user_range$panel <- viewer_reactiveValues_user_ranges$panel %>% .[1]
+      
+      # autojump to selected range
+      viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_selected_user_range$chr
+      viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_selected_user_range$start
+      viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_selected_user_range$end
       
     }
     
     if (vector_subsetting_condition > 1) {
       
-      updateRadioButtons(session, inputId = "workshop_user_range_id_selection", selected = workshop_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition])
+      updateRadioButtons(session, inputId = "viewer_user_range_id_selection", selected = viewer_reactiveValues_user_ranges$id %>% .[vector_subsetting_condition])
       
     }
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # deal with user resetting user ranges
-  observeEvent(input$workshop_reset_user_table, {
+  observeEvent(input$viewer_reset_user_table, {
     
-    workshop_reactiveValues_user_ranges$id <- workshop_reactiveValues_user_ranges$id %>% .[1]
-    workshop_reactiveValues_user_ranges$chr <- workshop_reactiveValues_user_ranges$chr %>% .[1]
-    workshop_reactiveValues_user_ranges$start <- workshop_reactiveValues_user_ranges$start %>% .[1]
-    workshop_reactiveValues_user_ranges$end <- workshop_reactiveValues_user_ranges$end %>% .[1]
-    workshop_reactiveValues_user_ranges$strand <- workshop_reactiveValues_user_ranges$strand %>% .[1]
-    workshop_reactiveValues_user_ranges$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
-    workshop_reactiveValues_user_ranges$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
+    viewer_reactiveValues_user_ranges$id <- viewer_reactiveValues_user_ranges$id %>% .[1]
+    viewer_reactiveValues_user_ranges$chr <- viewer_reactiveValues_user_ranges$chr %>% .[1]
+    viewer_reactiveValues_user_ranges$start <- viewer_reactiveValues_user_ranges$start %>% .[1]
+    viewer_reactiveValues_user_ranges$end <- viewer_reactiveValues_user_ranges$end %>% .[1]
+    viewer_reactiveValues_user_ranges$strand <- viewer_reactiveValues_user_ranges$strand %>% .[1]
+    viewer_reactiveValues_user_ranges$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[1]
+    viewer_reactiveValues_user_ranges$panel <- viewer_reactiveValues_user_ranges$panel %>% .[1]
     
     # select default range
-    workshop_reactiveValues_selected_user_range$id <- workshop_reactiveValues_user_ranges$id %>% .[1]
-    workshop_reactiveValues_selected_user_range$chr <- workshop_reactiveValues_user_ranges$chr %>% .[1]
-    workshop_reactiveValues_selected_user_range$start <- workshop_reactiveValues_user_ranges$start %>% .[1]
-    workshop_reactiveValues_selected_user_range$end <- workshop_reactiveValues_user_ranges$end %>% .[1]
-    workshop_reactiveValues_selected_user_range$strand <- workshop_reactiveValues_user_ranges$strand %>% .[1]
-    workshop_reactiveValues_selected_user_range$range_type <- workshop_reactiveValues_user_ranges$range_type %>% .[1]
-    workshop_reactiveValues_selected_user_range$panel <- workshop_reactiveValues_user_ranges$panel %>% .[1]
+    viewer_reactiveValues_selected_user_range$id <- viewer_reactiveValues_user_ranges$id %>% .[1]
+    viewer_reactiveValues_selected_user_range$chr <- viewer_reactiveValues_user_ranges$chr %>% .[1]
+    viewer_reactiveValues_selected_user_range$start <- viewer_reactiveValues_user_ranges$start %>% .[1]
+    viewer_reactiveValues_selected_user_range$end <- viewer_reactiveValues_user_ranges$end %>% .[1]
+    viewer_reactiveValues_selected_user_range$strand <- viewer_reactiveValues_user_ranges$strand %>% .[1]
+    viewer_reactiveValues_selected_user_range$range_type <- viewer_reactiveValues_user_ranges$range_type %>% .[1]
+    viewer_reactiveValues_selected_user_range$panel <- viewer_reactiveValues_user_ranges$panel %>% .[1]
     
     # autojump to default range
     # autojump to selected range
-    workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_selected_user_range$chr
-    workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_selected_user_range$start
-    workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_selected_user_range$end
+    viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_selected_user_range$chr
+    viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_selected_user_range$start
+    viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_selected_user_range$end
     
     print("chkD")
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # deal with user deleting loaded annotation
-  observeEvent(input$workshop_delete_annotation, {
+  observeEvent(input$viewer_delete_annotation, {
     
-    workshop_annotation_file_name_selection <- workshop_reactive_annotation_file_name_selection() %>% type.convert
+    viewer_annotation_file_name_selection <- viewer_reactive_annotation_file_name_selection() %>% type.convert
     
-    workshop_reactiveValues_annotation_files$annotation_files[[gsub(x = workshop_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\1")]] <- workshop_reactiveValues_annotation_files$annotation_files[[gsub(x = workshop_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\1")]] %>% .[names(.) != gsub(x = workshop_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\2")]
+    viewer_reactiveValues_annotation_files$annotation_files[[gsub(x = viewer_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\1")]] <- viewer_reactiveValues_annotation_files$annotation_files[[gsub(x = viewer_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\1")]] %>% .[names(.) != gsub(x = viewer_annotation_file_name_selection, pattern = "(.*)\\: (.*)", replacement = "\\2")]
     
-    print("workshop_reactiveValues_annotation_files")
-    print(reactiveValuesToList(workshop_reactiveValues_annotation_files))
+    print("viewer_reactiveValues_annotation_files")
+    print(reactiveValuesToList(viewer_reactiveValues_annotation_files))
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
    
   # deal with user resetting all annotations
-  observeEvent(input$workshop_delete_all_annotation, {
+  observeEvent(input$viewer_delete_all_annotation, {
     
-    workshop_reactiveValues_annotation_files$annotation_files <- purrr::map(
-      .x = workshop_reactiveValues_annotation_files$annotation_files,
+    viewer_reactiveValues_annotation_files$annotation_files <- purrr::map(
+      .x = viewer_reactiveValues_annotation_files$annotation_files,
       .f = function(a1) {
         
         return(a1[rep(x = FALSE, times = length(a1))])
@@ -5222,39 +5222,39 @@ server <- function(input, output, session) {
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
-  workshop_reactiveValues_current_plot_range <- reactiveValues(
+  viewer_reactiveValues_current_plot_range <- reactiveValues(
     "chr" = "3",
     "start" = 11807833,
     "end" = 11809682
   )
   
-  workshop_plot_brush_ranges <- reactiveValues(
+  viewer_plot_brush_ranges <- reactiveValues(
     x = c(), 
     y = c()
   )
   
   # process the viewable co-ordinate range
-  observeEvent(input$workshop_coord_jump_button, {
+  observeEvent(input$viewer_coord_jump_button, {
     
     # enable interactivity automatically
-    if (length(input$workshop_jump_to_coords) > 0) {
-      updateMaterialSwitch(session, inputId = "workshop_plot_is_active", value = TRUE)
+    if (length(input$viewer_jump_to_coords) > 0) {
+      updateMaterialSwitch(session, inputId = "viewer_plot_is_active", value = TRUE)
     }
     
     # parse input coords
-    parse_result <- parse_input_coordinates(input_coordinates = input$workshop_jump_to_coords, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
+    parse_result <- parse_input_coordinates(input_coordinates = input$viewer_jump_to_coords, vector_of_expected_chromosomes = c(1:22, "X", "Y", "M"))
     
-    print("input$workshop_jump_to_coords")
-    print(input$workshop_jump_to_coords)
+    print("input$viewer_jump_to_coords")
+    print(input$viewer_jump_to_coords)
     
     print("parse_result")
     print(parse_result)
     
     # this is the case when the jump-to coords aren't coords - we have to search the HGNC variant ID, HGNC gene symbol, gene_id, transcript_id and protein_id.
-    if (parse_result == "non_coord" & length(workshop_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
+    if (parse_result == "non_coord" & length(viewer_reactiveValues_annotation_files_selected$annotation_files %>% purrr::flatten()) > 0) {
       
       # rbind all the annotation files together
-      # long_tibble_all_annotation_files <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
+      # long_tibble_all_annotation_files <- viewer_reactiveValues_annotation_files_selected$annotation_files %>% flatten %>% rbindlist(use.names = TRUE, fill = TRUE) %>% as_tibble
       # 
       # long_tibble_all_annotation_files_subset <- long_tibble_all_annotation_files %>% dplyr::select(contains("gene_name"), matches(".*stable.*ID$"), contains("transcript_id"), contains("gene_id"), contains("protein_id") )
       # 
@@ -5265,31 +5265,31 @@ server <- function(input, output, session) {
       #   
       #   current_column_index <- current_column_index + 1
       #   
-      #   vector_column_grep_result <- grep(x = long_tibble_all_annotation_files_subset[, current_column_index] %>% unlist, pattern = input$workshop_jump_to_coords, ignore.case = TRUE)
+      #   vector_column_grep_result <- grep(x = long_tibble_all_annotation_files_subset[, current_column_index] %>% unlist, pattern = input$viewer_jump_to_coords, ignore.case = TRUE)
       #   
       #   length_column_grep_result <- vector_column_grep_result %>% length
       #   
       # }
       
-      long_tibble_annotation_index <- workshop_reactiveValues_annotation_files_selected %>% reactiveValuesToList() %>% .$annotation_index
+      long_tibble_annotation_index <- viewer_reactiveValues_annotation_files_selected %>% reactiveValuesToList() %>% .$annotation_index
       
-      vector_column_grep_result <- grep(x = long_tibble_annotation_index$feature, pattern = input$workshop_jump_to_coords %>% trimws, ignore.case = TRUE)
+      vector_column_grep_result <- grep(x = long_tibble_annotation_index$feature, pattern = input$viewer_jump_to_coords %>% trimws, ignore.case = TRUE)
       
       length_column_grep_result <- length(vector_column_grep_result)
       
       if (length_column_grep_result > 0) {
         
-        workshop_reactiveValues_current_plot_range$chr <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$seqnames
-        workshop_reactiveValues_current_plot_range$start <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$start
-        workshop_reactiveValues_current_plot_range$end <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$end
+        viewer_reactiveValues_current_plot_range$chr <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$seqnames
+        viewer_reactiveValues_current_plot_range$start <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$start
+        viewer_reactiveValues_current_plot_range$end <- long_tibble_annotation_index[vector_column_grep_result[1], ] %>% .$end
         
       } else if (length_column_grep_result == 0) {
         
-        output$workshop_nomenclature_output <- renderText({"Search returned no matches"})
+        output$viewer_nomenclature_output <- renderText({"Search returned no matches"})
         
-        workshop_reactiveValues_current_plot_range$chr <- workshop_reactiveValues_current_plot_range$chr
-        workshop_reactiveValues_current_plot_range$start <- workshop_reactiveValues_current_plot_range$start
-        workshop_reactiveValues_current_plot_range$end <- workshop_reactiveValues_current_plot_range$end
+        viewer_reactiveValues_current_plot_range$chr <- viewer_reactiveValues_current_plot_range$chr
+        viewer_reactiveValues_current_plot_range$start <- viewer_reactiveValues_current_plot_range$start
+        viewer_reactiveValues_current_plot_range$end <- viewer_reactiveValues_current_plot_range$end
         
       }
       
@@ -5300,17 +5300,17 @@ server <- function(input, output, session) {
       input_end <- parse_result[[3]] %>% type.convert
       input_strand <- "*"
       
-      workshop_reactiveValues_current_plot_range$chr <- input_chr
-      workshop_reactiveValues_current_plot_range$start <- input_start
-      workshop_reactiveValues_current_plot_range$end <- input_end
+      viewer_reactiveValues_current_plot_range$chr <- input_chr
+      viewer_reactiveValues_current_plot_range$start <- input_start
+      viewer_reactiveValues_current_plot_range$end <- input_end
     }
     
-    # output$workshop_nomenclature_output <- renderText({triage_result})
+    # output$viewer_nomenclature_output <- renderText({triage_result})
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # render ggplots having been given the coords of the range to be viewed
-  workshop_reactive_final_plot <- reactive( {
+  viewer_reactive_final_plot <- reactive( {
     
     # TEST ###
     # vector_input_range <- "7:7157427-7234302:*"
@@ -5328,18 +5328,18 @@ server <- function(input, output, session) {
     # update jump-to slider
     updateTextInput(
       session = session,
-      inputId = "workshop_jump_to_coords",
-      placeholder = paste(workshop_reactiveValues_current_plot_range$chr, ":", workshop_reactiveValues_current_plot_range$start, "-", workshop_reactiveValues_current_plot_range$end, sep = "")
+      inputId = "viewer_jump_to_coords",
+      placeholder = paste(viewer_reactiveValues_current_plot_range$chr, ":", viewer_reactiveValues_current_plot_range$start, "-", viewer_reactiveValues_current_plot_range$end, sep = "")
     )
     
-    # global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+    # global_viewer_reactiveValues_current_plot_range <<- reactiveValuesToList(viewer_reactiveValues_current_plot_range)
     
     # smuggle and set up variables
-    plot_x_scale <- workshop_reactive_plot_x_scale() %>% as.numeric
-    plot_y_scale <- workshop_reactive_plot_y_scale() %>% as.numeric
+    plot_x_scale <- viewer_reactive_plot_x_scale() %>% as.numeric
+    plot_y_scale <- viewer_reactive_plot_y_scale() %>% as.numeric
     
-    plot_x_offset <- workshop_reactive_plot_x_offset() %>% as.numeric
-    plot_y_offset <- workshop_reactive_plot_y_offset() %>% as.numeric
+    plot_x_offset <- viewer_reactive_plot_x_offset() %>% as.numeric
+    plot_y_offset <- viewer_reactive_plot_y_offset() %>% as.numeric
     
     # test <- mtcars %>% as_tibble(rownames = "model") %>% dplyr::group_split(model) %>% purrr::map2(.x = ., .y = 1:length(.), .f = ~.x %>% tibble::add_column("panel" = .y))
     # 
@@ -5350,12 +5350,12 @@ server <- function(input, output, session) {
     
     # set up ALL user ranges
     tibble_all_user_ranges <- tibble(
-      "id" = workshop_reactiveValues_user_ranges$id %>% as.character,
-      "chr" = workshop_reactiveValues_user_ranges$chr,
-      "start" = workshop_reactiveValues_user_ranges$start,
-      "end" = workshop_reactiveValues_user_ranges$end,
-      "strand" = workshop_reactiveValues_user_ranges$strand,
-      "range_type" = workshop_reactiveValues_user_ranges$range_type,
+      "id" = viewer_reactiveValues_user_ranges$id %>% as.character,
+      "chr" = viewer_reactiveValues_user_ranges$chr,
+      "start" = viewer_reactiveValues_user_ranges$start,
+      "end" = viewer_reactiveValues_user_ranges$end,
+      "strand" = viewer_reactiveValues_user_ranges$strand,
+      "range_type" = viewer_reactiveValues_user_ranges$range_type,
       "panel" = "user_ranges"
     )
     
@@ -5364,13 +5364,13 @@ server <- function(input, output, session) {
     print("tibble_all_user_ranges")
     print(tibble_all_user_ranges)
     
-    # global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+    # global_viewer_reactiveValues_selected_user_range <<- reactiveValuesToList(viewer_reactiveValues_selected_user_range)
     
     # set up the ranges that the user has selected to highlight and calculate distances for
-    selected_user_range_chr <- workshop_reactiveValues_selected_user_range$chr
-    selected_user_range_start <- workshop_reactiveValues_selected_user_range$start
-    selected_user_range_end <- workshop_reactiveValues_selected_user_range$end
-    selected_user_range_strand <- workshop_reactiveValues_selected_user_range$strand
+    selected_user_range_chr <- viewer_reactiveValues_selected_user_range$chr
+    selected_user_range_start <- viewer_reactiveValues_selected_user_range$start
+    selected_user_range_end <- viewer_reactiveValues_selected_user_range$end
+    selected_user_range_strand <- viewer_reactiveValues_selected_user_range$strand
     
     global_selected_user_range_chr <<- selected_user_range_chr
     global_selected_user_range_start <<- selected_user_range_start
@@ -5381,22 +5381,22 @@ server <- function(input, output, session) {
       selected_user_range_strand <- c("+", "-")
     }
     
-    # print("workshop_reactiveValues_current_plot_range$chr")
-    # print(workshop_reactiveValues_current_plot_range$chr)
-    # print("workshop_reactiveValues_current_plot_range$start")
-    # print(workshop_reactiveValues_current_plot_range$start)
-    # print("workshop_reactiveValues_current_plot_range$end")
-    # print(workshop_reactiveValues_current_plot_range$end)
+    # print("viewer_reactiveValues_current_plot_range$chr")
+    # print(viewer_reactiveValues_current_plot_range$chr)
+    # print("viewer_reactiveValues_current_plot_range$start")
+    # print(viewer_reactiveValues_current_plot_range$start)
+    # print("viewer_reactiveValues_current_plot_range$end")
+    # print(viewer_reactiveValues_current_plot_range$end)
     
     print("plot_view_initial_x_start beginning")
-    print(workshop_reactiveValues_current_plot_range$start)
+    print(viewer_reactiveValues_current_plot_range$start)
     
     print("plot_view_initial_x_end beginning")
-    print(workshop_reactiveValues_current_plot_range$end)
+    print(viewer_reactiveValues_current_plot_range$end)
     
     # subset all tables to be plotted, for user-specified range (1.5x jump to/user range selection)
-    plot_view_initial_x_start0 <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) + sinh(plot_x_scale)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
-    plot_view_initial_x_end0 <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start) - sinh(plot_x_scale)*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+    plot_view_initial_x_start0 <- viewer_reactiveValues_current_plot_range$start - 1.5*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start) + sinh(plot_x_scale)*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start)
+    plot_view_initial_x_end0 <- viewer_reactiveValues_current_plot_range$end + 1.5*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start) - sinh(plot_x_scale)*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start)
     
     print("plot_view_initial_x_start middle")
     print(plot_view_initial_x_start0)
@@ -5416,16 +5416,16 @@ server <- function(input, output, session) {
       
     } else {
       
-      plot_view_initial_x_start <- workshop_reactiveValues_current_plot_range$start - 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
-      plot_view_initial_x_end <- workshop_reactiveValues_current_plot_range$end + 1.5*(workshop_reactiveValues_current_plot_range$end - workshop_reactiveValues_current_plot_range$start)
+      plot_view_initial_x_start <- viewer_reactiveValues_current_plot_range$start - 1.5*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start)
+      plot_view_initial_x_end <- viewer_reactiveValues_current_plot_range$end + 1.5*(viewer_reactiveValues_current_plot_range$end - viewer_reactiveValues_current_plot_range$start)
       
     }
     
-    # print("workshop_reactiveValues_annotation_files_selected$annotation_files")
-    # print(workshop_reactiveValues_annotation_files_selected$annotation_files)
+    # print("viewer_reactiveValues_annotation_files_selected$annotation_files")
+    # print(viewer_reactiveValues_annotation_files_selected$annotation_files)
     # 
-    # print("workshop_reactiveValues_current_plot_range$chr")
-    # print(workshop_reactiveValues_current_plot_range$chr)
+    # print("viewer_reactiveValues_current_plot_range$chr")
+    # print(viewer_reactiveValues_current_plot_range$chr)
     # 
     print("plot_view_initial_x_start final")
     print(plot_view_initial_x_start)
@@ -5433,13 +5433,13 @@ server <- function(input, output, session) {
     print("plot_view_initial_x_end final")
     print(plot_view_initial_x_end)
     
-    # global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
+    # global_viewer_reactiveValues_annotation_files_selected <<- reactiveValuesToList(viewer_reactiveValues_annotation_files_selected)
     
     # plot calculation
     ## find the reference elements visible in the viewing range
     list_tibbles_track_features_visible <- purrr::map2(
-      .x = workshop_reactiveValues_annotation_files_selected$annotation_files,
-      .y = names(workshop_reactiveValues_annotation_files_selected$annotation_files),
+      .x = viewer_reactiveValues_annotation_files_selected$annotation_files,
+      .y = names(viewer_reactiveValues_annotation_files_selected$annotation_files),
       .f = function(a1, a2) {
         
         purrr::map2(
@@ -5447,7 +5447,7 @@ server <- function(input, output, session) {
           .y = names(a1),
           .f = function(b1, b2) {
             
-            tibble_captured_in_range <- b1[which(b1$seqnames == workshop_reactiveValues_current_plot_range$chr & b1$start <= plot_view_initial_x_end & b1$end >= plot_view_initial_x_start), ]
+            tibble_captured_in_range <- b1[which(b1$seqnames == viewer_reactiveValues_current_plot_range$chr & b1$start <= plot_view_initial_x_end & b1$end >= plot_view_initial_x_start), ]
             
             return(tibble_captured_in_range)
             
@@ -5458,7 +5458,7 @@ server <- function(input, output, session) {
       } )
     
     global_list_tibbles_track_features_visible <<- list_tibbles_track_features_visible
-    global_workshop_reactiveValues_annotation_files_selected <<- reactiveValuesToList(workshop_reactiveValues_annotation_files_selected)
+    global_viewer_reactiveValues_annotation_files_selected <<- reactiveValuesToList(viewer_reactiveValues_annotation_files_selected)
     
     # print("list_tibbles_track_features_visible")
     # print(list_tibbles_track_features_visible)
@@ -5495,7 +5495,7 @@ server <- function(input, output, session) {
     # )
     
     ## find the user ranges visible in the viewing range
-    tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == workshop_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
+    tibble_user_ranges_visible <- tibble_all_user_ranges[which(tibble_all_user_ranges$chr == viewer_reactiveValues_current_plot_range$chr & tibble_all_user_ranges$start <= plot_view_initial_x_end & tibble_all_user_ranges$end >= plot_view_initial_x_start), ]
     
     # global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
     global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
@@ -5503,10 +5503,10 @@ server <- function(input, output, session) {
     # distance shenanigans
     ## calculate distances for selected range
     ## only do this if the selected range is visible
-    if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0 & length(list_tibbles_track_features_visible_flattened) > 0) {
+    if (viewer_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id & nrow(tibble_user_ranges_visible) > 0 & length(list_tibbles_track_features_visible_flattened) > 0) {
       
       # flatten the original full GTF table
-      list_tibbles_track_features_all_flattened <- workshop_reactiveValues_annotation_files_selected$annotation_files %>% flatten
+      list_tibbles_track_features_all_flattened <- viewer_reactiveValues_annotation_files_selected$annotation_files %>% flatten
       
       # DEBUG ###
       global_1_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
@@ -5532,7 +5532,7 @@ server <- function(input, output, session) {
           ###########
           
           # determine visible transcript ids overlapped by user range
-          tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = "*", tibble_gtf_table = a1, left_query_shift = input$workshop_left_query_end_shift %>% type.convert, right_query_shift = input$workshop_right_query_end_shift %>% type.convert, left_tolerance = input$workshop_left_match_tolerance %>% type.convert, right_tolerance = input$workshop_right_match_tolerance %>% type.convert, return_type = if (grepl(x = a2, pattern = "Reference protein") == TRUE) {"exon"} else {"transcript"})
+          tibble_ref_transcripts_overlapped_by_user_query <- extract_overlapping_features(query_chr = selected_user_range_chr, query_start = selected_user_range_start, query_end = selected_user_range_end, query_strand = "*", tibble_gtf_table = a1, left_query_shift = input$viewer_left_query_end_shift %>% type.convert, right_query_shift = input$viewer_right_query_end_shift %>% type.convert, left_tolerance = input$viewer_left_match_tolerance %>% type.convert, right_tolerance = input$viewer_right_match_tolerance %>% type.convert, return_type = if (grepl(x = a2, pattern = "Reference protein") == TRUE) {"exon"} else {"transcript"})
           
           print("tibble_ref_transcripts_overlapped_by_user_query")
           print(tibble_ref_transcripts_overlapped_by_user_query)
@@ -5595,7 +5595,7 @@ server <- function(input, output, session) {
                   
                   ## 2. check if each feature overlapped by the query range
                   tibble_vertices_with_pct_overlap <- tibble_vertices_with_pct_overlap %>%
-                    dplyr::mutate("is_overlapped" = ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) >= ref_exon_start)
+                    dplyr::mutate("is_overlapped" = ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) >= ref_exon_start)
                     )
                   
                   tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, "pct_overlap"] <- tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, ] %>% ( function(x) {100 * abs(x$query_vertex - x$ref_vertex)/(x$ref_exon_end - x$ref_exon_start) %>% return} )
@@ -5657,7 +5657,7 @@ server <- function(input, output, session) {
                   
                   ## 2. check if each feature overlapped by the query range
                   tibble_vertices_with_pct_overlap <- tibble_vertices_with_pct_overlap %>%
-                    dplyr::mutate("is_overlapped" = ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) >= ref_exon_start)
+                    dplyr::mutate("is_overlapped" = ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) >= ref_exon_start)
                     )
                   
                   tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, "pct_overlap"] <- tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, ] %>% ( function(x) {100 * abs(x$query_vertex - x$ref_vertex)/(x$ref_exon_end - x$ref_exon_start) %>% return} )
@@ -5719,7 +5719,7 @@ server <- function(input, output, session) {
                   
                   ## 2. check if each feature overlapped by the query range
                   tibble_vertices_with_pct_overlap <- tibble_vertices_with_pct_overlap %>%
-                    dplyr::mutate("is_overlapped" = ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$workshop_left_query_end_shift %>% type.convert - input$workshop_left_match_tolerance %>% type.convert) >= ref_exon_start)
+                    dplyr::mutate("is_overlapped" = ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) <= ref_exon_end) & ((query_vertex + input$viewer_left_query_end_shift %>% type.convert - input$viewer_left_match_tolerance %>% type.convert) >= ref_exon_start)
                     )
                   
                   tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, "pct_overlap"] <- tibble_vertices_with_pct_overlap[tibble_vertices_with_pct_overlap$is_overlapped == TRUE, ] %>% ( function(x) {100 * abs(x$query_vertex - x$ref_vertex)/(x$ref_exon_end - x$ref_exon_start) %>% return} )
@@ -5827,7 +5827,7 @@ server <- function(input, output, session) {
     
   } )
   
-  workshop_plot_brush_ranges <- reactiveValues(
+  viewer_plot_brush_ranges <- reactiveValues(
     x = c(), 
     y = c(),
     logical_brush_zoom_on = FALSE
@@ -5835,15 +5835,15 @@ server <- function(input, output, session) {
   
   observe( {
     
-    workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                      workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
+    viewer_plot_brush_ranges$x <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                                      viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
     
-    # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start, 
-    #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+    # viewer_plot_brush_ranges$y <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_y_start, 
+    #                                   viewer_reactive_final_plot() %>% .$plot_view_initial_y_end)
     
   } )
   
-  workshop_reactiveValues_plot_metadata <- reactiveValues(
+  viewer_reactiveValues_plot_metadata <- reactiveValues(
     "list_track_data_in_viewing_range" = list(),
     "list_y_axis_scale" = list(),
     "list_y_axis_scale_initial" = list(),
@@ -5854,25 +5854,25 @@ server <- function(input, output, session) {
   # Zoomable plot + ref table output
   observe( {
     
-    if (input$workshop_plot_is_active == TRUE) {
+    if (input$viewer_plot_is_active == TRUE) {
       
       # smuggle in variables
-      plot_height <- workshop_reactive_plot_height()
-      plot_width <- workshop_reactive_plot_width()
+      plot_height <- viewer_reactive_plot_height()
+      plot_width <- viewer_reactive_plot_width()
       
-      # plot_view_initial_y_start <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_start
-      # plot_view_initial_y_end <- workshop_reactive_final_plot() %>% .$plot_view_initial_y_end
+      # plot_view_initial_y_start <- viewer_reactive_final_plot() %>% .$plot_view_initial_y_start
+      # plot_view_initial_y_end <- viewer_reactive_final_plot() %>% .$plot_view_initial_y_end
       
       # print("plot_height")
       # print(plot_height)
       # print("plot_width")
       # print(plot_width)
       
-      slider_table_height <- workshop_reactive_slider_table_height()
+      slider_table_height <- viewer_reactive_slider_table_height()
       
-      list_tibbles_track_features_visible_flattened <- workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened
+      list_tibbles_track_features_visible_flattened <- viewer_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened
       
-      list_distances_between_user_ranges_and_reference_annotations <- workshop_reactive_final_plot() %>% .$list_distances_between_user_ranges_and_reference_annotations
+      list_distances_between_user_ranges_and_reference_annotations <- viewer_reactive_final_plot() %>% .$list_distances_between_user_ranges_and_reference_annotations
       
       ## filter proteome annotations by visible transcript_ids (but ONLY if there are transcripts in the visible range!)
       ### get a vector of the protein_ids in range
@@ -5892,13 +5892,13 @@ server <- function(input, output, session) {
         
       }
       
-      tibble_user_ranges_visible <- workshop_reactive_final_plot() %>% .$tibble_user_ranges_visible
+      tibble_user_ranges_visible <- viewer_reactive_final_plot() %>% .$tibble_user_ranges_visible
       # print("tibble_user_ranges_visible 2")
       # print(tibble_user_ranges_visible)
       
       # update the metadata record of items in the viewing range
       ## track data
-      workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range <- list(
+      viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range <- list(
         
         if (length(list_tibbles_track_features_visible_flattened) > 0){
           list_tibbles_track_features_visible_flattened
@@ -5910,10 +5910,10 @@ server <- function(input, output, session) {
       ) %>% flatten
       
       # initialise brush y-axis limits
-      if (workshop_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
+      if (viewer_plot_brush_ranges$logical_brush_zoom_on == FALSE) {
         
         ## get the y-axis values 
-        workshop_reactiveValues_plot_metadata$list_y_axis_scale <- list(
+        viewer_reactiveValues_plot_metadata$list_y_axis_scale <- list(
           
           "limits" = list(
             
@@ -5988,25 +5988,25 @@ server <- function(input, output, session) {
             
           )
         
-        workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial <- workshop_reactiveValues_plot_metadata$list_y_axis_scale
+        viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial <- viewer_reactiveValues_plot_metadata$list_y_axis_scale
         
       }
       
       ## number of features per track
-      workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% 
+      viewer_reactiveValues_plot_metadata$vector_number_of_features_per_track <- viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% 
         purrr::map(~.x %>% length) %>% unlist
       ## distances
-      workshop_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
+      viewer_reactiveValues_plot_metadata$list_distances_between_user_ranges_and_reference_annotations <- list_distances_between_user_ranges_and_reference_annotations
       
       # DEBUG ###
       # print("plot debug")
-      global_workshop_reactiveValues_selected_user_range <<- reactiveValuesToList(workshop_reactiveValues_selected_user_range)
+      global_viewer_reactiveValues_selected_user_range <<- reactiveValuesToList(viewer_reactiveValues_selected_user_range)
       global_list_distances_between_user_ranges_and_reference_annotations <<- list_distances_between_user_ranges_and_reference_annotations
-      global_workshop_reactiveValues_current_plot_range <<- reactiveValuesToList(workshop_reactiveValues_current_plot_range)
+      global_viewer_reactiveValues_current_plot_range <<- reactiveValuesToList(viewer_reactiveValues_current_plot_range)
       global_tibble_user_ranges_visible <<- tibble_user_ranges_visible
-      global_workshop_reactiveValues_plot_metadata <<- reactiveValuesToList(workshop_reactiveValues_plot_metadata)
+      global_viewer_reactiveValues_plot_metadata <<- reactiveValuesToList(viewer_reactiveValues_plot_metadata)
       global_2_list_tibbles_track_features_visible_flattened <<- list_tibbles_track_features_visible_flattened
-      global_workshop_plot_brush_ranges <<- reactiveValuesToList(workshop_plot_brush_ranges)
+      global_viewer_plot_brush_ranges <<- reactiveValuesToList(viewer_plot_brush_ranges)
       # 
       # print("tibble_user_ranges_visible")
       # print(tibble_user_ranges_visible)
@@ -6021,8 +6021,8 @@ server <- function(input, output, session) {
       print("list_distances_between_user_ranges_and_reference_annotations")
       print(list_distances_between_user_ranges_and_reference_annotations)
       
-      print("global_workshop_reactiveValues_plot_metadata")
-      print(global_workshop_reactiveValues_plot_metadata)
+      print("global_viewer_reactiveValues_plot_metadata")
+      print(global_viewer_reactiveValues_plot_metadata)
       
       ###########
       
@@ -6030,14 +6030,14 @@ server <- function(input, output, session) {
       ggplot_final_plot <- list(
         ggplot(),
         # these mark the original viewing window
-        geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
-        geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
+        geom_vline(colour = "green", lty = 2, xintercept = viewer_reactiveValues_current_plot_range$start),
+        geom_vline(colour = "green", lty = 2, xintercept = viewer_reactiveValues_current_plot_range$end),
         theme_bw(),
         theme(text = element_text(family = "Helvetica"), legend.position = "none"),
-        ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
+        ggplot2::xlab(paste("chr", viewer_reactiveValues_current_plot_range$chr, sep = "")),
         # brush resizing (x)
         # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
-        coord_cartesian(xlim = workshop_plot_brush_ranges$x
+        coord_cartesian(xlim = viewer_plot_brush_ranges$x
                         # ,
                         # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
         )
@@ -6055,7 +6055,7 @@ server <- function(input, output, session) {
                 list(
                   
                   geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                  geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                   if (a1 %>% dplyr::filter(type == "exon") %>% nrow > 0) {geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1))},
                   if (a1 %>% dplyr::filter(type == "exon") %>% nrow > 0) {geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = "")))},
@@ -6082,7 +6082,7 @@ server <- function(input, output, session) {
                 list(
                   
                   # HGNC stable protein ID
-                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
                   geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = id, height = 0.1, fill = region_class)),
                   # symbol in addition to colour to indicate domain/region type
@@ -6110,7 +6110,7 @@ server <- function(input, output, session) {
                 
                 list(
                   
-                  geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
                   geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                   ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
@@ -6131,7 +6131,7 @@ server <- function(input, output, session) {
                 list(
                   
                   geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                  geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                  geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                   # geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                   geom_tile(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                   geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
@@ -6156,11 +6156,11 @@ server <- function(input, output, session) {
           if (nrow(tibble_user_ranges_visible) > 1) {
             geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
           },
-          if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-            geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
+          if (viewer_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+            geom_vline(colour = "red", lty = 2, xintercept = viewer_reactiveValues_selected_user_range$start)
           },
-          if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-            geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
+          if (viewer_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+            geom_vline(colour = "red", lty = 2, xintercept = viewer_reactiveValues_selected_user_range$end)
           },
           
           # distance annotation
@@ -6214,12 +6214,12 @@ server <- function(input, output, session) {
           
           # FACETS 
           if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
-            ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
+            ggplot2::facet_grid(factor(panel, level = viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
           },
           
           # adaptive facet aspect ratio
           if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
-            ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+            ggh4x::force_panelsizes(rows = viewer_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
                                       (function(x) {
                                         if (sum(x) != 0) {
                                           return(x/sum(x))
@@ -6231,26 +6231,26 @@ server <- function(input, output, session) {
           # facet-specific brush resizing (y)
           if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
             ggh4x::facetted_pos_scales(
-              y = purrr::map2(.x = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
+              y = purrr::map2(.x = viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
             )
           }
           
         )  %>% purrr::reduce(ggplot2:::`+.gg`)
       
-      output$workshop_plot_output <- renderPlot( {
+      output$viewer_plot_output <- renderPlot( {
         
         ggplot_final_plot
         
       }, height = plot_height, width = plot_width )
       
-      # output$workshop_plotly_output <- plotly::renderPlotly( {
+      # output$viewer_plotly_output <- plotly::renderPlotly( {
       #     
       #     plotly::ggplotly(ggplot_final_plot)
       #     
       # } )
       
-      output$workshop_ref_table_output <- renderDataTable(
-        {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
+      output$viewer_ref_table_output <- renderDataTable(
+        {viewer_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
             (function(x ) {
               
               if (length(x) == 0) {
@@ -6273,9 +6273,9 @@ server <- function(input, output, session) {
       )
       
       # Create the button to download the scatterplot as PDF
-      output$workshop_download_plot <- downloadHandler(
+      output$viewer_download_plot <- downloadHandler(
         filename = function() {
-          paste('EDN_workshop_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
+          paste('EDN_viewer_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
         },
         content = function(file) {
           
@@ -6293,44 +6293,44 @@ server <- function(input, output, session) {
   
   # When a double-click happens, check if there's a brush on the plot.
   # If so, zoom to the brush bounds; if not, reset the zoom.
-  observeEvent(input$workshop_plot_output_dblclick, {
+  observeEvent(input$viewer_plot_output_dblclick, {
     
-    # print("input$workshop_plot_output_dblclick")
-    # print(input$workshop_plot_output_dblclick)
-    # test_workshop_plot_output_dblclick <<- input$workshop_plot_output_dblclick
+    # print("input$viewer_plot_output_dblclick")
+    # print(input$viewer_plot_output_dblclick)
+    # test_viewer_plot_output_dblclick <<- input$viewer_plot_output_dblclick
     
-    # print("input$workshop_plot_output_brush")
-    # print(input$workshop_plot_output_brush %>% head)
-    brush <- input$workshop_plot_output_brush
+    # print("input$viewer_plot_output_brush")
+    # print(input$viewer_plot_output_brush %>% head)
+    brush <- input$viewer_plot_output_brush
     
     global_brush <<- brush
     
     if (!is.null(brush)) {
-      workshop_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
-      workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
-      workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar1]] <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
+      viewer_plot_brush_ranges$x <- c(brush$xmin, brush$xmax)
+      viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar1]] <- viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
+      viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar1]] <- viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels[[brush$panelvar]]  %>% .[(brush$ymin %>% round(0)):(brush$ymax %>% round(0))] %>% na.omit
       
-      workshop_plot_brush_ranges$logical_brush_zoom_on <- TRUE
-      # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
-      #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
-      # workshop_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
+      viewer_plot_brush_ranges$logical_brush_zoom_on <- TRUE
+      # viewer_plot_brush_ranges$y <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_y_start,
+      #                                   viewer_reactive_final_plot() %>% .$plot_view_initial_y_end)
+      # viewer_plot_brush_ranges$y <- c(brush$ymin, brush$ymax)          
       
       # update protein features to only show the protein_ids which are linked to the transcript_ids in view!
       ## get vector of transcript_ids in view
-      vector_transcript_ids_in_view <- workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
+      vector_transcript_ids_in_view <- viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% .[grep(x = names(.), pattern = "^Reference transcripts")] %>% unlist %>% unique
       
       if ( vector_transcript_ids_in_view %>% length > 0 & grepl(x = brush$panelvar, pattern = "^Reference transcripts") ) {
         
         ## subset protein features by any transcript_ids that may be in view
         ### limits
-        workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
-          .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-          .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+        viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")][names(viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
+          .x = viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+          .y = names(viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
           .f = function(a1, a2) {
             
             # DEBUG ###
-            # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
-            # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
+            # a1 <- global_viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+            # a2 <- names(global_viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
             ###########
             
             if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
@@ -6346,14 +6346,14 @@ server <- function(input, output, session) {
           } )
         
         ### labels
-        workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")][names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
-          .x = workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
-          .y = names(workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
+        viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")][names(viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")]] <- purrr::map2(
+          .x = viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")],
+          .y = names(viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")],
           .f = function(a1, a2) {
             
             # DEBUG ###
-            # a1 <- global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
-            # a2 <- names(global_workshop_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
+            # a1 <- global_viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range %>% .[grep(x = names(.), pattern = "^Reference protein")] %>% .[[1]]
+            # a2 <- names(global_viewer_reactiveValues_plot_metadata$list_track_data_in_viewing_range) %>% .[grep(x = ., pattern = "^Reference protein")] %>% .[[1]]
             ###########
             
             if (grepl(x = a2, pattern = "Reference protein.*interpro") == TRUE) {
@@ -6369,18 +6369,18 @@ server <- function(input, output, session) {
           } )
         
         ### use limits to change the labels according to initial mapping
-        # workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
+        # viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels), pattern = "^Reference protein")] <- purrr::pmap(
         #     .l = list(
-        #         "a1" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
-        #         "a2" = workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
-        #         "a3" = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
+        #         "a1" = viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")],
+        #         "a2" = viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")],
+        #         "a3" = viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")]
         #     ),
         #     .f = function(a1, a2, a3) {
         #         
         #         # DEBUG ###
-        #         # a1 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")] %>% .[[1]]
-        #         # a2 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")] %>% .[[1]]
-        #         # a3 <- global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(global_workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] %>% .[[1]]
+        #         # a1 <- global_viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits[grep(x = names(global_viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$limits), pattern = "^Reference protein")] %>% .[[1]]
+        #         # a2 <- global_viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels[grep(x = names(global_viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels), pattern = "^Reference protein")] %>% .[[1]]
+        #         # a3 <- global_viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits[grep(x = names(global_viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits), pattern = "^Reference protein")] %>% .[[1]]
         #         ###########
         #         
         #         return(a2[a1 %in% a3])
@@ -6390,50 +6390,50 @@ server <- function(input, output, session) {
       }
       
     } else {
-      workshop_plot_brush_ranges$x <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                        workshop_reactive_final_plot() %>% .$plot_view_initial_x_end)
-      workshop_reactiveValues_plot_metadata$list_y_axis_scale <- workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial
+      viewer_plot_brush_ranges$x <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_x_start, 
+                                        viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
+      viewer_reactiveValues_plot_metadata$list_y_axis_scale <- viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial
       
-      workshop_plot_brush_ranges$logical_brush_zoom_on <- FALSE
+      viewer_plot_brush_ranges$logical_brush_zoom_on <- FALSE
       
-      # workshop_plot_brush_ranges$y <- c(workshop_reactive_final_plot() %>% .$plot_view_initial_y_start,
-      #                                   workshop_reactive_final_plot() %>% .$plot_view_initial_y_end)
+      # viewer_plot_brush_ranges$y <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_y_start,
+      #                                   viewer_reactive_final_plot() %>% .$plot_view_initial_y_end)
     }
     
-    print("workshop_plot_brush_ranges$logical_brush_zoom_on")
-    print(workshop_plot_brush_ranges$logical_brush_zoom_on)
+    print("viewer_plot_brush_ranges$logical_brush_zoom_on")
+    print(viewer_plot_brush_ranges$logical_brush_zoom_on)
     
     
-    # print("workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial")
-    # print(workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial)
-    # print("workshop_reactiveValues_plot_metadata$list_y_axis_scale")
-    # print(workshop_reactiveValues_plot_metadata$list_y_axis_scale)
+    # print("viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial")
+    # print(viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial)
+    # print("viewer_reactiveValues_plot_metadata$list_y_axis_scale")
+    # print(viewer_reactiveValues_plot_metadata$list_y_axis_scale)
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
   # When a single-click happens, output the coords which were clicked
   # If so, zoom to the brush bounds; if not, reset the zoom.
-  observeEvent(input$workshop_plot_output_sglclick, {
+  observeEvent(input$viewer_plot_output_sglclick, {
     
-    output$workshop_graph_click_info <- renderText( {
+    output$viewer_graph_click_info <- renderText( {
       
-      selected_protein_id <- workshop_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels_secondary %>% .[[input$workshop_plot_output_sglclick$panelvar1]] %>% .[[input$workshop_plot_output_sglclick$y %>% round(digits = 0)]]
+      selected_protein_id <- viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial$labels_secondary %>% .[[input$viewer_plot_output_sglclick$panelvar1]] %>% .[[input$viewer_plot_output_sglclick$y %>% round(digits = 0)]]
       
       if (is.na(selected_protein_id) == FALSE) {
         
-        paste("x = chr", workshop_reactiveValues_current_plot_range$chr, ":", input$workshop_plot_output_sglclick$x %>% round(digits = 0), "\ny = ", input$workshop_plot_output_sglclick$domain$discrete_limits$y %>% .[[input$workshop_plot_output_sglclick$y %>% round(digits = 0)]], ", ", selected_protein_id, 
+        paste("x = chr", viewer_reactiveValues_current_plot_range$chr, ":", input$viewer_plot_output_sglclick$x %>% round(digits = 0), "\ny = ", input$viewer_plot_output_sglclick$domain$discrete_limits$y %>% .[[input$viewer_plot_output_sglclick$y %>% round(digits = 0)]], ", ", selected_protein_id, 
               sep = "")
         
       } else if (is.na(selected_protein_id) == TRUE) {
         
-        paste("x = chr", workshop_reactiveValues_current_plot_range$chr, ":", input$workshop_plot_output_sglclick$x %>% round(digits = 0), "\ny = ", input$workshop_plot_output_sglclick$domain$discrete_limits$y %>% .[[input$workshop_plot_output_sglclick$y %>% round(digits = 0)]], 
+        paste("x = chr", viewer_reactiveValues_current_plot_range$chr, ":", input$viewer_plot_output_sglclick$x %>% round(digits = 0), "\ny = ", input$viewer_plot_output_sglclick$domain$discrete_limits$y %>% .[[input$viewer_plot_output_sglclick$y %>% round(digits = 0)]], 
               sep = "")
         
       }
       
     } )
     
-    global_workshop_plot_output_sglclick <<- input$workshop_plot_output_sglclick
+    global_viewer_plot_output_sglclick <<- input$viewer_plot_output_sglclick
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
   
@@ -8007,14 +8007,14 @@ server <- function(input, output, session) {
     ggplot_final_plot <- list(
       ggplot(),
       # these mark the original viewing window
-      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$start),
-      geom_vline(colour = "green", lty = 2, xintercept = workshop_reactiveValues_current_plot_range$end),
+      geom_vline(colour = "green", lty = 2, xintercept = viewer_reactiveValues_current_plot_range$start),
+      geom_vline(colour = "green", lty = 2, xintercept = viewer_reactiveValues_current_plot_range$end),
       theme_bw(),
       theme(text = element_text(family = "Helvetica"), legend.position = "none"),
-      ggplot2::xlab(paste("chr", workshop_reactiveValues_current_plot_range$chr, sep = "")),
+      ggplot2::xlab(paste("chr", viewer_reactiveValues_current_plot_range$chr, sep = "")),
       # brush resizing (x)
       # NOTE we CANNOT use coord_cartesion for facet-specific y. MUST use the scales.
-      coord_cartesian(xlim = workshop_plot_brush_ranges$x
+      coord_cartesian(xlim = viewer_plot_brush_ranges$x
                       # ,
                       # ylim = c(plot_view_initial_y_start, plot_view_initial_y_end)
       )
@@ -8032,7 +8032,7 @@ server <- function(input, output, session) {
               list(
                 
                 geom_segment(data = a1 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                geom_text(data = a1 %>% dplyr::filter(type == "transcript"), nudge_y = 0.5, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_transcript_ID, "b3" = transcript_version), .f = function(b1, b2, b3) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                 # geom_segment(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                 geom_tile(data = a1 %>% dplyr::filter(type == "exon"), fill = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                 geom_label(data = a1 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = -0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
@@ -8059,7 +8059,7 @@ server <- function(input, output, session) {
               list(
                 
                 # HGNC stable protein ID
-                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS"), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                 # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = start, xend = end, y = id, yend = id, colour = region_class), size = 10),
                 geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = id, height = 0.1, fill = region_class)),
                 # symbol in addition to colour to indicate domain/region type
@@ -8087,7 +8087,7 @@ server <- function(input, output, session) {
               
               list(
                 
-                geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                geom_text(data = a1 %>% dplyr::filter(type == "CDS") %>% dplyr::distinct(hgnc_stable_protein_ID, .keep_all = TRUE), nudge_y = 0.25, fontface = "italic", mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = protein_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = hgnc_stable_protein_ID), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                 # geom_segment(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = start, xend = end, y = protein_id, yend = protein_id), size = 10),
                 geom_tile(data = a1 %>% dplyr::filter(type == "CDS"), colour = "orange", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                 ggrepel::geom_label_repel(data = a1, nudge_y = -0.15, max.overlaps = 100, box.padding = 0.2, direction = "y", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = protein_id, label = paste(modified_residue, modified_residue_position, PTM_type, sep = "")))
@@ -8108,7 +8108,7 @@ server <- function(input, output, session) {
               list(
                 
                 geom_segment(data = a2 %>% dplyr::filter(type == "transcript"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id)),
-                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(workshop_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
+                geom_text(data = a2 %>% dplyr::filter(type == "transcript"), nudge_y = 0.25, mapping = aes(x = mean(viewer_plot_brush_ranges$x), y = transcript_id, label = purrr::pmap(.l = list("b1" = strand, "b2" = transcript_id), .f = function(b1, b2) {if (b1 == "+") {paste("> > > > > > ", b2, " > > > > > >", sep = "")} else if (b1 == "-") {paste("< < < < < < ", b2, " < < < < < <", sep = "")} else {b2} } ) %>% unlist)),
                 # geom_segment(data = a2 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = start, xend = end, y = transcript_id, yend = transcript_id), size = 10),
                 geom_tile(data = a1 %>% dplyr::filter(type == "exon"), colour = "slateblue1", mapping = aes(x = 0.5*(start + end), width = end - start + 1, y = transcript_id, height = 0.1)),
                 geom_label(data = a2 %>% dplyr::filter(type == "exon"), colour = "black", nudge_y = 0.15, fontface = "bold.italic", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = transcript_id, label = paste("E", exon_number, sep = ""))),
@@ -8133,11 +8133,11 @@ server <- function(input, output, session) {
         if (nrow(tibble_user_ranges_visible) > 1) {
           geom_text(data = tibble_user_ranges_visible[tibble_user_ranges_visible$id != "0", ], colour = "black", nudge_y = 0.25, fontface = "bold", mapping = aes(x = purrr::map2(.x = start, .y = end, .f = ~c(.x, .y) %>% mean) %>% unlist, y = id, label = id))
         },
-        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$start)
+        if (viewer_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = viewer_reactiveValues_selected_user_range$start)
         },
-        if (workshop_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
-          geom_vline(colour = "red", lty = 2, xintercept = workshop_reactiveValues_selected_user_range$end)
+        if (viewer_reactiveValues_selected_user_range$id %in% tibble_user_ranges_visible$id) {
+          geom_vline(colour = "red", lty = 2, xintercept = viewer_reactiveValues_selected_user_range$end)
         },
         
         # distance annotation
@@ -8191,12 +8191,12 @@ server <- function(input, output, session) {
         
         # FACETS 
         if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
-          ggplot2::facet_grid(factor(panel, level = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
+          ggplot2::facet_grid(factor(panel, level = viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits %>% names) ~ ., scales = "free_y")
         },
         
         # adaptive facet aspect ratio
         if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
-          ggh4x::force_panelsizes(rows = workshop_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
+          ggh4x::force_panelsizes(rows = viewer_reactiveValues_plot_metadata$vector_number_of_features_per_track %>%
                                     (function(x) {
                                       if (sum(x) != 0) {
                                         return(x/sum(x))
@@ -8208,7 +8208,7 @@ server <- function(input, output, session) {
         # facet-specific brush resizing (y)
         if (length(list_tibbles_track_features_visible_flattened %>% flatten) > 0 | nrow(tibble_user_ranges_visible) > 0) {
           ggh4x::facetted_pos_scales(
-            y = purrr::map2(.x = workshop_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = workshop_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
+            y = purrr::map2(.x = viewer_reactiveValues_plot_metadata$list_y_axis_scale$limits, .y = viewer_reactiveValues_plot_metadata$list_y_axis_scale$labels, .f = ~scale_y_discrete(limits = .x, breaks = .x, labels = .y))
           )
         }
         
@@ -8221,7 +8221,7 @@ server <- function(input, output, session) {
     }, height = plot_height, width = plot_width )
     
     output$revtrans_ref_table_output <- renderDataTable(
-      {workshop_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
+      {viewer_reactive_final_plot() %>% .$list_tibbles_track_features_visible_flattened %>% 
           (function(x ) {
             
             if (length(x) == 0) {
@@ -8244,9 +8244,9 @@ server <- function(input, output, session) {
     )
     
     # Create the button to download the scatterplot as PDF
-    output$workshop_download_plot <- downloadHandler(
+    output$viewer_download_plot <- downloadHandler(
       filename = function() {
-        paste('EDN_workshop_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
+        paste('EDN_viewer_', Sys.Date(), ".", "A" %>% (function(x) {options(digits.secs = 9); Sys.time() %>% as.numeric %>% return}), '.pdf', sep = "")
       },
       content = function(file) {
         
@@ -8260,10 +8260,10 @@ server <- function(input, output, session) {
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
-  outputOptions(output, "workshop_reactive_UI_1", suspendWhenHidden = TRUE)
-  outputOptions(output, "workshop_reactive_UI_2", suspendWhenHidden = TRUE)
-  outputOptions(output, "workshop_reactive_UI_3", suspendWhenHidden = TRUE)
-  outputOptions(output, "workshop_reactive_exon_table", suspendWhenHidden = TRUE)
+  outputOptions(output, "viewer_reactive_UI_1", suspendWhenHidden = TRUE)
+  outputOptions(output, "viewer_reactive_UI_2", suspendWhenHidden = TRUE)
+  outputOptions(output, "viewer_reactive_UI_3", suspendWhenHidden = TRUE)
+  outputOptions(output, "viewer_reactive_exon_table", suspendWhenHidden = TRUE)
   
 } # server
 
