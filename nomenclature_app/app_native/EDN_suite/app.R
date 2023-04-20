@@ -6579,8 +6579,9 @@ server <- function(input, output, session) {
     
     # function to retrieve the indices of all string matches in a nested list
     ## input: a nested list & custom match_function such as str_match or grepl that returns a TRUE/FALSE upon match
+    ## function usage: nested_list_test_function(match_function = match_function(...), input_list = ...etc...
     ## output: a list of numerical vectors. L1: each instance of where there is a match. L2 (numerical vectors): list index coordinates by level
-    nested_list_grep <- function(input_list, match_function, ...) {
+    nested_list_test_function <- function(input_list, match_function, ...) {
       
       # DEBUG ###
       # input_list <- revtrans_input_string_unfolded
@@ -6998,7 +6999,7 @@ server <- function(input, output, session) {
       ###########
       
       # initialise the tibble of output coords
-      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
+      tibble_output_coords_init <- tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "secid" = numeric(), "nestlevel" = numeric())
       
       # completeness check for stable id
       # we can only process opstacks without stable ids only when all entities are tibbles.
@@ -7047,10 +7048,10 @@ server <- function(input, output, session) {
                 vector_junction_flanking_coords <- vector_junction_flanking_coords[!vector_junction_flanking_coords %in% c(max(vector_junction_flanking_coords), min(vector_junction_flanking_coords))]
                 tibble_current_coords <- tibble::tibble("chr" = tibble_stable_id_entries$seqnames %>% unique %>% .[1], "start" = min(vector_junction_flanking_coords) + 1, "end" = max(vector_junction_flanking_coords) - 1, "strand" = tibble_stable_id_entries$strand %>% unique %>% .[1], "mod" = "intron", "flag" = NA)
               } else if (a1$entity == "join") {
-                tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric())
+                tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "secid" = numeric(), "nestlevel" = numeric())
               }
               
-            tibble_current_coords$segid <- a1$segid
+            tibble_current_coords$secid <- a1$secid
             tibble_current_coords$nestlevel <- a1$nestlevel
             
               entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
@@ -7224,7 +7225,7 @@ server <- function(input, output, session) {
                   "operations" = c(""),
                   "operationclass" = c(""),
                   "alt" = c(""), 
-                  "segid" = numeric(), 
+                  "secid" = numeric(), 
                   "nestlevel" = numeric()
                 ) 
               )
@@ -7334,7 +7335,7 @@ server <- function(input, output, session) {
         methods::new(
           Class = "revtrans_opstack",
           "accumulated_terms" = character(),
-          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "segid" = numeric(), "nestlevel" = numeric(), "index" = numeric()),
+          "output_coords" = tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = character(), "flag" = character(), "alt" = character(), "secid" = numeric(), "nestlevel" = numeric(), "index" = numeric()),
           "fslash_tracker" = tibble("cluster" = integer(), "iteration" = integer()),
           "list_operation_stacks" = list()
         )
@@ -7379,7 +7380,7 @@ server <- function(input, output, session) {
                 "operations" = character(),
                 "operationclass" = character(),
                 "alt" = character(), 
-                "segid" = numeric(), 
+                "secid" = numeric(), 
                 "nestlevel" = numeric(),
                 "index" = c3
               )
@@ -7455,7 +7456,7 @@ server <- function(input, output, session) {
                       "operations" = "",
                       "operationclass" = "",
                       "alt" = character(), 
-                      "segid" = global_temp_segid, 
+                      "secid" = global_temp_segid, 
                       "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                       "index" = c3
                     ),
@@ -7478,7 +7479,7 @@ server <- function(input, output, session) {
                     "operations" = character(),
                     "operationclass" = character(),
                     "alt" = character(), 
-                    "segid" = global_temp_segid, 
+                    "secid" = global_temp_segid, 
                     "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                     "index" = c3
                   )
@@ -7523,7 +7524,7 @@ server <- function(input, output, session) {
                                  return(b1)})
 
                   )
-
+                  
                 } else
                 
                 if (tibble.list_coords_sector %>% data.class == "tibble") {
@@ -7643,7 +7644,7 @@ server <- function(input, output, session) {
                   "operations" = "juncright",
                   "operationclass" = "junction",
                   "alt" = character(), 
-                  "segid" = global_temp_segid, 
+                  "secid" = global_temp_segid, 
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                   "index" = c3
                 )
@@ -7660,7 +7661,7 @@ server <- function(input, output, session) {
                   "operations" = character(),
                   "operationclass" = character(),
                   "alt" = character(), 
-                  "segid" = global_temp_segid, 
+                  "secid" = global_temp_segid, 
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                   "index" = c3
                 )
@@ -7677,7 +7678,7 @@ server <- function(input, output, session) {
                   "operations" = "juncright",
                   "operationclass" = "junction",
                   "alt" = character(), 
-                  "segid" = global_temp_segid, 
+                  "secid" = global_temp_segid, 
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                   "index" = NA
                 )
@@ -7724,7 +7725,7 @@ server <- function(input, output, session) {
                     "operations" = character(),
                     "operationclass" = character(),
                     "alt" = character(), 
-                    "segid" = global_temp_segid, 
+                    "secid" = global_temp_segid, 
                     "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                     "index" = c3
                   )
@@ -7754,7 +7755,7 @@ server <- function(input, output, session) {
                   "operations" = "junc",
                   "operationclass" = "junction",
                   "alt" = character(), 
-                  "segid" = global_temp_segid, 
+                  "secid" = global_temp_segid, 
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                   "index" = NA
                 )
@@ -7770,7 +7771,7 @@ server <- function(input, output, session) {
                 "operations" = character(),
                 "operationclass" = character(),
                 "alt" = character(), 
-                "segid" = global_temp_segid, 
+                "secid" = global_temp_segid, 
                 "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                 "index" = c3
               )
@@ -7794,7 +7795,7 @@ server <- function(input, output, session) {
                     "operations" = character(),
                     "operationclass" = character(),
                     "alt" = character(), 
-                    "segid" = global_temp_segid, 
+                    "secid" = global_temp_segid, 
                     "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                     "index" = c3
                   )
@@ -7836,7 +7837,7 @@ server <- function(input, output, session) {
                       "operations" = "",
                       "operationclass" = "",
                       "alt" = character(), 
-                      "segid" = global_temp_segid, 
+                      "secid" = global_temp_segid, 
                       "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                       "index" = c3
                     )
