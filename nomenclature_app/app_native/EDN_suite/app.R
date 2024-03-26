@@ -20,6 +20,7 @@ library(shinyWidgets)
 
 library(tidyverse)
 library(ggh4x)
+library(ggrepel)
 
 library(rtracklayer)
 library(gtools)
@@ -1938,7 +1939,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
             list_output <- list_output[which(vector_metric == min(vector_metric))]
             
-            # and finally lowest hgnc_stable+_variant_ID
+            # and finally lowest hgnc_stable_variant_ID
             list_output <- list_output[names(list_output) == (mixedsort(names(list_output)) %>% .[1])] %>% .[[1]]
             
             return(list_output)
@@ -2014,7 +2015,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
               .[.$vector_vertex_differences == min(.$vector_vertex_differences), ] %>%
               # followed by number of ref exons needed to describe
               .[.$number_of_ref_elements_to_describe_exon == min(.$number_of_ref_elements_to_describe_exon), ] %>%
-              # and finally lowest hgnc_stable+_variant_ID
+              # and finally lowest hgnc_stable_variant_ID
               .[.$variant_ID_slot == (.$variant_ID_slot %>% mixedsort %>% .[1]), ]
           ) %>% dplyr::bind_rows() %>% dplyr::bind_rows(.[!.$number_in_LIS %in% .$number_in_LIS, ])
         
