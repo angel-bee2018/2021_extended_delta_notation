@@ -334,7 +334,7 @@ magnetise_genome_position_to_ref_end <- function(query_chr, query_coord, query_s
 
 ## END magnetise_genome_position_to_ref_starts() ###
 
-## VSRs/LISs: FUNCTION TO FIND THE STABLE VARIANT NUMBER ###
+## VSRs/AESs: FUNCTION TO FIND THE STABLE VARIANT NUMBER ###
 ### Behaviour: accepts the start/end coords of the VSR and a tibble of alternative exon start/ends
 ### find the transcript with the greatest number of vertices in common.
 ### as PSI-Sigma says the VSR region is the full intron for IR events, we will not use the VSR for IR matching.
@@ -371,7 +371,7 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
   # )
   
   # VSR_coordinates <- VSR_coordinates
-  # tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_LIS[[1]]
+  # tibble_VSR_exon_start_end <- list_tibble_exon_start_end_per_AES[[1]]
   # left_query_shift <- 0
   # right_query_shift <- 0
   # left_tolerance <- 1
@@ -707,11 +707,11 @@ VSR_select_reference_transcript_variant <- function(VSR_coordinates, tibble_VSR_
 
 # END VSR_select_reference_transcript_variant() ###
 
-## VSRs/LISs: FUNCTION TO NAME THE BODY EXONS ###
+## VSRs/AESs: FUNCTION TO NAME THE BODY EXONS ###
 
 ### takes the list input from VSR_select_reference_transcript_variant()
-### we write this as a separate modular function because multiple LISs can be called, and we have to reconcile the selected variant names.
-### so that means, we'll be doing a first-pass naming scheme for each individual LIS, then determining which one we want to roll with, then we refresh each LIS with the final choice.
+### we write this as a separate modular function because multiple AESs can be called, and we have to reconcile the selected variant names.
+### so that means, we'll be doing a first-pass naming scheme for each individual AES, then determining which one we want to roll with, then we refresh each AES with the final choice.
 
 ### there can only be 5 scenarios: 
 ### 1. the exon matches exactly
@@ -982,12 +982,12 @@ VSR_name_body_exons_and_VSR <- function(list_output_from_VSR_select_reference_tr
             # INTRONIC QUERY VERTEX - LEFT EXTENSION
             if (is.na(a1$exon_numbers_overlapped_by_query_start) == TRUE) {
               
-              left_slot <- paste("+", a1$closest_RHS_reference_vertex_to_query_start - a1$start, sep = "")
+              left_slot <- paste("∇", a1$closest_RHS_reference_vertex_to_query_start - a1$start, sep = "")
               
               # EXONIC QUERY VERTEX - LEFT TRUNCATION   
             } else if (is.na(a1$exon_numbers_overlapped_by_query_start) == FALSE) {
               
-              left_slot <- paste("–", a1$start - a1$closest_LHS_reference_vertex_to_query_start, sep = "")
+              left_slot <- paste("Δ", a1$start - a1$closest_LHS_reference_vertex_to_query_start, sep = "")
               
             }
             
@@ -1006,12 +1006,12 @@ VSR_name_body_exons_and_VSR <- function(list_output_from_VSR_select_reference_tr
             # INTRONIC QUERY VERTEX - RIGHT EXTENSION
             if (is.na(a1$exon_numbers_overlapped_by_query_end) == TRUE) {
               
-              right_slot <- paste("+", a1$end - a1$closest_LHS_reference_vertex_to_query_end, sep = "")
+              right_slot <- paste("∇", a1$end - a1$closest_LHS_reference_vertex_to_query_end, sep = "")
               
               # EXONIC QUERY VERTEX - RIGHT TRUNCATION   
             } else if (is.na(a1$exon_numbers_overlapped_by_query_end) == FALSE) {
               
-              right_slot <- paste("–", a1$closest_RHS_reference_vertex_to_query_end - a1$end, sep = "")
+              right_slot <- paste("Δ", a1$closest_RHS_reference_vertex_to_query_end - a1$end, sep = "")
               
             }
             
@@ -1088,16 +1088,16 @@ VSR_name_body_exons_and_VSR <- function(list_output_from_VSR_select_reference_tr
       # test exonic for truncation/extension
       ## left VSR slot
       if (flag_VSR_start_is_exonic == TRUE) {
-        left_VSR_modification_slot <- paste("–", closest_RHS_reference_vertex_to_VSR_start - effective_magnetised_VSR_start, sep = "")
+        left_VSR_modification_slot <- paste("Δ", closest_RHS_reference_vertex_to_VSR_start - effective_magnetised_VSR_start, sep = "")
       } else if (flag_VSR_start_is_exonic == FALSE) {
-        left_VSR_modification_slot <- paste("+", effective_magnetised_VSR_start - closest_LHS_reference_vertex_to_VSR_start, sep = "")
+        left_VSR_modification_slot <- paste("∇", effective_magnetised_VSR_start - closest_LHS_reference_vertex_to_VSR_start, sep = "")
       }
       
       ## right VSR slot
       if (flag_VSR_end_is_exonic == TRUE) {
-        right_VSR_modification_slot <- paste("–", effective_magnetised_VSR_end - closest_LHS_reference_vertex_to_VSR_end, sep = "")
+        right_VSR_modification_slot <- paste("Δ", effective_magnetised_VSR_end - closest_LHS_reference_vertex_to_VSR_end, sep = "")
       } else if (flag_VSR_end_is_exonic == FALSE) {
-        right_VSR_modification_slot <- paste("+", closest_RHS_reference_vertex_to_VSR_end - effective_magnetised_VSR_end, sep = "")
+        right_VSR_modification_slot <- paste("∇", closest_RHS_reference_vertex_to_VSR_end - effective_magnetised_VSR_end, sep = "")
       }
       
       ## create the VSR slots
@@ -1405,7 +1405,7 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
   if (flag_is_intergenic == FALSE) {
     
     # RETURN NOMENCLATURE
-    ## collapse by spaces between exons of the same LIS
+    ## collapse by spaces between exons of the same AES
     ## NOTE: ONLY RETURN THE EXONS WHICH ARE DIFFERENT AND DIDN'T MATCH TO THE SELECTED TRANSCRIPT.
     ## ALSO PUT A DELTA ON THE EXONS WHICH 
     list_isoform_only_nomenclature_event_raw <- list_first_pass_naming$list_body_exon_nomenclature %>% unlist
@@ -1440,9 +1440,11 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
     tibble_sorted_combined_nomenclature <- tibble("slots" = vector_combined_nomenclature, "exon_numbers" = vector_combined_exon_numbers_only) %>% dplyr::arrange(exon_numbers)
     
     # finally, extract the transcript version
-    variant_slot <- paste(list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, ".", tibble_selected_transcript_entries[tibble_selected_transcript_entries$hgnc_stable_transcript_ID == list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], sep = "")
+    variant_slot <- paste(list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique,
+                          # ".", tibble_selected_transcript_entries[tibble_selected_transcript_entries$hgnc_stable_transcript_ID == list_first_pass_naming$selected_hgnc_variant_name %>% na.omit %>% unique, "transcript_version"] %>% unlist %>% na.omit %>% unique %>% .[1], 
+                          sep = "")
     
-    final_VSR_nomenclature <- paste(variant_slot, "t ", tibble_sorted_combined_nomenclature$slots %>% paste(collapse = " "), sep = "") %>% 
+    final_VSR_nomenclature <- paste(variant_slot, " ", tibble_sorted_combined_nomenclature$slots %>% paste(collapse = " "), sep = "") %>% 
       trimws
     
   } else if (flag_is_intergenic == TRUE) {
@@ -1468,10 +1470,10 @@ FLI_organise_matching <- function(tibble_FLI_chr_start_end_strand, tibble_gtf_ta
 ## after the VSR is named, it is set. Nothing changes. 
 ## but because some body exons missing from the select variant may in fact have an equivalent in another splice variant, we will have to systematically match every body exon according to their lowest overlapped variant, and repeatedly re-call the VSR_select_reference_transcript_variant() function.
 ## NOTE: we are only re-matching body exons which were apparently intronic in the selected transcript.
-## Behaviour: Select lowest variant for all LISs -> rename using the common lowest variant -> for the remaining un-named intronic exons, rename if they overlapped with a separate variant.
-## inputs: VSR coords (pre-checked) and a list of start/end info for each LIS. 
-## mode: VSR or LIS
-VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start_end_per_LIS, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, mode = NULL) {
+## Behaviour: Select lowest variant for all AESs -> rename using the common lowest variant -> for the remaining un-named intronic exons, rename if they overlapped with a separate variant.
+## inputs: VSR coords (pre-checked) and a list of start/end info for each AES. 
+## mode: VSR or AES
+VSR_AES_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start_end_per_AES, flag_vsr_empty_alternate = NULL, tibble_gtf_table, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1, mode = NULL) {
   
   # DEBUG ###
   
@@ -1486,24 +1488,24 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   # no match
   # VSR_coordinates <- "16:89700400-89740923:+"
   
-  # list_tibble_exon_start_end_per_LIS <- list(
-  #     "LIS_1" = tribble(
+  # list_tibble_exon_start_end_per_AES <- list(
+  #     "AES_1" = tribble(
   #         ~start, ~end,
   #         89740100, 89740803
   #     ),
-  #     "LIS_2" = tribble(
+  #     "AES_2" = tribble(
   #         ~start, ~end,
   #         89739554, 89739993,
   #         89738975, 89739477,
   #         89738709, 89738881
   #     ),
-  #     "LIS_3" = tribble(
+  #     "AES_3" = tribble(
   #         ~start, ~end,
   #         89720400, 89720582,
   #         89737976, 89738589,
   #         89739267, 89739993
   #     ),
-  #     "LIS_4" = tribble(
+  #     "AES_4" = tribble(
   #         ~start, ~end,
   #         89739290, 89739477,
   #         89740100, 89740803
@@ -1513,11 +1515,11 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   # VSR_coordinates <- automator_input_alternative_event_region
   # NOTE: we will deliberately choose to exclude rev() sequences which means that it won't mean anything to input reversed start/end coords.
   # This is because we decided that this VSR matching program has to automate strand matching (often users aren't given strand info for input). Also it's because we can fix the user input + start/end has meaning.
-  # also, most DS tools output the LIS coords out of strand order. Therefore, we actually can't assume the user actually knows the sequence of matches. Have to consult the matched strand for that.
+  # also, most DS tools output the AES coords out of strand order. Therefore, we actually can't assume the user actually knows the sequence of matches. Have to consult the matched strand for that.
   # So that means we have to report the most common strand - **all elements which are on the oppoosite strand are made to be OS(), meaning the reverse complement.**
-  # ALSO: We also require the user to know the exact exon connectivity of each LIS. This allows us to be able to give a more general description of heterogeneous LISs, such as those derived from multiple transcripts - ordering by exon number is meaningless between transcripts.
-  # Also, all LIS coords must be in between the VSR coords. or it wont work. Triage will take care of this.
-  # list_tibble_exon_start_end_per_LIS <- list_of_exon_start_end_tibbles
+  # ALSO: We also require the user to know the exact exon connectivity of each AES. This allows us to be able to give a more general description of heterogeneous AESs, such as those derived from multiple transcripts - ordering by exon number is meaningless between transcripts.
+  # Also, all AES coords must be in between the VSR coords. or it wont work. Triage will take care of this.
+  # list_tibble_exon_start_end_per_AES <- list_of_exon_start_end_tibbles
   # tibble_gtf_table <- tibble_ref_gtf
   
   # left_query_shift <- 0
@@ -1543,24 +1545,35 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   query_VSR_end <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\3") %>% type.convert(as.is = TRUE)
   query_strand <- gsub(x = VSR_coordinates, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\5")
   
-  # detect A3SS/A5SS - they are special cases because by definition, LISs which are flush with one side of the VSR are A3/5SS events.
+  # detect A3SS/A5SS - they are special cases because by definition, AESs which are flush with one side of the VSR are A3/5SS events.
   ## if there are any alternative exons which have a co-ordinate in common with the VSR, then it's BY DEEFINITION a A3SS/A5SS exon.
   ## modify the effective VSR ends if there were boundary A3/5SS exon extensions.
   
+  # deal with no exon in alternative segment
+  # vector_logical_empty_lis_indices <- unlist(lapply(X = list_tibble_exon_start_end_per_AES, FUN = function(a1) {return(nrow(a1) == 0)} ))
+  # if (any(vector_logical_empty_lis_indices)) {
+  #   flag_automator_vsr_empty_alternate <- TRUE
+  #   
+  #   list_tibble_exon_start_end_per_AES <- list_tibble_exon_start_end_per_AES[!vector_logical_empty_lis_indices]
+  #   
+  # } else {
+  #   flag_automator_vsr_empty_alternate <- FALSE
+  # }
+  
   ## in addition, if the VSR == alternative exon, then we assume it's IR.
-  list_tibble_exon_start_end_per_LIS_flagged_extensions <- purrr::map(
-    .x = list_tibble_exon_start_end_per_LIS,
+  list_tibble_exon_start_end_per_AES_flagged_extensions <- purrr::map(
+    .x = list_tibble_exon_start_end_per_AES,
     .f = ~.x %>% 
       dplyr::mutate("left_end_of_VSR" = .x$start + left_tolerance >= query_VSR_start & .x$start - left_tolerance <= query_VSR_start,
                     "right_end_of_VSR" = .x$end + left_tolerance >= query_VSR_end & .x$end - left_tolerance <= query_VSR_end)
   )
   
-  list_tibble_exon_start_end_per_LIS_A35SS_corrected <- purrr::map(
-    .x = list_tibble_exon_start_end_per_LIS_flagged_extensions,
+  list_tibble_exon_start_end_per_AES_A35SS_corrected <- purrr::map(
+    .x = list_tibble_exon_start_end_per_AES_flagged_extensions,
     .f = function(a1) {
       
       # DEBUG ###
-      # a1 <- list_tibble_exon_start_end_per_LIS_flagged_extensions[[1]]
+      # a1 <- list_tibble_exon_start_end_per_AES_flagged_extensions[[1]]
       ###########
       
       output_tibble <- a1 %>% dplyr::mutate(
@@ -1620,13 +1633,13 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   
   tibble_global_VSR_possible_names <- name_a_single_junction(query_chr = query_chr, query_start = query_VSR_start_magnetised, query_end = query_VSR_end_magnetised, query_strand = query_strand, tibble_gtf_table = tibble_gtf_table, return_all_possibilities = TRUE, premagnetised = TRUE, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1)
   
-  ## LIS starts, ends and effective VSR starts and ends
-  list_tibble_exon_start_end_per_LIS_magnetised <- purrr::map(
-    .x = list_tibble_exon_start_end_per_LIS_A35SS_corrected,
+  ## AES starts, ends and effective VSR starts and ends
+  list_tibble_exon_start_end_per_AES_magnetised <- purrr::map(
+    .x = list_tibble_exon_start_end_per_AES_A35SS_corrected,
     .f = function(a1) {
       
       # DEBUG ###
-      # a1 <- list_tibble_exon_start_end_per_LIS_A35SS_corrected[[1]]
+      # a1 <- list_tibble_exon_start_end_per_AES_A35SS_corrected[[1]]
       ###########
       
       purrr::map(
@@ -1696,8 +1709,8 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
           }
           
           ## retrieve matched HGNC stable variant IDs
-          ### for each *LIS*, collect all the UNIQUE matched HGNC stable variant IDs.
-          ### if there are non-A3/5SS events that make up an LIS, we will also take into account the VSR-matched ref entries too.
+          ### for each *AES*, collect all the UNIQUE matched HGNC stable variant IDs.
+          ### if there are non-A3/5SS events that make up an AES, we will also take into account the VSR-matched ref entries too.
           
           return(b1 %>% 
                    dplyr::mutate(
@@ -1719,67 +1732,18 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
       
     } )
   
-  # retrieve the HGNC stable variant IDs matched to LIS vertices
-  # list_tibble_exon_start_end_per_LIS_magnetised <- purrr::map(
-  #     .x = list_tibble_exon_start_end_per_LIS_magnetised,
-  #     .f = function(a1) {
-  #         
-  #         # DEBUG ###
-  #         # a1 <- list_tibble_exon_start_end_per_LIS_magnetised[[1]]
-  #         ###########
-  #         
-  #         a1 %>% 
-  #             purrr::splice(
-  #                 "vector_hgnc_stable_transcript_ids_matched_to_LIS_vertices" = list(purrr::map(
-  #                     .x = a1,
-  #                     .f = function(b1) {
-  #                         
-  #                         # DEBUG ###
-  #                         # b1 <- a1[[1]]
-  #                         ###########
-  #                         
-  #                         if (b1$left_end_of_VSR == TRUE | b1$right_end_of_VSR == TRUE) {
-  #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end")] %>% purrr::map(~.x$hgnc_stable_transcript_ID) %>% unlist %>% unique)
-  #                         } else {
-  #                             return(b1[c("tibble_ref_entries_containing_magnetised_query_start", "tibble_ref_entries_containing_magnetised_query_end", "tibble_ref_entries_containing_magnetised_effective_VSR_start", "tibble_ref_entries_containing_magnetised_effective_VSR_end")] %>% purrr::map(~.x$hgnc_stable_transcript_ID) %>% unlist %>% unique)
-  #                         }
-  #                         
-  #                         
-  #                         
-  #                     } ) %>% unlist %>% unique)
-  #             ) %>%
-  #             return
-  #         
-  #     } )
-  
-  ## get list of the LIS-matched HGNC stable variant IDs
-  # list_LIS_matched_hgnc_stable_transcript_IDs <- purrr::map(
-  #     .x = list_tibble_exon_start_end_per_LIS_magnetised,
-  #     .f = ~.x$vector_hgnc_stable_transcript_ids_matched_to_LIS_vertices
-  # )
-  # 
-  # tally up the HGNC stable variant IDs
-  # tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices <- c(list_LIS_matched_hgnc_stable_transcript_IDs %>% unlist, vector_VSR_matched_hgnc_variant_names) %>% 
-  #     table %>%
-  #     as_tibble %>%
-  #     set_names(nm = c("hgnc_stable_transcript_ID", "tally")) %>%
-  #     dplyr::arrange(desc(tally))
-  
-  # roll with the most commonly matched transcript IDs for now
-  # vector_vertex_matched_hgnc_stable_transcript_IDs <- tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices[tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices$tally == max(tibble_tally_hgnc_stable_transcript_ids_matched_to_VSR_LIS_vertices$tally), ] %>% .$hgnc_stable_transcript_ID
-  
   # NAME THE BODY EXONS ###
-  ## loop through each LIS. in each LIS, loop through each exon and call `name_a_single_exon()`
+  ## loop through each AES. in each AES, loop through each exon and call `name_a_single_exon()`
   ## variant override with the hgnc_stable_transcript_ID tally, if any matches present.
-  list_LIS_exons_named <- purrr::map2(
-    .x = list_tibble_exon_start_end_per_LIS_magnetised,
-    .y = 1:length(list_tibble_exon_start_end_per_LIS_magnetised),
+  list_AES_exons_named <- purrr::map2(
+    .x = list_tibble_exon_start_end_per_AES_magnetised,
+    .y = 1:length(list_tibble_exon_start_end_per_AES_magnetised),
     .f = function(a1, a2) {
       
       # print(a2)
       
       # DEBUG ###
-      # a1 <- list_tibble_exon_start_end_per_LIS_magnetised[[1]]
+      # a1 <- list_tibble_exon_start_end_per_AES_magnetised[[1]]
       ###########
       
       purrr::map2(
@@ -1826,21 +1790,21 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
       
     } )
   
-  # NAME EACH LIS and combine with VSR data. ###
-  list_LIS_VSR_named_records <- purrr::imap(
-    .x = list_LIS_exons_named,
+  # NAME EACH AES and combine with VSR data. ###
+  list_AES_VSR_named_records <- purrr::imap(
+    .x = list_AES_exons_named,
     .f = function(a1, a2) {
       
       print(a2)
       
       # DEBUG ###
-      # a1 <- list_LIS_exons_named[[1]]
+      # a1 <- list_AES_exons_named[[1]]
       ###########
       
       if ( a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist] %>% length > 0 ) {
         
         # deal with exonic matches.
-        tibble_LIS_exonic_matches <- purrr::map2(
+        tibble_AES_exonic_matches <- purrr::map2(
           .x = a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist],
           .y = 1:length(a1[purrr::map(.x = a1, .f = ~is.null(.x$exonic_matches) == FALSE) %>% unlist]),
           .f = function(b1, b2) {
@@ -1850,93 +1814,93 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             # b2 <- 1:length(a1) %>% .[[1]]
             ###########
             
-            # add the exon numbers within the LIS and rbind into long tibble
+            # add the exon numbers within the AES and rbind into long tibble
             if ( is.null(b1$exonic_matches) == FALSE ) {
-              long_tibble_named_exons_in_LIS <- b1$exonic_matches %>% 
-                dplyr::mutate("number_in_LIS" = b2)
+              long_tibble_named_exons_in_AES <- b1$exonic_matches %>% 
+                dplyr::mutate("number_in_AES" = b2)
             } else if ( is.null(b1$exonic_matches) == TRUE ) {
-              long_tibble_named_exons_in_LIS <- tibble()
+              long_tibble_named_exons_in_AES <- tibble()
             }
             
             
           } ) %>% dplyr::bind_rows() %>% 
           dplyr::group_by(variant_ID_slot) %>%
-          dplyr::mutate("number_of_LIS_exons_matched_to_variant" = n(),
+          dplyr::mutate("number_of_AES_exons_matched_to_variant" = n(),
                         "match_type" = "exonic")
         
       } else {
-        tibble_LIS_exonic_matches <- tibble()
+        tibble_AES_exonic_matches <- tibble()
       }
       
       # deal with A3/5SS matches.
       # the A3/5SS junction is the effective VSR and everything splits up.
-      # the effective VSR is the same for the ENTIRE LIS, because the A3/5SS event has already defined the bounds of the VSR.
-      # if there are any A3/5SS events, then we match them together with the other exons in the LIS.
+      # the effective VSR is the same for the ENTIRE AES, because the A3/5SS event has already defined the bounds of the VSR.
+      # if there are any A3/5SS events, then we match them together with the other exons in the AES.
       # if not, then continue with the global VSR as usual.
       if ( any(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == TRUE) ) {
         
         tibble_A35SS_effective_VSR_matches <- a1[[1]]$effective_VSR_matches %>%
-          dplyr::mutate("number_in_LIS" = if ( nrow(tibble_LIS_exonic_matches) > 0 ) {max(tibble_LIS_exonic_matches$number_in_LIS) + 1} else {1},
+          dplyr::mutate("number_in_AES" = if ( nrow(tibble_AES_exonic_matches) > 0 ) {max(tibble_AES_exonic_matches$number_in_AES) + 1} else {1},
                         "vector_vertex_differences" = `query_start_match_distance` + `query_end_match_distance`,
                         "number_of_ref_elements_to_describe_exon" = 0,
                         "match_type" = "effective_VSR")
         
-        tibble_LIS_match_entries <- dplyr::bind_rows(tibble_LIS_exonic_matches, tibble_A35SS_effective_VSR_matches)
+        tibble_AES_match_entries <- dplyr::bind_rows(tibble_AES_exonic_matches, tibble_A35SS_effective_VSR_matches)
         
         # feed into global VSR if there are no A3/5SS events
       } else if ( all(purrr::map(.x = a1, .f = ~c(.x$left_end_of_VSR, .x$right_end_of_VSR)) %>% unlist == FALSE) ) {
         
-        tibble_LIS_match_entries <- tibble_LIS_exonic_matches
+        tibble_AES_match_entries <- tibble_AES_exonic_matches
         
       }
       
-      # for each LIS match entry, subset by matched HGNC stable variant ID 
-      list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID <- tibble_LIS_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
+      # for each AES match entry, subset by matched HGNC stable variant ID 
+      list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID <- tibble_AES_match_entries %>% ungroup() %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
       
       # add in the VSR matches for each HGNC stable variant ID. 
-      # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one LIS which has all exons matched to the HGNC stable variant ID
+      # we only use a common HGNC stable variant ID for VSRs ONLY if there is at least one AES which has all exons matched to the HGNC stable variant ID
       # we take the first match with the lowest delta
       list_VSR_possible_names_split_by_hgnc_stable_transcript_ID <- tibble_global_VSR_possible_names %>% dplyr::group_split(variant_ID_slot) %>% set_names(nm = purrr::map(.x = ., .f = ~.x$variant_ID_slot %>% unique) %>% unlist)
       
       # commonise the lists 
-      vector_hgnc_stable_transcript_IDs_in_common <- intersect(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_transcript_ID %>% names)
+      vector_hgnc_stable_transcript_IDs_in_common <- intersect(list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% names, list_VSR_possible_names_split_by_hgnc_stable_transcript_ID %>% names)
       
       if (length(vector_hgnc_stable_transcript_IDs_in_common) > 0) {
         
-        list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID <- purrr::map2(
-          .x = list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID[vector_hgnc_stable_transcript_IDs_in_common],
+        list_named_AES_and_VSR_split_by_hgnc_stable_transcript_ID <- purrr::map2(
+          .x = list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID[vector_hgnc_stable_transcript_IDs_in_common],
           .y = list_VSR_possible_names_split_by_hgnc_stable_transcript_ID[vector_hgnc_stable_transcript_IDs_in_common],
           .f = ~list(
-            "LIS" = .x,
+            "AES" = .x,
             "VSR" = .y)
         )
         
         # find the transcript variant with the lowest delta
-        list_LIS_VSR_record <- list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID %>% 
+        list_AES_VSR_record <- list_named_AES_and_VSR_split_by_hgnc_stable_transcript_ID %>% 
           (function(x) {
             
             # DEBUG ###
-            # x <- list_named_LIS_and_VSR_split_by_hgnc_stable_transcript_ID
+            # x <- list_named_AES_and_VSR_split_by_hgnc_stable_transcript_ID
             ###########
             
-            # whole LIS matches take priority
-            vector_metric <- purrr::map(.x = x, .f = ~nrow(.x$LIS)) %>% unlist
+            # whole AES matches take priority
+            vector_metric <- purrr::map(.x = x, .f = ~nrow(.x$AES)) %>% unlist
             list_output <- x[which(vector_metric == max(vector_metric))]
             
             # full matches take priority
-            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
+            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$AES$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "FULL") %>% length) %>% unlist
             list_output <- list_output[which(vector_metric == max(vector_metric))]
             
             # followed by half matches
-            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$LIS$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
+            vector_metric <- purrr::map(.x = list_output, .f = ~which(c(.x$AES$flag_is_exact_match, .x$VSR$flag_is_exact_match) == "HALF") %>% length) %>% unlist
             list_output <- list_output[which(vector_metric == max(vector_metric))]
             
             # followed by deltas
-            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
+            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$AES$vector_vertex_differences, .x$VSR$query_start_match_distance, .x$VSR$query_end_match_distance) %>% sum) %>% unlist
             list_output <- list_output[which(vector_metric == min(vector_metric))]
             
             # followed by number of ref exons needed to describe
-            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$LIS$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
+            vector_metric <- purrr::map(.x = list_output, .f = ~c(.x$AES$number_of_ref_elements_to_describe_exon) %>% sum) %>% unlist
             list_output <- list_output[which(vector_metric == min(vector_metric))]
             
             # and finally lowest hgnc_stable_variant_ID
@@ -1947,22 +1911,22 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
           } )
         
       } else {
-        list_LIS_VSR_record <- list()
+        list_AES_VSR_record <- list()
       }
       
-      # organise LIS matching without taking into account the global VSR. 
-      # whole LIS matches take priority
-      if ( length(list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID) > 0 ) {
+      # organise AES matching without taking into account the global VSR. 
+      # whole AES matches take priority
+      if ( length(list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID) > 0 ) {
         
         # find the transcript variant with the lowest delta
-        tibble_LIS_record <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% 
+        tibble_AES_record <- list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID %>% 
           (function(x) {
             
             # DEBUG ###
-            # x <- list_whole_LIS_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID
+            # x <- list_whole_AES_named_all_matched_exons_only_split_by_hgnc_stable_transcript_ID
             ###########
             
-            # whole LIS matches take priority
+            # whole AES matches take priority
             vector_metric <- purrr::map(.x = x, .f = ~nrow(.x)) %>% unlist
             list_output <- x[which(vector_metric == max(vector_metric))]
             
@@ -1989,22 +1953,22 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
             
           } ) %>% .[[1]]
         
-        # if no ref matches for the entire LIS, then match each LIS exon individually 
+        # if no ref matches for the entire AES, then match each AES exon individually 
       } else {
-        # generate a tibble that records the HGNC stable variant ID, the exon entry and the LIS number.
-        tibble_LIS_record <- tibble(
+        # generate a tibble that records the HGNC stable variant ID, the exon entry and the AES number.
+        tibble_AES_record <- tibble(
           "variant_ID_slot" = character(),
           "exon_slot" = character(),
-          "number_in_LIS" = numeric()
+          "number_in_AES" = numeric()
         )
         
       }
       
-      if (length(tibble_LIS_record$number_in_LIS) < max(tibble_LIS_match_entries$number_in_LIS)) {
+      if (length(tibble_AES_record$number_in_AES) < max(tibble_AES_match_entries$number_in_AES)) {
         
-        tibble_LIS_record <- tibble_LIS_match_entries %>% 
+        tibble_AES_record <- tibble_AES_match_entries %>% 
           dplyr::ungroup() %>%
-          dplyr::group_split(number_in_LIS) %>% 
+          dplyr::group_split(number_in_AES) %>% 
           purrr::map(
             .f = ~.x %>%
               # full matches take priority
@@ -2017,34 +1981,34 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
               .[.$number_of_ref_elements_to_describe_exon == min(.$number_of_ref_elements_to_describe_exon), ] %>%
               # and finally lowest hgnc_stable_variant_ID
               .[.$variant_ID_slot == (.$variant_ID_slot %>% mixedsort %>% .[1]), ]
-          ) %>% dplyr::bind_rows() %>% dplyr::bind_rows(.[!.$number_in_LIS %in% .$number_in_LIS, ])
+          ) %>% dplyr::bind_rows() %>% dplyr::bind_rows(.[!.$number_in_AES %in% .$number_in_AES, ])
         
       }
       
       return(list(
-        "list_LIS_VSR_record" = list_LIS_VSR_record,
-        "tibble_LIS_record" = tibble_LIS_record
+        "list_AES_VSR_record" = list_AES_VSR_record,
+        "tibble_AES_record" = tibble_AES_record
       ) )
       
     } )
   
   # finalise matching and names
   vector_segments_with_global_VSR_authority <- which(purrr::map(
-    .x = list_LIS_VSR_named_records,
-    .f = ~.x$list_LIS_VSR_record %>% length
+    .x = list_AES_VSR_named_records,
+    .f = ~.x$list_AES_VSR_record %>% length
   ) %>% unlist > 0)
   
-  # if there is VSR authority, then we extract the LIS/VSR combinations and go thru the list once again.
+  # if there is VSR authority, then we extract the AES/VSR combinations and go thru the list once again.
   if (length(vector_segments_with_global_VSR_authority) > 0) {
     
     tibble_global_VSR_authority <- purrr::map(
-      .x = list_LIS_VSR_named_records[vector_segments_with_global_VSR_authority],
+      .x = list_AES_VSR_named_records[vector_segments_with_global_VSR_authority],
       .f = ~tibble(
-        "variant_ID_slot" = .x$list_LIS_VSR_record$VSR$variant_ID_slot,
-        "full_match_count" = length(which(.x$list_LIS_VSR_record$VSR$flag_is_exact_match == "FULL")) + length(which(.x$list_LIS_VSR_record$LIS$flag_is_exact_match == "FULL")),
-        "half_match_count" = length(which(.x$list_LIS_VSR_record$VSR$flag_is_exact_match == "HALF")) + length(which(.x$list_LIS_VSR_record$LIS$flag_is_exact_match == "HALF")),
-        "delta_sum" = c(.x$list_LIS_VSR_record$VSR$query_start_match_distance, .x$list_LIS_VSR_record$VSR$query_end_match_distance, .x$list_LIS_VSR_record$LIS$vector_vertex_differences) %>% sum,
-        "number_of_ref_elements_sum" = .x$list_LIS_VSR_record$LIS$number_of_ref_elements_to_describe_exon %>% sum
+        "variant_ID_slot" = .x$list_AES_VSR_record$VSR$variant_ID_slot,
+        "full_match_count" = length(which(.x$list_AES_VSR_record$VSR$flag_is_exact_match == "FULL")) + length(which(.x$list_AES_VSR_record$AES$flag_is_exact_match == "FULL")),
+        "half_match_count" = length(which(.x$list_AES_VSR_record$VSR$flag_is_exact_match == "HALF")) + length(which(.x$list_AES_VSR_record$AES$flag_is_exact_match == "HALF")),
+        "delta_sum" = c(.x$list_AES_VSR_record$VSR$query_start_match_distance, .x$list_AES_VSR_record$VSR$query_end_match_distance, .x$list_AES_VSR_record$AES$vector_vertex_differences) %>% sum,
+        "number_of_ref_elements_sum" = .x$list_AES_VSR_record$AES$number_of_ref_elements_to_describe_exon %>% sum
       )
     ) %>% dplyr::bind_rows()
     
@@ -2056,12 +2020,12 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
       .[.$variant_ID_slot == (mixedsort(.$variant_ID_slot %>% .[1])), ] %>% 
       .$variant_ID_slot %>% .[1]
     
-    # retrieve list indices of LISs which have VSR override as a result
-    # these are the LISs which have been matched to the same hgnc_stable_transcript_ID as the VSR variant ID
-    logical_indices_LIS_with_global_VSR_override <- (1:length(list_LIS_VSR_named_records)) %in% (vector_segments_with_global_VSR_authority[purrr::map(.x = list_LIS_VSR_named_records[vector_segments_with_global_VSR_authority], .f = ~.x$list_LIS_VSR_record$VSR$variant_ID_slot == global_VSR_variant_ID_slot) %>% unlist])
+    # retrieve list indices of AESs which have VSR override as a result
+    # these are the AESs which have been matched to the same hgnc_stable_transcript_ID as the VSR variant ID
+    logical_indices_AES_with_global_VSR_override <- (1:length(list_AES_VSR_named_records)) %in% (vector_segments_with_global_VSR_authority[purrr::map(.x = list_AES_VSR_named_records[vector_segments_with_global_VSR_authority], .f = ~.x$list_AES_VSR_record$VSR$variant_ID_slot == global_VSR_variant_ID_slot) %>% unlist])
     
     # retrieve VSR tibble from the first matching VSR table in the list
-    tibble_global_VSR_final_naming <- list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override][[1]]$list_LIS_VSR_record$VSR
+    tibble_global_VSR_final_naming <- list_AES_VSR_named_records[logical_indices_AES_with_global_VSR_override][[1]]$list_AES_VSR_record$VSR
     
     if (tibble_global_VSR_final_naming$matched_strand == "+") {
       global_VSR_left_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
@@ -2071,10 +2035,10 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
       global_VSR_right_slot <- tibble_global_VSR_final_naming$exon_slot_query_start
     }
     
-    # if no VSR authority, then VSR and LISs will be independently named 
+    # if no VSR authority, then VSR and AESs will be independently named 
   } else if (length(vector_segments_with_global_VSR_authority) == 0) {
     
-    logical_indices_LIS_with_global_VSR_override <- FALSE %>% rep(times = length(list_LIS_VSR_named_records))
+    logical_indices_AES_with_global_VSR_override <- FALSE %>% rep(times = length(list_AES_VSR_named_records))
     
     tibble_global_VSR_final_naming <- tibble_global_VSR_possible_names %>% 
       .[if (any(.$flag_is_exact_match == "FULL")) {.$flag_is_exact_match == "FULL"} else {TRUE}, ] %>% 
@@ -2094,35 +2058,35 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
     
   }
   
-  # name the LIS
+  # name the AES
   ## deal with VSR override 
-  ## VSR override: modify the list of LIS/VSR records by preserving only the LIS consistent with VSR match
-  list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override] <- list_LIS_VSR_named_records[logical_indices_LIS_with_global_VSR_override] %>% purrr::map(~.x$list_LIS_VSR_record$LIS)
-  ## no VSR override: modify by keeping only the independent LIS match
-  list_LIS_VSR_named_records[!logical_indices_LIS_with_global_VSR_override] <- list_LIS_VSR_named_records[!logical_indices_LIS_with_global_VSR_override] %>% purrr::map(~.x$tibble_LIS_record)
+  ## VSR override: modify the list of AES/VSR records by preserving only the AES consistent with VSR match
+  list_AES_VSR_named_records[logical_indices_AES_with_global_VSR_override] <- list_AES_VSR_named_records[logical_indices_AES_with_global_VSR_override] %>% purrr::map(~.x$list_AES_VSR_record$AES)
+  ## no VSR override: modify by keeping only the independent AES match
+  list_AES_VSR_named_records[!logical_indices_AES_with_global_VSR_override] <- list_AES_VSR_named_records[!logical_indices_AES_with_global_VSR_override] %>% purrr::map(~.x$tibble_AES_record)
   
   # find where A3/5SS events are. we will have to split them up and refactorise.
-  logical_LIS_containing_A35SS <- purrr::map(.x = list_tibble_exon_start_end_per_LIS_A35SS_corrected, .f = ~any(c(.x$left_end_of_VSR, .x$right_end_of_VSR) == TRUE)) %>% unlist
+  logical_AES_containing_A35SS <- purrr::map(.x = list_tibble_exon_start_end_per_AES_A35SS_corrected, .f = ~any(c(.x$left_end_of_VSR, .x$right_end_of_VSR) == TRUE)) %>% unlist
   
-  # finalise LIS naming
+  # finalise AES naming
   ## IF VSR override present: don't explicitly specify the variant ID.
-  ## NOTE: there will never be mixed variant IDs whenever there is VSR authority because we only considered VSR authority if there was an exact LIS match to the variant ID.
+  ## NOTE: there will never be mixed variant IDs whenever there is VSR authority because we only considered VSR authority if there was an exact AES match to the variant ID.
   
-  list_final_LIS_name <- purrr::pmap(
+  list_final_AES_name <- purrr::pmap(
     .l = list(
-      "a1" = list_LIS_VSR_named_records,
-      "a2" = logical_indices_LIS_with_global_VSR_override,
-      "a3" = logical_LIS_containing_A35SS,
-      "a4" = 1:length(logical_LIS_containing_A35SS)
+      "a1" = list_AES_VSR_named_records,
+      "a2" = logical_indices_AES_with_global_VSR_override,
+      "a3" = logical_AES_containing_A35SS,
+      "a4" = 1:length(logical_AES_containing_A35SS)
     ),
     .f = function(a1, a2, a3, a4) {
       
       print(a4)
       
       # DEBUG ###
-      # a1 <- list_LIS_VSR_named_records[[1]]
-      # a2 <- logical_indices_LIS_with_global_VSR_override[[1]]
-      # a3 <- logical_LIS_containing_A35SS[[1]]
+      # a1 <- list_AES_VSR_named_records[[1]]
+      # a2 <- logical_indices_AES_with_global_VSR_override[[1]]
+      # a3 <- logical_AES_containing_A35SS[[1]]
       ###########
       
       tibble_exonic_records <- a1[a1$match_type == "exonic", ]
@@ -2187,32 +2151,36 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
       
     } ) 
   
+  if (flag_vsr_empty_alternate == TRUE) {
+    list_final_AES_name <- unlist(list(list_final_AES_name, ""), recursive = FALSE)
+  }
+  
   # deal with A3/5SS events which will cause everything to split up
-  # in those cases, we will need to add the global VSR in every LIS except the A3/5SS-containing ones
-  if ( any(logical_LIS_containing_A35SS == TRUE) ) {
+  # in those cases, we will need to add the global VSR in every AES except the A3/5SS-containing ones
+  if ( any(logical_AES_containing_A35SS == TRUE) ) {
     
-    list_final_LIS_name[!logical_LIS_containing_A35SS] <- purrr::map(
-      .x = list_final_LIS_name[!logical_LIS_containing_A35SS],
+    list_final_AES_name[!logical_AES_containing_A35SS] <- purrr::map(
+      .x = list_final_AES_name[!logical_AES_containing_A35SS],
       .f = ~paste("(", global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", .x, " ", global_VSR_right_slot, ")", sep = "")
     )
     
-    final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
+    final_nomenclature <- list_final_AES_name %>% paste(collapse = "/")
     
     # if no A3/5SS events at all, then simply apply the global VSR as usual   
-  } else if ( all(logical_LIS_containing_A35SS == FALSE) ) {
+  } else if ( all(logical_AES_containing_A35SS == FALSE) ) {
     
     # we do the splitting up thing if we have just a few alternative events that have a mix of variant override and no override
-    if ( any(logical_indices_LIS_with_global_VSR_override == FALSE) ) {
+    if ( any(logical_indices_AES_with_global_VSR_override == FALSE) ) {
       
-      list_final_LIS_name[logical_indices_LIS_with_global_VSR_override] <- purrr::map(
-        .x = list_final_LIS_name[logical_indices_LIS_with_global_VSR_override],
+      list_final_AES_name[logical_indices_AES_with_global_VSR_override] <- purrr::map(
+        .x = list_final_AES_name[logical_indices_AES_with_global_VSR_override],
         .f = ~paste("(", global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", .x, " ", global_VSR_right_slot, ")", sep = "")
       )
       
-      final_nomenclature <- list_final_LIS_name %>% paste(collapse = "/")
+      final_nomenclature <- list_final_AES_name %>% paste(collapse = "/")
       
     } else {
-      final_nomenclature <- paste(global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", if ( length(list_final_LIS_name) > 1 ) { paste("(", paste(list_final_LIS_name, collapse = "/"), ")", sep = "") } else { paste(list_final_LIS_name, collapse = "/") }, " ", global_VSR_right_slot, sep = "")
+      final_nomenclature <- paste(global_VSR_variant_ID_slot, " ", global_VSR_left_slot, " ", if ( length(list_final_AES_name) > 1 ) { paste("(", paste(list_final_AES_name, collapse = "/"), ")", sep = "") } else { paste(list_final_AES_name, collapse = "/") }, " ", global_VSR_right_slot, sep = "")
     }
     
   }
@@ -2221,7 +2189,7 @@ VSR_LIS_organise_exon_naming <- function(VSR_coordinates, list_tibble_exon_start
   
 }
 
-# END VSR_LIS_organise_exon_naming() ###
+# END VSR_AES_organise_exon_naming() ###
 
 # LSVs, AJ: FUNCTION TO GENERALLY MATCH AN UNLIMITED NUMBER OF JUNCTIONS IN A REGION OF VARIABLE SPLICING
 ## accepts a tibble of chr/start/end/strand of junctions, assumed from the same LSV.
@@ -2431,9 +2399,9 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
               )
               
               if (flag_junction_start_is_exonic == TRUE) {
-                left_modifier_slot <- paste("–", closest_RHS_reference_vertex_to_junction_start - a1, sep = "")
+                left_modifier_slot <- paste("Δ", closest_RHS_reference_vertex_to_junction_start - a1, sep = "")
               } else if (flag_junction_start_is_exonic == FALSE) {
-                left_modifier_slot <- paste("+", a1 - closest_LHS_reference_vertex_to_junction_start, sep = "")
+                left_modifier_slot <- paste("∇", a1 - closest_LHS_reference_vertex_to_junction_start, sep = "")
               }
               
               # JUNCTION END
@@ -2452,9 +2420,9 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
               )
               
               if (flag_junction_end_is_exonic == TRUE) {
-                right_modifier_slot <- paste("–", a2 - closest_LHS_reference_vertex_to_junction_end, sep = "")
+                right_modifier_slot <- paste("Δ", a2 - closest_LHS_reference_vertex_to_junction_end, sep = "")
               } else if (flag_junction_end_is_exonic == FALSE) {
-                right_modifier_slot <- paste("+", closest_RHS_reference_vertex_to_junction_end - a2, sep = "")
+                right_modifier_slot <- paste("∇", closest_RHS_reference_vertex_to_junction_end - a2, sep = "")
               }
               
               if (LSV_strand == "-") {
@@ -2502,7 +2470,7 @@ LSV_AJ_organise_junction_matching <- function(tibble_LSV_coords, tibble_gtf_tabl
 
 # AE: FUNCTION TO NAME A SINGLE EXON
 # we will take an exon's coordinates and find overlapping counterparts in the reference. Then add exon modifiers as required.
-# return_all_possibilities: return not only the lowest HGNC stable variant ID, but all matches. THis is for doing LIS or VSR.
+# return_all_possibilities: return not only the lowest HGNC stable variant ID, but all matches. THis is for doing AES or VSR.
 # premagnetised: if TRUE, then this will do magnetisation for edge tolerance cases. if FALSE, such as calls from VSR naming, then treat query starts and ends as is and don't use tolerance.
 name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
   
@@ -2601,7 +2569,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
         print(a2)
         
         # DEBUG ###
-        # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort %>% .[[32]]
+        # a1 <- tibble_overlapping_reference_transcripts$hgnc_stable_transcript_ID %>% mixedsort %>% .[[1]]
         ###########
         
         tibble_subset_ref_exons <- tibble_gtf_table[which(tibble_gtf_table$hgnc_stable_transcript_ID == a1 & tibble_gtf_table$type == "exon"), ] %>% .[mixedorder(.$exon_number), ]
@@ -2686,7 +2654,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_start_distance_to_vertex <- lowest_start_coord_greater_than_query_start - query_start
             
             # get distance modifier
-            query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+            query_start_distance_modifier <- paste("∇", query_start_distance_to_vertex, sep = "")
             
           } else if (logical_query_start_is_further_than_50_pct == TRUE) {
             
@@ -2699,7 +2667,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_start_distance_to_vertex <- query_start - highest_start_coord_less_than_query_start
             
             # get distance modifier
-            query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
+            query_start_distance_modifier <- paste("Δ", query_start_distance_to_vertex, sep = "")
             
           }
           
@@ -2723,7 +2691,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_end_distance_to_vertex <- query_end - highest_end_coord_less_than_query_end
             
             # get distance modifier
-            query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+            query_end_distance_modifier <- paste("∇", query_end_distance_to_vertex, sep = "")
             
           } else if (logical_query_end_is_further_than_50_pct == TRUE) {
             
@@ -2736,7 +2704,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_end_distance_to_vertex <- lowest_end_coord_greater_than_query_end - query_end
             
             # get distance modifier
-            query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
+            query_end_distance_modifier <- paste("Δ", query_end_distance_to_vertex, sep = "")
             
           }
           
@@ -2763,7 +2731,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_end_distance_to_vertex <- query_end - highest_end_coord_less_than_query_end
             
             # get distance modifier
-            query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+            query_end_distance_modifier <- paste("∇", query_end_distance_to_vertex, sep = "")
             
           } else if (logical_query_end_is_further_than_50_pct == TRUE) {
             
@@ -2776,7 +2744,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_end_distance_to_vertex <- lowest_end_coord_greater_than_query_end - query_end
             
             # get distance modifier
-            query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
+            query_end_distance_modifier <- paste("Δ", query_end_distance_to_vertex, sep = "")
             
           }
           
@@ -2803,7 +2771,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_start_distance_to_vertex <- lowest_start_coord_greater_than_query_start - query_start
             
             # get distance modifier
-            query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+            query_start_distance_modifier <- paste("∇", query_start_distance_to_vertex, sep = "")
             
           } else if (logical_query_start_is_further_than_50_pct == TRUE) {
             
@@ -2816,7 +2784,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             query_start_distance_to_vertex <- query_start - highest_start_coord_less_than_query_start
             
             # get distance modifier
-            query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
+            query_start_distance_modifier <- paste("Δ", query_start_distance_to_vertex, sep = "")
             
           }
           
@@ -2833,7 +2801,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
           query_start_distance_to_vertex <- leftmost_exon_start - query_start
           
           # get distance modifier
-          query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+          query_start_distance_modifier <- paste("∇", query_start_distance_to_vertex, sep = "")
           
         }
         
@@ -2848,7 +2816,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
           query_end_distance_to_vertex <- query_end - rightmost_exon_end
           
           # get distance modifier
-          query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+          query_end_distance_modifier <- paste("∇", query_end_distance_to_vertex, sep = "")
           
         }
         
@@ -2872,7 +2840,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
         number_of_ref_elements_to_describe_exon <- length(list_exon_slot)
         
         if (length(list_exon_slot) > 3) {
-          list_exon_slot <- list(list_exon_slot[[1]], "++", list_exon_slot[[length(list_exon_slot)]])
+          list_exon_slot <- list(list_exon_slot[[1]], "_", list_exon_slot[[length(list_exon_slot)]])
         }
         
         if (query_start_distance_to_vertex == 0 & query_end_distance_to_vertex == 0) {
@@ -2881,9 +2849,9 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
         } else if (query_start_distance_to_vertex == 0 | query_end_distance_to_vertex == 0) {
           flag_is_exact_match <- "HALF"
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
-            exon_slot <- paste(query_start_distance_modifier, paste(list_exon_slot, collapse = " "), query_end_distance_modifier, sep = "") %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = "")
+            exon_slot <- paste(query_start_distance_modifier, paste(list_exon_slot, collapse = " "), query_end_distance_modifier, sep = "") %>% gsub(pattern = "\\+∇", replacement = "") %>% gsub(pattern = "\\Δ0", replacement = "")
           } else if (tibble_subset_ref_exons$strand %>% .[1] == "-") {
-            exon_slot <- paste(query_end_distance_modifier, paste(list_exon_slot, collapse = " "), query_start_distance_modifier, sep = "") %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = "")
+            exon_slot <- paste(query_end_distance_modifier, paste(list_exon_slot, collapse = " "), query_start_distance_modifier, sep = "") %>% gsub(pattern = "\\+∇", replacement = "") %>% gsub(pattern = "\\Δ0", replacement = "")
           }
         } else {
           flag_is_exact_match <- "NO"
@@ -2893,8 +2861,6 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
             exon_slot <- paste(query_end_distance_modifier, paste(list_exon_slot, collapse = " "), query_start_distance_modifier, sep = "")
           }
         }
-        
-        exon_slot <- gsub(x = exon_slot, pattern = " \\+\\+ ", replacement = "++")
         
         return(
           tibble(
@@ -2925,7 +2891,7 @@ name_a_single_exon <- function(query_chr, query_start, query_end, query_strand, 
 # we will take a junction's coordinates and find overlapping counterparts in the reference. Then add modifiers as required. 
 # we will not use intron symbols at this stage.
 # return all possible matches for EACH junction end. This is because a junction can match two different transcripts at the same time
-# return_all_possibilities: return not only the lowest HGNC stable variant ID, but all matches. THis is for doing LIS or VSR.
+# return_all_possibilities: return not only the lowest HGNC stable variant ID, but all matches. THis is for doing AES or VSR.
 # premagnetised: if TRUE, then this will do magnetisation for edge tolerance cases. if FALSE, such as calls from VSR naming, then treat query starts and ends as is and don't use tolerance.
 name_a_single_junction <- function(query_chr, query_start, query_end, query_strand, tibble_gtf_table, return_all_possibilities = NULL, premagnetised = NULL, left_query_shift = 0, right_query_shift = 0, left_tolerance = 1, right_tolerance = 1) {
   
@@ -3082,7 +3048,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           query_start_distance_to_vertex <- leftmost_exon_start - query_start
           
           # get distance modifier
-          query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+          query_start_distance_modifier <- paste("∇", query_start_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_start <- paste("5'(", query_start_distance_modifier,"E", query_start_exon_number, ")", sep = "")
@@ -3102,7 +3068,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           
           query_start_distance_to_vertex <- (tibble_subset_ref_exons[tibble_subset_ref_exons$exon_number == query_start_exon_number, ] %>% .$end) - query_start + 1
           
-          query_start_distance_modifier <- paste("–", query_start_distance_to_vertex, sep = "")
+          query_start_distance_modifier <- paste("Δ", query_start_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_start <- paste("E", query_start_exon_number, query_start_distance_modifier, sep = "")
@@ -3117,7 +3083,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           
           query_start_distance_to_vertex <- query_start - closest_ref_vertex_to_the_left_of_query_start - 1
           
-          query_start_distance_modifier <- paste("+", query_start_distance_to_vertex, sep = "")
+          query_start_distance_modifier <- paste("∇", query_start_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_start <- paste("E", query_start_exon_number, query_start_distance_modifier, sep = "")
@@ -3144,7 +3110,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           query_end_distance_to_vertex <- query_end - rightmost_exon_end
           
           # get distance modifier
-          query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+          query_end_distance_modifier <- paste("∇", query_end_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_end <- paste("(", "E", query_end_exon_number, query_end_distance_modifier, ")3'", sep = "")
@@ -3164,7 +3130,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           
           query_end_distance_to_vertex <- query_end - (tibble_subset_ref_exons[tibble_subset_ref_exons$exon_number == query_end_exon_number, ] %>% .$start) + 1
           
-          query_end_distance_modifier <- paste("–", query_end_distance_to_vertex, sep = "")
+          query_end_distance_modifier <- paste("Δ", query_end_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_end <- paste(query_end_distance_modifier, "E", query_end_exon_number, sep = "")
@@ -3179,7 +3145,7 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
           
           query_end_distance_to_vertex <- closest_ref_vertex_to_the_right_of_query_end - query_end - 1
           
-          query_end_distance_modifier <- paste("+", query_end_distance_to_vertex, sep = "")
+          query_end_distance_modifier <- paste("∇", query_end_distance_to_vertex, sep = "")
           
           if (tibble_subset_ref_exons$strand %>% .[1] == "+") {
             exon_slot_query_end <- paste(query_end_distance_modifier, "E", query_end_exon_number, sep = "")
@@ -3192,8 +3158,8 @@ name_a_single_junction <- function(query_chr, query_start, query_end, query_stra
         return(
           tibble(
             "variant_ID_slot" = a1,
-            "exon_slot_query_start" = exon_slot_query_start %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = ""),
-            "exon_slot_query_end" = exon_slot_query_end %>% gsub(pattern = "\\+0", replacement = "") %>% gsub(pattern = "\\–0", replacement = ""),
+            "exon_slot_query_start" = exon_slot_query_start %>% gsub(pattern = "\\∇0", replacement = "") %>% gsub(pattern = "\\Δ0", replacement = ""),
+            "exon_slot_query_end" = exon_slot_query_end %>% gsub(pattern = "\\∇0", replacement = "") %>% gsub(pattern = "\\Δ0", replacement = ""),
             "flag_is_exact_match" = if ((query_start_distance_to_vertex + query_end_distance_to_vertex) == 0) {"FULL"} else if (query_start_distance_to_vertex == 0 | query_end_distance_to_vertex == 0) {"HALF"} else {"NO"},
             "query_start_match_distance" = query_start_distance_to_vertex,
             "query_end_match_distance" = query_end_distance_to_vertex,
@@ -3338,122 +3304,229 @@ parse_input_coordinates <- function(input_coordinates, vector_of_expected_chromo
 
 ### SHINY ####
 
+df_feedback <- data.frame(
+  question = c("EDN Automator: general thoughts and opinions", "EDN Automator: what did you like about it?", "EDN Automator: what didn't you like about it?", "EDN Automator: any suggestions to improve? what other features would you like to see?", "EDN Viewer: general thoughts and opinions", "EDN Viewer: what did you like about it?", "EDN Viewer: what didn't you like about it?", "EDN Viewer: any suggestions to improve? what other features would you like to see?"),
+  option = c("Your Answer", "Your Answer"),
+  input_type = c("text", "text"),
+  input_id = c("feedback_automator_general", "feedback_automator_positives", "feedback_automator_negatives", "feedback_automator_suggestions", "feedback_viewer_general", "feedback_viewer_positives", "feedback_viewer_negatives", "feedback_viewer_suggestions"),
+  dependence = c(NA, NA, NA, NA, NA, NA, NA, NA),
+  dependence_value = c(NA, NA, NA, NA, NA, NA, NA, NA),
+  required = c(TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+)
+
 ui <- fluidPage(
   
   navbarPage(title = div(img(src = "EDN_suite_hex_sticker-03.png", alt = "EDN Suite hex sticker", width = "32px"), "EDN Suite", style = "position: relative; left: -5px; top: -5px;"),
              tabPanel(icon("info"),
                       
-                      fluidRow(
-                        
-                        column(width = 12, ######
-                               
-                               h4(strong("About this app")),
-                               p("This is a collection of tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
-                                 br(),
-                                 br(),
-                                 strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
-                                 br(),
-                                 strong("EDN Viewer: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
-                               br(),
-                               h4(strong("Data information and download")),
-                               div("All reference data is retrieved from Ensembl. Use the below options to retrieve the Ensembl annotations and other databases which have been reannotated with HGNC stable IDs. Also available are the raw intermediate files used to generate the HGNC stable ID information.",
-                                   br(),
-                                   br(),
-                                   selectInput("info_annotationtable_downloadchoice", 
-                                               label = "Select the annotation file to download", 
-                                               choices = list("Ensembl" = list.files(path = "data/", pattern = "annotated_ensembl_gtf_release_.*.txt", full.names = FALSE),
-                                                              "biomart" = list.files(path = "data/", pattern = "biomart_tracks_.*.txt", full.names = FALSE),
-                                                              "dbPTM" = list.files(path = "data/", pattern = "dbPTM_tracks_.*.txt", full.names = FALSE),
-                                                              "Other" = c("ENSP_retirement_status.txt", "ENST_retirement_status.txt", "total_mapping_table_proteins.txt", "total_mapping_table_transcripts.txt", "all_files.zip")
-                                               ), 
-                                               width = "300px"
-                                   ),
-                                   downloadButton("info_annotationtable_downloadbutton", "Download Results"),
-                                   style="text-align:justify; color:black; background-color:papayawhip; padding:15px ;border-radius:10px"),
-                               
-                        ),
-                        
-                        # save this for publication link shenanigans.
-                        # column(
-                        #     br(),
-                        #     tags$img(src="Gobernacion.png",width="200px",height="130px"),
-                        #     br(),
-                        #     br(),
-                        #     p("For more information please check the",em("Anuario Estadístico de Antioquia's"),"page clicking",
-                        #       br(),
-                        #       a(href="http://www.antioquiadatos.gov.co/index.php/anuario-estadistico-de-antioquia-2016", "Here",target="_blank"),style="text-align:center;color:black"),
-                        #     
-                        #     width = 6))
-                      ) # fluidRow ######
-                      
-             ), # tabPanel
-             
-             tabPanel("Examples",
-                      
-                      fluidRow(
-                        column(width = 12,
-                               p(
-                                 h2("Examples"),
-                                 navbarPage(title = NULL, 
+                      navbarPage(title = NULL, 
+                                 
+                                 tabPanel("About",
+                                          
+                                          fluidRow(
                                             
-                                            tabPanel("EDN Automator",
-                                                     fluidRow(
-                                                       column(width = 12,
-                                                              p(
-                                                                h3("Example: naming a splice junction in C1GALT1 given hg38 coordinates 7:7157427-7234302"),
-                                                                "1.	Import the annotations for the hg38 genome assembly",
-                                                                br(),
-                                                                img(src = "example_1_automator_step1.png", alt = "Example 1 of Automator, step 1", width = "256px"),
-                                                                br(),
-                                                                "2.	 Select the option to name a single junction",
-                                                                br(),
-                                                                img(src = "example_1_automator_step2.png", alt = "Example 1 of Automator, step 2", width = "256px"),
-                                                                br(),
-                                                                "3.	Type in the desired co-ordinates",
-                                                                br(),
-                                                                img(src = "example_1_automator_step3.png", alt = "Example 1 of Automator, step 3", width = "256px"),
-                                                                br(),
-                                                                "4.	Click “Generate shorthand” and the correct nomenclature is generated",
-                                                                br(),
-                                                                img(src = "example_1_automator_step4.png", alt = "Example 1 of Automator, step 4", width = "256px")
-                                                              ))
-                                                     )),
+                                            column(width = 12, ######
+                                                   
+                                                   h4(strong("About this app")),
+                                                   p("This is a collection of tools to help generate, visualise, interpret and compare splicing events using the Extended Delta Notation.",
+                                                     br(),
+                                                     br(),
+                                                     strong("EDN Automator: "), "Automatically generates a publication-ready shorthand based on genomic co-ordinates.",
+                                                     br(),
+                                                     strong("EDN Viewer: "), "From user-given ranges provided in genomic co-ordinates, draws a schematic of matches to reference transcripts. HGNC stable variant IDs and exon numbering is explicitly shown for each transcript and distances to the nearest exon vertices are automatically calculated. This is useful for contextualising a given co-ordinate range in terms of reference transcripts, as well as for manually building the shorthand.", style = "text-align:justify; color:black; background-color:lavender;padding:15px; border-radius:10px"),
+                                                   br(),
+                                                   h4(strong("Data information and download")),
+                                                   div("All reference data is retrieved from Ensembl. Use the below options to retrieve the Ensembl annotations and other databases which have been reannotated with HGNC stable IDs. Also available are the raw intermediate files used to generate the HGNC stable ID information.",
+                                                       br(),
+                                                       br(),
+                                                       selectInput("info_annotationtable_downloadchoice", 
+                                                                   label = "Select the annotation file to download", 
+                                                                   choices = list("Ensembl" = list.files(path = "data/", pattern = "annotated_ensembl_gtf_release_.*.txt", full.names = FALSE),
+                                                                                  "biomart" = list.files(path = "data/", pattern = "biomart_tracks_.*.txt", full.names = FALSE),
+                                                                                  "dbPTM" = list.files(path = "data/", pattern = "dbPTM_tracks_.*.txt", full.names = FALSE),
+                                                                                  "Other" = c("ENSP_retirement_status.txt", "ENST_retirement_status.txt", "total_mapping_table_proteins.txt", "total_mapping_table_transcripts.txt", "all_files.zip")
+                                                                   ), 
+                                                                   width = "300px"
+                                                       ),
+                                                       downloadButton("info_annotationtable_downloadbutton", "Download Results"),
+                                                       style="text-align:justify; color:black; background-color:papayawhip; padding:15px ;border-radius:10px")
+                                            ),
                                             
-                                            tabPanel("EDN Viewer",
-                                                     fluidRow(
-                                                       column(width = 12,
-                                                              p(
-                                                                h3("Example: visualising the relative position of an internal exon in SUGCT given hg38 coordinates 7:40815512-40815803"),
-                                                                "1.	Import the annotations for the hg38 genome assembly",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
-                                                                br(),
-                                                                "2.	Select “Exon” as the type of range to describe",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
-                                                                br(),
-                                                                "3.	Enter the co-ordinates and click “Add range”. It should say “triage successful”, indicating the format of co-ordinates is correct",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step3.png", alt = "Example 2 of Automator, step 3", width = "256px"),
-                                                                br(),
-                                                                "4.	The Schematic should now display your exon of interest in the bottom panel. The dotted red lines display the exon’s position with respect to the reference genome. The red arrows and their associated numbers indicate how far the nearest reference exon is from the 5’ or 3’ of the exon of interest. 
+                                            # save this for publication link shenanigans.
+                                            # column(
+                                            #     br(),
+                                            #     tags$img(src="Gobernacion.png",width="200px",height="130px"),
+                                            #     br(),
+                                            #     br(),
+                                            #     p("For more information please check the",em("Anuario Estadístico de Antioquia's"),"page clicking",
+                                            #       br(),
+                                            #       a(href="http://www.antioquiadatos.gov.co/index.php/anuario-estadistico-de-antioquia-2016", "Here",target="_blank"),style="text-align:center;color:black"),
+                                            #     
+                                            #     width = 6))
+                                          ) # fluidRow ######
+                                 ),
+                                 
+                                 tabPanel("Examples",
+                                          
+                                          fluidRow(
+                                            column(width = 12,
+                                                     navbarPage(title = NULL, 
+                                                     tabPanel("EDN Automator",
+                                                              fluidRow(
+                                                                column(width = 12,
+                                                                       # p(
+                                                                       #   h3("Example: naming a splice junction in C1GALT1 given hg38 coordinates 7:7157427-7234302"),
+                                                                       #   "1.	Import the annotations for the hg38 genome assembly",
+                                                                       #   br(),
+                                                                       #   img(src = "example_1_automator_step1.png", alt = "Example 1 of Automator, step 1", width = "256px"),
+                                                                       #   br(),
+                                                                       #   "2.	 Select the option to name a single junction",
+                                                                       #   br(),
+                                                                       #   img(src = "example_1_automator_step2.png", alt = "Example 1 of Automator, step 2", width = "256px"),
+                                                                       #   br(),
+                                                                       #   "3.	Type in the desired co-ordinates",
+                                                                       #   br(),
+                                                                       #   img(src = "example_1_automator_step3.png", alt = "Example 1 of Automator, step 3", width = "256px"),
+                                                                       #   br(),
+                                                                       #   "4.	Click “Generate shorthand” and the correct nomenclature is generated",
+                                                                       #   br(),
+                                                                       #   img(src = "example_1_automator_step4.png", alt = "Example 1 of Automator, step 4", width = "256px")
+                                                                       # ),
+                                                                       p(
+                                                                         h3("Example 1: Naming a transcript of ", em("RPL27")),
+                                                                         br(),
+                                                                         "The EDN Automator allows users to generate EDN expressions for full-length transcript isoforms by either uploading a GTF file with genomic co-ordinates or by manually entering exon co-ordinates. GTF files may contain information for more than one transcript, and the EDN Automator automatically names all transcripts specified in the file. On the other hand, transcripts manually specified by the user may only be done one at a time. The following example pertains to the manual entry of exon co-ordinates belonging to a transcript ENST00000253788.12 of ", em("RPL27:"),
+                                                                         br(),
+                                                                         "1.	Select “Manually enter exon co-ordinates” from the drop-down box",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_1.png", alt = "Example 1 of Automator, step 1", width = "256px"),
+                                                                         br(),
+                                                                         "2.	 Select the genome assembly from the drop-down box and click \"Import annotation file\"",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_2.png", alt = "Example 1 of Automator, step 2", width = "256px"),
+                                                                         br(),
+                                                                         "3.	Specify the number of exons in the transcript. In this example, there are 5 exons",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_3.png", alt = "Example 1 of Automator, step 3", width = "256px"),
+                                                                         br(),
+                                                                         "4.	A number of text boxes will appear depending on how many exons there are in the transcript. Enter the genomic co-ordinates of the exons in the transcript",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_4.png", alt = "Example 1 of Automator, step 4", width = "256px"),
+                                                                         br(),
+                                                                         "5.	Click on \"Generate shorthand\"",
+                                                                         br(),
+                                                                         "6.	The EDN expression to describe the transcript will show in the text box",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_5.png", alt = "Example 1 of Automator, step 4", width = "256px")
+                                                                       ),
+                                                                       p(
+                                                                         h3("Example 2: Naming an alternative exon of ", em("EZH2")),
+                                                                         br(),
+                                                                         "Although the contextualisation and labelling of small genomic features such as exons, junctions and Alternative Exonic Segments (AESs) can be difficult, involving many steps, the EDN Automator provides a quick way to do this in a single step. In the following example, an alternative exon of ", em("EZH2"), " is named using the EDN:",
+                                                                         br(),
+                                                                         "1.	Select \"Alternative exon\" from the drop-down box",
+                                                                         br(),
+                                                                         img(src = "example_automator_altexon_1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
+                                                                         br(),
+                                                                         "2.	 Select the genome assembly from the drop-down box and click \"Import annotation file\"",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
+                                                                         br(),
+                                                                         "3.	Enter the genomic co-ordinates of the exon",
+                                                                         br(),
+                                                                         img(src = "example_automator_altexon_2.png", alt = "Example 2 of Automator, step 3", width = "256px"),
+                                                                         br(),
+                                                                         "4.	Click on \"Generate shorthand\"",
+                                                                         br(),
+                                                                         "5.	The EDN expression to describe the exon will show in the text box",
+                                                                         br(),
+                                                                         img(src = "example_automator_altexon_3.png", alt = "Example 2 of Automator, step 4", width = "256px")
+                                                                       ),
+                                                                       p(
+                                                                         h3("Example 3: Naming an alternative splicing event in ", em("RUNX2")),
+                                                                         br(),
+                                                                         "Alternative splicing events occur when more than one Alternative Exonic Segment (AES) is possible within a single region. The EDN uses the forward slash notation (/) to denote alternative sequences, allowing for a compact description of multiple transcript isoforms. In the following example, we use the EDN Automator to name a Variably Spliced Region (VSR) in ", em("RUNX2,"), " where some isoforms may either include exon 6 or skip exon 6 of the locus:",
+                                                                         br(),
+                                                                         "1.	Select \"VSR Exons\" from the drop-down box",
+                                                                         br(),
+                                                                         img(src = "example_automator_vsrexons_1.png", alt = "Example 3 of Automator, step 1", width = "256px"),
+                                                                         br(),
+                                                                         "2.	 Select the genome assembly from the drop-down box and click \"Import annotation file\"",
+                                                                         br(),
+                                                                         img(src = "example_automator_fli_2.png", alt = "Example 3 of Automator, step 2", width = "256px"),
+                                                                         br(),
+                                                                         "3.	Enter the genomic co-ordinates of the VSR",
+                                                                         br(),
+                                                                         "4.	Enter the number of AESs. In this case, there are two alternatives – one where exon 6 is included and the other where exon 6 is skipped",
+                                                                         br(),
+                                                                         "5.	More boxes will appear, asking how many exons are in each AES. If we let AES #1 to be the skipping isoform, it has 0 exons. If we let AES #2 be the inclusion isoform, it has 1 exon",
+                                                                         br(),
+                                                                         "6.	Enter the genomic co-ordinates of the AESs",
+                                                                         br(),
+                                                                         img(src = "example_automator_vsrexons_2.png", alt = "Example 3 of Automator, step 4", width = "256px"),
+                                                                         br(),
+                                                                         "7.	Click on \"Generate shorthand\"",
+                                                                         br(),
+                                                                         "8.	The EDN expression to describe the VSR will show in the text box. Note that the exclusion isoform is indicated as an empty alternative \"/)\" after E6",
+                                                                         br(),
+                                                                         img(src = "example_automator_vsrexons_3.png", alt = "Example 3 of Automator, step 4", width = "256px")
+                                                                       ))
+                                                              )),
+                                                     
+                                                     tabPanel("EDN Viewer",
+                                                              fluidRow(
+                                                                column(width = 12,
+                                                                       p(
+                                                                         h3("Example: visualising the relative position of an internal exon in SUGCT given hg38 coordinates 7:40815512-40815803"),
+                                                                         "1.	Import the annotations for the hg38 genome assembly",
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step1.png", alt = "Example 2 of Automator, step 1", width = "256px"),
+                                                                         br(),
+                                                                         "2.	Select “Exon” as the type of range to describe",
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step2.png", alt = "Example 2 of Automator, step 2", width = "256px"),
+                                                                         br(),
+                                                                         "3.	Enter the co-ordinates and click “Add range”. It should say “triage successful”, indicating the format of co-ordinates is correct",
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step3.png", alt = "Example 2 of Automator, step 3", width = "256px"),
+                                                                         br(),
+                                                                         "4.	The Schematic should now display your exon of interest in the bottom panel. The dotted red lines display the exon’s position with respect to the reference genome. The red arrows and their associated numbers indicate how far the nearest reference exon is from the 5’ or 3’ of the exon of interest. 
 
 Unsurprisingly, the schematic shows no exons within the viewing area near the exon of interest. In this case however, there seems to be reference exons nearby on both sides. We therefore need to zoom out in order to see the bigger picture.",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step4.png", alt = "Example 2 of Automator, step 4", width = "512px"),
-                                                                br(),
-                                                                "5.	To zoom out, we change the “Base zoom x-axis” option:",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step5.png", alt = "Example 2 of Automator, step 5", width = "256px"),
-                                                                br(),
-                                                                "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
-                                                                br(),
-                                                                img(src = "example_viewer_1_step6.png", alt = "Example 2 of Automator, step 6", width = "512px")
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step4.png", alt = "Example 2 of Automator, step 4", width = "512px"),
+                                                                         br(),
+                                                                         "5.	To zoom out, we change the “Base zoom x-axis” option:",
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step5.png", alt = "Example 2 of Automator, step 5", width = "256px"),
+                                                                         br(),
+                                                                         "6.	It is now apparent that the exon of interest lies in a region previously thought to be intronic. The nucleotide distances shown in red can be directly used to generate an EDN expression.",
+                                                                         br(),
+                                                                         img(src = "example_viewer_1_step6.png", alt = "Example 2 of Automator, step 6", width = "512px")
+                                                                       ))
                                                               ))
-                                                     ))
-                                 )
-                               ))
-                      )),
+                                                     )
+                                                     
+                                                   )
+                                          )),
+                                 
+                                 tabPanel("Feedback and suggestions",
+                                          shinysurveys::surveyOutput(
+                                            df = df_feedback,
+                                            survey_title = "Feeback and suggestions",
+                                            survey_description = "Use this form to express any and all feedback and suggestions so we can improve this app.",
+                                            theme = NULL,
+                                            inputId = "surveysubmitbutton", 
+                                            label = NULL,
+                                            width = "auto",
+                                            icon = NULL
+                                          ),
+                                          "* Mandatory field. If no comments or not applicable, type N/A."
+                                 ), # tabPanel
+                                 
+                      ) # navbarPage
+                      
+             ), # tabPanel
              
              tabPanel("EDN Automator",
                       
@@ -3466,7 +3539,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                selectInput("automator_structure_type", 
                                            label = "STEP 1: Select the type of splice structure to describe", 
                                            choices = list("Full-length isoform" = c("Upload assembled transcriptome (GTF)", "Manually enter exon co-ordinates"), 
-                                                          "Alternative splicing" = c("Alternative exon", "Alternative junction", "Local Isoform Segment (LIS)"), 
+                                                          "Alternative splicing" = c("Alternative exon", "Alternative junction", "Alternative Exonic Segment (AES)"), 
                                                           "Alternatively spliced regions" = c("VSR Exons", "VSR Junctions", "Local Splice Variation (LSV) (junctions only)")),
                                            width = "300px"),
                                
@@ -3508,7 +3581,7 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                br(),
                                
                                # STRATEGY: 
-                               # FLI & LIS: vertex matching
+                               # FLI & AES: vertex matching
                                # VSRs and AEs: VSR and exon coord matching, splicemode autodetect
                                # LSVs and AJs: Junction matching. Forward-slashes everywhere.
                                
@@ -3544,22 +3617,22 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
                                  textInput("automator_alternative_junc_coords", label = "STEP 3: Enter the genome-relative co-ordinates of the junction", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                ),
                                
-                               # generate a text box for users to state the number of exons in the LIS
+                               # generate a text box for users to state the number of exons in the AES
                                conditionalPanel(
-                                 condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)'",
-                                 textInput("automator_LIS_number_of_exons", label = "STEP 3: Enter the number of exons inside the LIS (not including the constitutive exons at the ends)", value = 1, width = "300px")
+                                 condition = "input.automator_structure_type == 'Alternative Exonic Segment (AES)'",
+                                 textInput("automator_AES_number_of_exons", label = "STEP 3: Enter the number of exons inside the AES (not including the constitutive exons at the ends)", value = 1, width = "300px")
                                ),
                                
-                               # generate a text box for users to state the number of exons in the LIS
+                               # generate a text box for users to state the number of exons in the AES
                                conditionalPanel(
-                                 condition = "input.automator_structure_type == 'Local Isoform Segment (LIS)' || input.automator_structure_type == 'VSR Exons'",
-                                 textInput("automator_alternative_event_region", label = "STEP 4: Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471", width = "300px")
+                                 condition = "input.automator_structure_type == 'Alternative Exonic Segment (AES)' || input.automator_structure_type == 'VSR Exons'",
+                                 textInput("automator_alternative_event_region", label = "STEP 3: Enter the co-ordinates of the alternative event region (bounded by constitutive exons)", placeholder = "e.g. 16:2756607-2757471", width = "300px")
                                ),
                                
                                # generate a text box for users to state the number of independent splicing events to be included in the VSR
                                conditionalPanel(
                                  condition = "input.automator_structure_type == 'VSR Exons' || input.automator_structure_type == 'VSR Junctions' || input.automator_structure_type == 'Local Splice Variation (LSV) (junctions only)'",
-                                 textInput("automator_alternative_region_number_of_independent_events", label = "State the number of independent events in this region (an independent region is an exon or LIS or one junction only)", value = 1, width = "300px")
+                                 textInput("automator_alternative_region_number_of_independent_events", label = "State the number of independent events in this region (an independent region is an exon or AES or one junction only)", value = 1, width = "300px")
                                ),
                                
                                div(style = "padding-left: 50px; width: 300px;", 
@@ -3904,6 +3977,14 @@ Unsurprisingly, the schematic shows no exons within the viewing area near the ex
 # Define server logic required to generate the nomenclature
 server <- function(input, output, session) {
   
+  shinysurveys::renderSurvey()
+  
+  observeEvent(input$surveysubmitbutton, {
+    showModal(modalDialog(
+      title = "Thank you! Your feedback is much appreciated.",
+    ))
+  })
+  
   # handle downloading of annotation files
   output$info_annotationtable_downloadbutton <- downloadHandler(
     filename = input$info_annotationtable_downloadchoice,
@@ -3940,27 +4021,27 @@ server <- function(input, output, session) {
   } )
   
   # reactive ui
-  # if the user wants to manualy enter exon co-ordinates for full-length isoform or LISs, then open up multiple text boxes for entering individual co-ords.
+  # if the user wants to manualy enter exon co-ordinates for full-length isoform or AESs, then open up multiple text boxes for entering individual co-ords.
   output$automator_reactive_UI_1 <- renderUI( {
     
     if (input$automator_structure_type == "Manually enter exon co-ordinates") {
       
       purrr::map(.x = 1:input$automator_full_length_number_of_exons, .f = ~textInput(paste("full_length_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606", width = "300px"))
       
-    } else if (input$automator_structure_type == "Local Isoform Segment (LIS)") {
+    } else if (input$automator_structure_type == "Alternative Exonic Segment (AES)") {
       
-      purrr::map(.x = 1:input$automator_LIS_number_of_exons, .f = ~textInput(paste("LIS_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of alternative exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606", width = "300px"))
+      purrr::map(.x = 1:input$automator_AES_number_of_exons, .f = ~textInput(paste("AES_exon_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of alternative exon #", .x, sep = ""), placeholder = "e.g. 16:2756334-2756606", width = "300px"))
       
     } else if (input$automator_structure_type == "VSR Exons") {
       
       # VSR Exons
-      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LISs. we're basically asking for multiple LISs.
-      purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("VSR_number_of_exons_for_LIS_", .x, sep = ""), label = paste("Enter the number of exons for LIS #", .x, sep = ""), value = 1, width = "300px"))
+      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of AESs. we're basically asking for multiple AESs.
+      purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("VSR_number_of_exons_for_AES_", .x, sep = ""), label = paste("Enter the number of exons for AES #", .x, sep = ""), value = 1, width = "300px"))
       
     } else if (input$automator_structure_type == "VSR Junctions") {
       
       # VSR Junctions
-      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LISs. we're basically asking for multiple LISs.
+      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of AESs. we're basically asking for multiple AESs.
       purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~list(
         textInput(paste("VSR_junction_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of constitutent junction #", .x, sep = ""), placeholder = "e.g. 16:2756607-2757471", width = "300px"),
         checkboxInput(paste("VSR_junction_is_IR_", .x, sep = ""), label = paste("Is IR? #", .x, sep = ""))
@@ -3969,7 +4050,7 @@ server <- function(input, output, session) {
     } else if (input$automator_structure_type == "Local Splice Variation (LSV) (junctions only)") {
       
       # LSVs
-      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of LISs. we're basically asking for multiple LISs.
+      # after the user has entered the number of independent events, for EACH independent event in the region, we have to ask the user how many exons there are, since alternative regions are a collection of AESs. we're basically asking for multiple AESs.
       purrr::map(.x = 1:input$automator_alternative_region_number_of_independent_events, .f = ~textInput(paste("LSV_junction_genome_relative_coordinate_", .x, sep = ""), label = paste("Enter the genome-relative co-ordinates of constitutent junction #", .x, sep = ""), placeholder = "e.g. 16:2756607-2757471", width = "300px"))
       
     } # else if
@@ -3981,40 +4062,37 @@ server <- function(input, output, session) {
     
     if (input$automator_structure_type == "VSR Exons") {
       
-      reactive_automator_VSR_number_of_exons_for_each_LIS <- reactive({
+      reactive_automator_VSR_number_of_exons_for_each_AES <- reactive({
         
         purrr::map(
           .x = 1:input$automator_alternative_region_number_of_independent_events,
-          .f = ~input[[paste("VSR_number_of_exons_for_LIS_", .x, sep = "")]])
+          .f = ~input[[paste("VSR_number_of_exons_for_AES_", .x, sep = "")]])
         
       })
       
       # finishing off the VSR options...
-      # after use has entered the number of exons for each LIS,
-      # then map across each LIS, creating textbox options for co-ordinates of exons
+      # after use has entered the number of exons for each AES,
+      # then map across each AES, creating textbox options for co-ordinates of exons
       
       purrr::imap(
-        .x = reactive_automator_VSR_number_of_exons_for_each_LIS(),
+        .x = reactive_automator_VSR_number_of_exons_for_each_AES(),
         .f = function(a1, a2) {
           
           number_of_exons <- a1 %>% paste %>% type.convert
           
-          purrr::imap(
-            .x = 1:number_of_exons,
-            .f = function(b1, b2) {
-              
-              textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIS_number_", a2, sep = ""),
-                        label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in LIS #", a2, sep = ""),
-                        placeholder = "16:2756334-2756606", 
-                        width = "300px")
-              
-              # print(b1)
-              # print(b2)
-              
-              # print(a1)
-              # print(a2)
-              
-            } )
+          if (number_of_exons > 0) {
+            purrr::imap(
+              .x = 1:number_of_exons,
+              .f = function(b1, b2) {
+                
+                textInput(paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_AES_number_", a2, sep = ""),
+                          label = paste("Enter the genome-relative co-ordinates of alternative exon #", b2, " in AES #", a2, sep = ""),
+                          placeholder = "16:2756334-2756606", 
+                          width = "300px")
+                
+              } )
+          } else {
+          }
           
         } )
       
@@ -4216,34 +4294,48 @@ server <- function(input, output, session) {
       # invoke VSR pipeline
     } else if (automator_input_structure_type == "VSR Exons") {
       
-      reactive_VSR_number_of_exons_for_each_LIS <- reactive({
+      reactive_VSR_number_of_exons_for_each_AES <- reactive({
         
         purrr::map(
           .x = 1:input$automator_alternative_region_number_of_independent_events,
-          .f = ~input[[paste("VSR_number_of_exons_for_LIS_", .x, sep = "")]])
+          .f = ~input[[paste("VSR_number_of_exons_for_AES_", .x, sep = "")]])
         
+      } )
+      
+      reactive_flag_automator_vsr_empty_alternate <- reactive ( {
+        if (any(unlist(reactive_VSR_number_of_exons_for_each_AES()) == 0)) {
+          return(TRUE)
+        } else {
+          return(FALSE)
+        }
       } )
       
       reactive_VSR_exon_genome_relative_coordinates <- reactive({
         
         purrr::imap(
-          .x = reactive_VSR_number_of_exons_for_each_LIS(),
+          .x = reactive_VSR_number_of_exons_for_each_AES(),
           .f = function(a1, a2) {
             number_of_exons <- a1 %>% paste %>% type.convert
             
-            purrr::imap(
-              .x = 1:number_of_exons,
-              .f = function(b1, b2) {
-                
-                input[[paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_LIS_number_", a2, sep = "")]]
-                
-              } )
+            if (number_of_exons > 0) {
+              purrr::imap(
+                .x = 1:number_of_exons,
+                .f = function(b1, b2) {
+                  
+                  input[[paste("VSR_exon_genome_relative_coordinate_exon_number_", b2, "_AES_number_", a2, sep = "")]]
+                  
+                } )
+            } else {
+              return(NULL)
+            }
             
           } )
         
       } )
       
-      list_of_VSR_exon_genome_relative_coordinates <- reactive_VSR_exon_genome_relative_coordinates()
+      list_of_VSR_exon_genome_relative_coordinates <<- reactive_VSR_exon_genome_relative_coordinates()
+      
+      list_of_VSR_exon_genome_relative_coordinates <- list_of_VSR_exon_genome_relative_coordinates[!unlist(lapply(X = list_of_VSR_exon_genome_relative_coordinates, FUN = function(a1) {return(is.null(a1))} ))]
       
       # DEBUG ###
       # automator_input_alternative_event_region <- "4:82425668-82426036:*"
@@ -4280,24 +4372,24 @@ server <- function(input, output, session) {
             
           } )
         
-        paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
+        paste("Suggested shorthand notation: \n", VSR_AES_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_AES = list_of_exon_start_end_tibbles, flag_vsr_empty_alternate = reactive_flag_automator_vsr_empty_alternate(), tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "") 
         
       })
       
       # invoke VSR pipeline
-    } else if (input$automator_structure_type == "Local Isoform Segment (LIS)") {
+    } else if (input$automator_structure_type == "Alternative Exonic Segment (AES)") {
       
-      reactive_LIS_exon_genome_relative_coordinates <- reactive({
+      reactive_AES_exon_genome_relative_coordinates <- reactive({
         
-        purrr::map(.x = 1:input$automator_LIS_number_of_exons, .f = ~input[[paste("LIS_exon_genome_relative_coordinate_", .x, sep = "")]])
+        purrr::map(.x = 1:input$automator_AES_number_of_exons, .f = ~input[[paste("AES_exon_genome_relative_coordinate_", .x, sep = "")]])
         
       })
       
-      vector_LIS_exon_genome_relative_coordinates <- reactive_LIS_exon_genome_relative_coordinates() %>% unlist
+      vector_AES_exon_genome_relative_coordinates <- reactive_AES_exon_genome_relative_coordinates() %>% unlist
       
       # DEBUG ###
       # automator_input_alternative_event_region <- "9:137613615-137614211:*"
-      # list_of_LIS_exon_genome_relative_coordinates <- list(c("9:137613770-137614031:*", "9:137613770-137614139:*", "9:137613770-137613980:*"))
+      # list_of_AES_exon_genome_relative_coordinates <- list(c("9:137613770-137614031:*", "9:137613770-137614139:*", "9:137613770-137613980:*"))
       #
       # automator_input_left_query_end_shift <- 0
       # automator_input_right_query_end_shift <- 0
@@ -4308,13 +4400,13 @@ server <- function(input, output, session) {
       output$automator_nomenclature_output <- renderText( { 
         
         triage_input_coordinates(vector_input_coordinates = automator_input_alternative_event_region, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE)
-        triage_input_coordinates(vector_input_coordinates = vector_LIS_exon_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE) 
+        triage_input_coordinates(vector_input_coordinates = vector_AES_exon_genome_relative_coordinates, vector_of_expected_chromosomes = tibble_ref_gtf$seqnames %>% unique, expect_stranded = TRUE) 
         
         # observeEvent(input$automator_button_execute, {
         
         # create list of tibble of exon start/ends
         list_of_exon_start_end_tibbles <- purrr::map(
-          .x = list(vector_LIS_exon_genome_relative_coordinates),
+          .x = list(vector_AES_exon_genome_relative_coordinates),
           .f = function(a1) {
             
             return(tibble("start" = gsub(x = a1, pattern = "^([A-Za-z0-9]+)\\:(\\d+)\\-(\\d+)(\\:(.*))?$", replacement = "\\2"),
@@ -4322,7 +4414,7 @@ server <- function(input, output, session) {
             
           } )
         
-        paste("Suggested shorthand notation: \n", VSR_LIS_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_LIS = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
+        paste("Suggested shorthand notation: \n", VSR_AES_organise_exon_naming(VSR_coordinates = automator_input_alternative_event_region, list_tibble_exon_start_end_per_AES = list_of_exon_start_end_tibbles, tibble_gtf_table = tibble_ref_gtf, left_query_shift = automator_input_left_query_end_shift, right_query_shift = automator_input_right_query_end_shift, left_tolerance = automator_input_left_match_tolerance, right_tolerance = automator_input_right_match_tolerance), "\n", sep = "")
         
       })
       
@@ -5209,7 +5301,7 @@ server <- function(input, output, session) {
     print(reactiveValuesToList(viewer_reactiveValues_annotation_files))
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE )
-   
+  
   # deal with user resetting all annotations
   observeEvent(input$viewer_delete_all_annotation, {
     
@@ -5837,7 +5929,7 @@ server <- function(input, output, session) {
   observe( {
     
     viewer_plot_brush_ranges$x <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                      viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
+                                    viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
     
     # viewer_plot_brush_ranges$y <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_y_start, 
     #                                   viewer_reactive_final_plot() %>% .$plot_view_initial_y_end)
@@ -6097,7 +6189,7 @@ server <- function(input, output, session) {
               } ) %>% purrr::flatten() %>% 
               purrr::splice(
                 scale_fill_manual(limits = c("biomart", "Domain", "Family", "Homologous_superfamily", "Repeat", "Conserved_site", "Active_site", "PTM", "Binding_site"),
-                                    values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
+                                  values = c("black", "#70C770", "#EC7865", "#6CAED4", "#FFA970", "#CE94CE", "#CE94CE", "#CE94CE", "#CE94CE"))
               )
             
           },
@@ -6269,7 +6361,7 @@ server <- function(input, output, session) {
               }
               
             } ) %>% tibble::as_tibble()
-            },
+        },
         options = list(fixedHeader = TRUE, lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")), serverSide = TRUE, searching = TRUE)
       )
       
@@ -6392,7 +6484,7 @@ server <- function(input, output, session) {
       
     } else {
       viewer_plot_brush_ranges$x <- c(viewer_reactive_final_plot() %>% .$plot_view_initial_x_start, 
-                                        viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
+                                      viewer_reactive_final_plot() %>% .$plot_view_initial_x_end)
       viewer_reactiveValues_plot_metadata$list_y_axis_scale <- viewer_reactiveValues_plot_metadata$list_y_axis_scale_initial
       
       viewer_plot_brush_ranges$logical_brush_zoom_on <- FALSE
@@ -6455,7 +6547,7 @@ server <- function(input, output, session) {
     
     # FUNCTION TO RETURN ALL FIRST LEVEL BRACKETS FROM A STRING
     ## INPUT: A CHARACTER STRING
-    ## OUTPUT: A LIST OF VECTORS, WHERE EACH LIST ELEMENT IS A BRACKETED TERM
+    ## OUTPUT: A AEST OF VECTORS, WHERE EACH AEST ELEMENT IS A BRACKETED TERM
     ## OPTION: can choose to output the stuff in the middle of the bracketed things
     
     extract_bracketed_terms_from_string <- function(input_string, output_intervening_terms = FALSE) {
@@ -6840,7 +6932,7 @@ server <- function(input, output, session) {
         }
         
       })
-      
+    
     # split BEFORE XXXX-ensta.bfl
     ## there will be some stuff remaining BEFORE the gene symbols, e.g. circ, e3 etc... 
     ## the full list: e, i, j, D, N, circ, rev, os, ins, del
@@ -6874,7 +6966,7 @@ server <- function(input, output, session) {
                     c(
                       gsub(x = b1, pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\1"),
                       gsub(x = b1, pattern = "^(e\\d+|i\\d+|j|d\\d*|n\\d*|circ|rev|os|ins|del)([a-zA-Z0-9]*\\-\\d*enst\\d+.\\d+(fl)*$)", perl = TRUE, replacement = "\\2"))
-                    )
+                  )
                 } else {
                   return(b1)
                 }
@@ -7006,38 +7098,38 @@ server <- function(input, output, session) {
       # we can only process opstacks without stable ids only when all entities are tibbles.
       # scope lies in this function because there are many cases where the top level function will need to check this.
       if (purrr::map(.x = input_list_opstack, .f = ~.x$entity %>% is.na == FALSE & .x$entity %>% length > 0 &
-          .x$current_stable_id %>% is.na == TRUE) %>% unlist) {
+                     .x$current_stable_id %>% is.na == TRUE) %>% unlist) {
         
         return(input_list_opstack)
         
       } else {
-      
-      list_output_coords <- purrr::map(
-        .x = input_list_opstack,
-        .f = function(a1) {
-          
-          # DEBUG ###
-          # a1 <- fsdf
-          # a1 <- fd
-          ###########
-          
-          # long_list_entities <- purrr::map2(.x = a1$entity, .y = a1$entityclass, .f = ~list("entity" = .x, "entityclass" = .y))
-          
-          long_list_operations <- purrr::map2(.x = a1$operations, .y = a1$operationclass, .f = ~list("operations" = .x, "operationclass" = .y))
-          
-          if (!is.na(input_list_opstack$current_stable_id)) {
+        
+        list_output_coords <- purrr::map(
+          .x = input_list_opstack,
+          .f = function(a1) {
             
-            current_hgnc_stable_id <- a1$current_stable_id
+            # DEBUG ###
+            # a1 <- fsdf
+            # a1 <- fd
+            ###########
             
-            if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
-              tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
-            } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
-              tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+            # long_list_entities <- purrr::map2(.x = a1$entity, .y = a1$entityclass, .f = ~list("entity" = .x, "entityclass" = .y))
+            
+            long_list_operations <- purrr::map2(.x = a1$operations, .y = a1$operationclass, .f = ~list("operations" = .x, "operationclass" = .y))
+            
+            if (!is.na(input_list_opstack$current_stable_id)) {
+              
+              current_hgnc_stable_id <- a1$current_stable_id
+              
+              if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*enst|\\-\\d*xm|\\-\\d*xr|\\-\\d*nm|\\-\\d*nr|\\-\\d*lrg")) {
+                tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "transcript", ]
+              } else if (grepl(x = current_hgnc_stable_id, pattern = "\\-\\d*ensp|\\-\\d*u\\d+\\.\\d|\\-\\d*np|\\-\\d*xp")) {
+                tibble_stable_id_entries <- input_tibble_gtf_table[input_tibble_gtf_table$hgnc_stable_transcript_ID == current_hgnc_stable_id & input_tibble_gtf_table$type == "CDS", ]
+              }
+              
             }
             
-          }
-            
-          if (a1$entity %>% data.class == "character") {
+            if (a1$entity %>% data.class == "character") {
               
               # fetch and calculate entity coords first
               if (grepl(x = a1$entity, pattern = "e\\d+")) {
@@ -7052,9 +7144,9 @@ server <- function(input, output, session) {
                 tibble_current_coords <- tibble::tibble("chr" = character(), "start" = integer(), "end" = integer(), "strand" = character(), "mod" = "join", "flag" = character(), "alt" = character(), "secid" = numeric(), "nestlevel" = numeric())
               }
               
-            tibble_current_coords$secid <- a1$secid
-            tibble_current_coords$nestlevel <- a1$nestlevel
-            
+              tibble_current_coords$secid <- a1$secid
+              tibble_current_coords$nestlevel <- a1$nestlevel
+              
               entity_strand <- tibble_current_coords[nrow(tibble_current_coords), "strand"] %>% unlist
               
               tibble_current_coords <- purrr::reduce(
@@ -7128,125 +7220,125 @@ server <- function(input, output, session) {
                   
                 } )
               
-          } else if (a1 %>% data.class == "tbl_df") {
-            
-            tibble_processed_transmitted_coords <- purrr::reduce(
-              .x = purrr::splice(a2$entity, a2$operations %>% as.list),
-              .f = function(b1,  b2) {
-                
-                # DEBUG ###
-                ###########
-                
-                L2_tibble_transmitted_coords <- b1
-                
-                if (grepl(x =  b2, pattern = "fivep_d(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x =  b2, pattern = "threep_d(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x =  b2, pattern = "fivep_n(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x =  b2, pattern = "threep_n(\\d+)")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x =  b2, pattern = "threep_end")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"]
-                  } else {
-                    L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"]
-                  }
-                } else if (grepl(x =  b2, pattern = "fivep_end")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") { 
-                    L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  } else {
-                    L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
-                  }
-                } else if (grepl(x =  b2, pattern = "^delta$")) {
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
-                } else if (grepl(x =  b2, pattern = "^nabla$")) {
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
-                } else if (grepl(x =  b2, pattern = "^juncleft$")) {
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), ]
-                  L2_tibble_transmitted_coords$start <- L2_tibble_transmitted_coords$end + 1
-                  L2_tibble_transmitted_coords$end <- NA
-                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncleft;", L2_tibble_transmitted_coords[, "mod"], sep = "")
-                } else if (grepl(x =  b2, pattern = "^juncright$")) {
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, ]
-                  L2_tibble_transmitted_coords$end <- L2_tibble_transmitted_coords$start - 1
-                  L2_tibble_transmitted_coords$start <- NA
-                  L2_tibble_transmitted_coords[, "mod"] <- paste("juncright;", L2_tibble_transmitted_coords[, "mod"], sep = "")
-                } else if (grepl(x =  b2, pattern = "circ")) {
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
-                  L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
-                } else if (grepl(x =  b2, pattern = "rev")) {
-                  vector_starts <- L2_tibble_transmitted_coords$start
-                  vector_ends <- L2_tibble_transmitted_coords$end
-                  L2_tibble_transmitted_coords$start <- vector_starts
-                  L2_tibble_transmitted_coords$end <- vector_ends
-                } else if (grepl(x =  b2, pattern = "os")) {
-                  # assume positive strand if strand info is not provided
-                  if (entity_strand == "-") {
-                    L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand == "-", "strand"] <- "+"
-                  } else {
-                    L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand != "-", "strand"] <- "-"
-                  }
-                }
-                
-                return(L2_tibble_transmitted_coords)
-                
-              } )
-            
-            # opstack output if unfinished
-            if (data.class(tibble_current_coords) == "list") {
-              tibble_current_coords <- purrr::splice(
-                tibble_current_coords, 
-                list(
-                  "entity" = list(tibble_processed_transmitted_coords),
-                  "entityclass" = c("entity_coord_plot_table"),
-                  "operations" = c(""),
-                  "operationclass" = c(""),
-                  "alt" = c(""), 
-                  "secid" = numeric(), 
-                  "nestlevel" = numeric()
-                ) 
-              )
+            } else if (a1 %>% data.class == "tbl_df") {
               
-            } else {
+              tibble_processed_transmitted_coords <- purrr::reduce(
+                .x = purrr::splice(a2$entity, a2$operations %>% as.list),
+                .f = function(b1,  b2) {
+                  
+                  # DEBUG ###
+                  ###########
+                  
+                  L2_tibble_transmitted_coords <- b1
+                  
+                  if (grepl(x =  b2, pattern = "fivep_d(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (L2_tibble_transmitted_coords[1, ] %>% .$strand == "-") {
+                      L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x =  b2, pattern = "threep_d(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_d(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x =  b2, pattern = "fivep_n(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "fivep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x =  b2, pattern = "threep_n(\\d+)")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") { 
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] - sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] + sign((L2_tibble_transmitted_coords[1, ] %>% .$end) - (tibble_current_coords[1, ] %>% .$start)) * type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x =  b2, pattern = "threep_end")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") { 
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"]
+                    } else {
+                      L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "start"] <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "end"]
+                    }
+                  } else if (grepl(x =  b2, pattern = "fivep_end")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") { 
+                      L2_tibble_transmitted_coords[1, "start"] <- L2_tibble_transmitted_coords[1, "end"] - type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    } else {
+                      L2_tibble_transmitted_coords[1, "end"] <- L2_tibble_transmitted_coords[1, "end"] + type.convert(gsub(x =  b2, pattern = "threep_n(\\d+)", replacement = "\\1"), as.is = TRUE)
+                    }
+                  } else if (grepl(x =  b2, pattern = "^delta$")) {
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[-(1:nrow(L2_tibble_transmitted_coords)), ]
+                  } else if (grepl(x =  b2, pattern = "^nabla$")) {
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords %>% dplyr::mutate("flag" = "insertion")
+                  } else if (grepl(x =  b2, pattern = "^juncleft$")) {
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), ]
+                    L2_tibble_transmitted_coords$start <- L2_tibble_transmitted_coords$end + 1
+                    L2_tibble_transmitted_coords$end <- NA
+                    L2_tibble_transmitted_coords[, "mod"] <- paste("juncleft;", L2_tibble_transmitted_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "^juncright$")) {
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, ]
+                    L2_tibble_transmitted_coords$end <- L2_tibble_transmitted_coords$start - 1
+                    L2_tibble_transmitted_coords$start <- NA
+                    L2_tibble_transmitted_coords[, "mod"] <- paste("juncright;", L2_tibble_transmitted_coords[, "mod"], sep = "")
+                  } else if (grepl(x =  b2, pattern = "circ")) {
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[1, "mod"] <- "circular_start"
+                    L2_tibble_transmitted_coords <- L2_tibble_transmitted_coords[nrow(L2_tibble_transmitted_coords), "mod"] <- "circular_end"
+                  } else if (grepl(x =  b2, pattern = "rev")) {
+                    vector_starts <- L2_tibble_transmitted_coords$start
+                    vector_ends <- L2_tibble_transmitted_coords$end
+                    L2_tibble_transmitted_coords$start <- vector_starts
+                    L2_tibble_transmitted_coords$end <- vector_ends
+                  } else if (grepl(x =  b2, pattern = "os")) {
+                    # assume positive strand if strand info is not provided
+                    if (entity_strand == "-") {
+                      L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand == "-", "strand"] <- "+"
+                    } else {
+                      L2_tibble_transmitted_coords[L2_tibble_transmitted_coords$strand != "-", "strand"] <- "-"
+                    }
+                  }
+                  
+                  return(L2_tibble_transmitted_coords)
+                  
+                } )
               
-              tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+              # opstack output if unfinished
+              if (data.class(tibble_current_coords) == "list") {
+                tibble_current_coords <- purrr::splice(
+                  tibble_current_coords, 
+                  list(
+                    "entity" = list(tibble_processed_transmitted_coords),
+                    "entityclass" = c("entity_coord_plot_table"),
+                    "operations" = c(""),
+                    "operationclass" = c(""),
+                    "alt" = c(""), 
+                    "secid" = numeric(), 
+                    "nestlevel" = numeric()
+                  ) 
+                )
+                
+              } else {
+                
+                tibble_current_coords <- dplyr::bind_rows(tibble_current_coords, tibble_processed_transmitted_coords)
+                
+              }
               
             }
             
-          }
-          
-          return(tibble_current_coords)
-          
-        } )
-      
-      tibble_output_coords <- list_output_coords %>% data.table::rbindlist() %>% tibble::as_tibble()
-      
-      return(tibble_output_coords)
-      
+            return(tibble_current_coords)
+            
+          } )
+        
+        tibble_output_coords <- list_output_coords %>% data.table::rbindlist() %>% tibble::as_tibble()
+        
+        return(tibble_output_coords)
+        
       }
       
     }
@@ -7396,86 +7488,268 @@ server <- function(input, output, session) {
             
             # apply and compute operations and un-nest
             # operations are only applied when the operand is present on the same level as an enst stable ID + exons or introns trailing it.
-          # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
-          # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
-          
-          # there are only three classes of inputs to the loop:
-          # 1. character (entity or operator - all operators have been changed to character previously)
-          # 2. class revtrans_opstack
-          
-          # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
-          
-          # entity elements and their operations must always be preallocated when ready.
-          
-          if (data.class(term_right) == "character") {
+            # WE ASSUME that if there are exons or introns trailing an enst ID on a certain level, then the whole level can be computed. This is because when written correctly, Ex and Ix should ALWAYS be on the same or LOWER level than the enst stable ID.
+            # if it's just enst on a level with no Ex or Ix then it's de-nested straight away without computing
             
-            # condition if HGNC stable id encountered on the RHS
-            ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
-            ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
-            ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
+            # there are only three classes of inputs to the loop:
+            # 1. character (entity or operator - all operators have been changed to character previously)
+            # 2. class revtrans_opstack
             
-            ## if there is no HGNC stable ID in the previous terms, then create a nested level immediately.
-            ## if they're operations, then wait till you get an enst, then it will be considered a nested level and the operations will be global on it.
-            ## if they're entities, then it will be considered to be part of the level above.
-            ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
-            if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
+            # operands will always eventually act downward towards deeper levels, but aren't applied until the relevant lists are un-nested to the same level.
+            
+            # entity elements and their operations must always be preallocated when ready.
+            
+            if (data.class(term_right) == "character") {
               
-              # scrub any already preallocated blank entities under the previous HGNC id
-              if ( (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == FALSE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == 1) & (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == TRUE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == 0) ) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
-                
-              }
+              # condition if HGNC stable id encountered on the RHS
+              ## we DO NOT allow pure hgnc stable IDs to be bracketed by itself, and have its associated exons a level higher. this is because it makes it really ambiguous.
+              ## if we see an hgnc stable ID bracketed by itself, we assume it refers to the full length transcripts.
+              ## scan for hgnc stable IDs until we either reach another hgnc stable ID OR you reach the end of the bracket. 
               
-              # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
-              if (current_status == "INIT") {
+              ## if there is no HGNC stable ID in the previous terms, then create a nested level immediately.
+              ## if they're operations, then wait till you get an enst, then it will be considered a nested level and the operations will be global on it.
+              ## if they're entities, then it will be considered to be part of the level above.
+              ## for consistency and the purposes of this recursive algorithm, all nested levels formally begin with an HGNC stable ID
+              if (grepl(x = term_right, pattern = "^[a-zA-Z0-9]+\\-\\d*enst\\d+.\\d+(fl)*$") %>% any == TRUE) {
                 
-                new_status <- "ASSEMBLING"
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
-                
-                # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
-              } else if (current_status == "ASSEMBLING") {
-                
-                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
-                
-                if (tibble.list_coords_sector %>% data.class == "list") {
+                # scrub any already preallocated blank entities under the previous HGNC id
+                if ( (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == FALSE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$current_stable_id) == 1) & (is.na(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == TRUE | length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$entity) == 0) ) {
                   
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                  
+                }
+                
+                # if an HGNC stable ID is the first term in the string, then that's great - compute away wihout any issues. 
+                if (current_status == "INIT") {
+                  
+                  new_status <- "ASSEMBLING"
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
+                  
+                  # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+                } else if (current_status == "ASSEMBLING") {
+                  
+                  tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
+                  
+                  if (tibble.list_coords_sector %>% data.class == "list") {
+                    
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      tibble.list_coords_sector,
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                    )
+                    
+                  } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                    
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      list(
+                        "current_stable_id" = NA,
+                        "status" = "INIT",
+                        "entity" = tibble_coords_sector,
+                        "entityclass" = "coord_plot_table",
+                        "operations" = "",
+                        "operationclass" = "",
+                        "alt" = character(), 
+                        "secid" = global_temp_segid, 
+                        "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                        "index" = c3
+                      ),
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                    )
+                    
+                  }
+                  
+                  global_temp_segid <<- global_temp_segid + 1
+                  
+                  # preallocate for the next sector. 
+                  # there is no entity currently specified but all we have is the HGNC stable id.
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                    tibble.list_coords_sector,
-                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
-                  )
-                  
-                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], 
                     list(
-                      "current_stable_id" = NA,
+                      "current_stable_id" = term_right,
                       "status" = "INIT",
-                      "entity" = tibble_coords_sector,
-                      "entityclass" = "coord_plot_table",
-                      "operations" = "",
-                      "operationclass" = "",
+                      "entity" = list(),
+                      "entityclass" = character(),
+                      "operations" = character(),
+                      "operationclass" = character(),
                       "alt" = character(), 
                       "secid" = global_temp_segid, 
                       "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                       "index" = c3
-                    ),
-                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]
+                    )
+                  )
+                  
+                  # we have a pending overarching operation on the sector (because the user was too lazy to put down brackets)
+                  # we had to treat the sector as a nested level to accomplish this
+                } else if (current_status == "ASSEMBLING_OP_PENDING") {
+                  
+                  # compute current sector
+                  tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
+                  
+                  # temporarily store the next preallocated entity
+                  list_opstack_next_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
+                  
+                  # remove the virtual nested sector
+                  revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                  
+                  # there is NO WAY the pending sector will be incomplete because for a pending sector to be created in the first place, an HGNC id needs to be there.
+                  
+                  if (tibble.list_coords_sector %>% data.class == "list") {
+                    
+                    # temporarily store the previous entity which houses the operations because we wont need it anymore now that we're shoving the whole list in instead
+                    list_opstack_previous_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
+                    
+                    # remove the previous entity
+                    revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                    
+                    # fetch the previous HGNC id
+                    upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
+                    
+                    # add in pending operations AT THE END because they are outside the brackets
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                      purrr::map(.x = tibble.list_coords_sector,
+                                 .f = function(b1) {
+                                   b1$operations <- c(b1$operations, list_opstack_previous_entity$operations);
+                                   b1$operationclass <- c(b1$operationclass, list_opstack_previous_entity$operationclass);
+                                   if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
+                                     b1$current_stable_id <- upper_level_previous_HGNC_id
+                                   };
+                                   return(b1)})
+                      
+                    )
+                    
+                  } else
+                    
+                    if (tibble.list_coords_sector %>% data.class == "tibble") {
+                      
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
+                      
+                    }
+                  
+                  global_temp_segid <<- global_temp_segid + 1
+                  
+                  # add back the next preallocated entity
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    list(list_opstack_next_entity)
+                  )
+                  
+                  new_status <- "ASSEMBLING"
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
+                  
+                }
+                
+                # check for completeness
+                # we cannot have an undeclared HGNC id in the first entity in the top level
+                if (revtrans_opstack_inprogress@list_operation_stacks[[1]][[1]]$current_stable_id %>% length == 0) {
+                  stop()
+                }
+                
+                ## condition: if not HGNC stable ID -> add to the operation stack
+                # if the next term is an operation
+              } else if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
+                
+                # check for whether our operation is on the left or right of the entity
+                if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$entity %>% length == 0) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
+                    term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "fivep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "fivep_n\\2"),
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
+                  )
+                  
+                } else if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity %>% length > 0) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
+                    term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "threep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "threep_n\\2"),
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
                   )
                   
                 }
                 
-                global_temp_segid <<- global_temp_segid + 1
+                # check for whether our operation is on the left or right of the entity
+                if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass <- c(
+                    "standard,onesided,quantitative",
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass
+                  )
+                  
+                } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
+                    "mutation,onesided,quantitative",
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
+                  )
+                  
+                }
                 
-                # preallocate for the next sector. 
-                # there is no entity currently specified but all we have is the HGNC stable id.
+              } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
+                
+                #
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
+                  term_right %>% gsub(pattern = "d|del", replacement = "delta") %>% gsub(pattern = "n|ins", replacement = "nabla"),
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
+                )
+                
+                #
+                if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
+                    "standard,onesided,qualitative",
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
+                  )
+                  
+                } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
+                  
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
+                    "mutation,onesided,qualitative",
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
+                  )
+                  
+                }
+                
+              } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- term_right
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entityclass <- "exonic"
+                
+                # if junction is encountered, put it as an entity so when we do the inner function, it will note down that the next two things are to be junctioned.
+              } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations <- c(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations,
+                  "juncleft"
+                )
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass <- c(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass,
+                  "junction"
+                )
+                
                 revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], 
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
                   list(
-                    "current_stable_id" = term_right,
-                    "status" = "INIT",
-                    "entity" = list(),
+                    "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                    "entity" = tibble(),
+                    "entityclass" = character(),
+                    "operations" = "juncright",
+                    "operationclass" = "junction",
+                    "alt" = character(), 
+                    "secid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = c3
+                  )
+                )
+                
+              } else if (grepl(x = term_right, pattern = "\\_") == TRUE) {
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                  list(
+                    "curernt_stable_id" = NA,
+                    "entity" = "join",
                     "entityclass" = character(),
                     "operations" = character(),
                     "operationclass" = character(),
@@ -7486,178 +7760,106 @@ server <- function(input, output, session) {
                   )
                 )
                 
-                # we have a pending overarching operation on the sector (because the user was too lazy to put down brackets)
-                # we had to treat the sector as a nested level to accomplish this
-              } else if (current_status == "ASSEMBLING_OP_PENDING") {
+              } else if (grepl(x = term_right, pattern = "\\s") == TRUE) {
                 
-                # compute current sector
-                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][-length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])], input_tibble_gtf_table = tibble_gtf_table)
-                
-                # temporarily store the next preallocated entity
-                list_opstack_next_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
-                
-                # remove the virtual nested sector
-                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-                
-                # there is NO WAY the pending sector will be incomplete because for a pending sector to be created in the first place, an HGNC id needs to be there.
-                
-                if (tibble.list_coords_sector %>% data.class == "list") {
-
-                  # temporarily store the previous entity which houses the operations because we wont need it anymore now that we're shoving the whole list in instead
-                  list_opstack_previous_entity <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]
-
-                  # remove the previous entity
-                  revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-
-                  # fetch the previous HGNC id
-                  upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
-
-                  # add in pending operations AT THE END because they are outside the brackets
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                    purrr::map(.x = tibble.list_coords_sector,
-                               .f = function(b1) {
-                                 b1$operations <- c(b1$operations, list_opstack_previous_entity$operations);
-                                 b1$operationclass <- c(b1$operationclass, list_opstack_previous_entity$operationclass);
-                                 if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
-                                   b1$current_stable_id <- upper_level_previous_HGNC_id
-                                 };
-                                 return(b1)})
-
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                  list(
+                    "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                    "entity" = tibble(),
+                    "entityclass" = character(),
+                    "operations" = "juncright",
+                    "operationclass" = "junction",
+                    "alt" = character(), 
+                    "secid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = NA
                   )
-                  
-                } else
+                )
                 
-                if (tibble.list_coords_sector %>% data.class == "tibble") {
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
+                # this is a very important point because it's when we start preallocating the opstack for the next entity.
+                
+              } else if (grepl(x = term_right, pattern = "\\/") == TRUE) {
+                # when fwd. slash is encountered, retrospectively denote cluster to previous sector/entity (they would have already been marked as "previous".)
+                # then for every successive sector/entity, keep checking for the pending flag in revtrans_opstack_inprogress$fslash_tracker
+                
+                # fwd. slash also demarcates the end of immediate sector. compute and mark the cluster/iteration in the opstack
+                
+                # remove the preallocated entity term (if it exists)
+                if (revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity) {
                   
                 }
                 
-                global_temp_segid <<- global_temp_segid + 1
+                # check for already existing alternative segments
+                if (grepl(x = term_right, pattern = "\\/") %>% all == FALSE & revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster == "ongoing") {
+                  
+                  # increment the iteration and close off the cluster
+                  revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster
+                  
+                  revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$iteration + 1
+                  
+                } else {
+                  
+                  revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
+                    tibble::add_row("cluster" = revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster + 1,
+                                    "iteration" = 1)
+                  
+                }
                 
-                # add back the next preallocated entity
+                # check for alternative skip all
+                # if it is specified, add it to the last opstack on this level.
+                if (term_previous == "\\/") {
+                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                    list(
+                      "curernt_stable_id" = NA,
+                      "entity" = "alt_skippage",
+                      "entityclass" = "junction",
+                      "operations" = character(),
+                      "operationclass" = character(),
+                      "alt" = character(), 
+                      "secid" = global_temp_segid, 
+                      "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                      "index" = c3
+                    )
+                  )
+                }
+                
+                # apply the alt tag
+                # exclude the current c3 because we want the highest last recorded.
+                L2_index_previously_completed <- which(L2_indexes_previous_completed[L2_indexes_previous_completed != c3] == max(L2_indexes_previous_completed[L2_indexes_previous_completed != c3]))
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed] <- purrr::map(
+                  .x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed],
+                  .f = .x$alt <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
+                )
+                
+                # indicate existing for next steps
+                revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
+                  tibble::add_row("cluster" = "ongoing")
+                
+                # preallocate next entity
                 revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                  list(list_opstack_next_entity)
+                  list(
+                    "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
+                    "entity" = tibble(),
+                    "entityclass" = character(),
+                    "operations" = "junc",
+                    "operationclass" = "junction",
+                    "alt" = character(), 
+                    "secid" = global_temp_segid, 
+                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                    "index" = NA
+                  )
                 )
                 
-                new_status <- "ASSEMBLING"
+              } else if (grepl(x = term_right, pattern = "^(") == TRUE) {
                 
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
-                
-              }
-              
-              # check for completeness
-              # we cannot have an undeclared HGNC id in the first entity in the top level
-              if (revtrans_opstack_inprogress@list_operation_stacks[[1]][[1]]$current_stable_id %>% length == 0) {
-                stop()
-              }
-              
-              ## condition: if not HGNC stable ID -> add to the operation stack
-            # if the next term is an operation
-            } else if (grepl(x = term_right, pattern = "^(d\\d+|n\\d+|ins\\d+|del\\d+)$") == TRUE) {
-              
-              # check for whether our operation is on the left or right of the entity
-              if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$entity %>% length == 0) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
-                  term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "fivep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "fivep_n\\2"),
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
-                )
-                
-              } else if (revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity %>% length > 0) {
-                
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
-                  term_right %>% gsub(pattern = "(d|del)(\\d+)", replacement = "threep_d\\2") %>% gsub(pattern = "(n|ins)(\\d+)", replacement = "threep_n\\2"),
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
-                )
-                
-              }
-              
-              # check for whether our operation is on the left or right of the entity
-              if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass <- c(
-                  "standard,onesided,quantitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)])]]$operationclass
-                )
-                
-              } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
-                  "mutation,onesided,quantitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
-                )
-                
-              }
-              
-            } else if (grepl(x = term_right, pattern = "^(d|n|ins|del|circ|rev|os)$") == TRUE) {
-              
-              #
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations <- c(
-                term_right %>% gsub(pattern = "d|del", replacement = "delta") %>% gsub(pattern = "n|ins", replacement = "nabla"),
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations
-              )
-              
-              #
-              if (grepl(x = term_right, pattern = "^(ins|del)$") == FALSE) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
-                  "standard,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
-                )
-                
-              } else if (grepl(x = term_right, pattern = "^(ins|del)$") == TRUE) {
-                
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass <- c(
-                  "mutation,onesided,qualitative",
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass
-                )
-                
-              }
-              
-            } else if (grepl(x = term_right, pattern = "^e\\d+$|^i\\d+$") == TRUE) {
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- term_right
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entityclass <- "exonic"
-              
-            # if junction is encountered, put it as an entity so when we do the inner function, it will note down that the next two things are to be junctioned.
-            } else if (grepl(x = term_right, pattern = "^j$") == TRUE) {
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations <- c(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operations,
-                "juncleft"
-              )
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass <- c(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]) - 1]]$operationclass,
-                "junction"
-              )
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                list(
-                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
-                  "entity" = tibble(),
-                  "entityclass" = character(),
-                  "operations" = "juncright",
-                  "operationclass" = "junction",
-                  "alt" = character(), 
-                  "secid" = global_temp_segid, 
-                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                  "index" = c3
-                )
-              )
-              
-            } else if (grepl(x = term_right, pattern = "\\_") == TRUE) {
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                list(
-                  "curernt_stable_id" = NA,
-                  "entity" = "join",
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
+                  "current_stable_id" = character(),
+                  "status" = "INIT",
+                  "entity" = list(),
                   "entityclass" = character(),
                   "operations" = character(),
                   "operationclass" = character(),
@@ -7666,285 +7868,175 @@ server <- function(input, output, session) {
                   "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                   "index" = c3
                 )
-              )
-              
-            } else if (grepl(x = term_right, pattern = "\\s") == TRUE) {
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                list(
-                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
-                  "entity" = tibble(),
-                  "entityclass" = character(),
-                  "operations" = "juncright",
-                  "operationclass" = "junction",
-                  "alt" = character(), 
-                  "secid" = global_temp_segid, 
-                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                  "index" = NA
-                )
-              )
-              
-              # this is a very important point because it's when we start preallocating the opstack for the next entity.
-              
-            } else if (grepl(x = term_right, pattern = "\\/") == TRUE) {
-              # when fwd. slash is encountered, retrospectively denote cluster to previous sector/entity (they would have already been marked as "previous".)
-              # then for every successive sector/entity, keep checking for the pending flag in revtrans_opstack_inprogress$fslash_tracker
-              
-              # fwd. slash also demarcates the end of immediate sector. compute and mark the cluster/iteration in the opstack
-              
-              # remove the preallocated entity term (if it exists)
-              if (revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity) {
                 
-              }
-              
-              # check for already existing alternative segments
-              if (grepl(x = term_right, pattern = "\\/") %>% all == FALSE & revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster == "ongoing") {
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- "ASSEMBLING"
                 
-                # increment the iteration and close off the cluster
-                revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster
-                
-                revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration <- revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$iteration + 1
-                
-              } else {
-                
-                revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
-                  tibble::add_row("cluster" = revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker) - 1, ]$cluster + 1,
-                                  "iteration" = 1)
-                
-              }
-              
-              # check for alternative skip all
-              # if it is specified, add it to the last opstack on this level.
-              if (term_previous == "\\/") {
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                  list(
-                    "curernt_stable_id" = NA,
-                    "entity" = "alt_skippage",
-                    "entityclass" = "junction",
-                    "operations" = character(),
-                    "operationclass" = character(),
-                    "alt" = character(), 
-                    "secid" = global_temp_segid, 
-                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                    "index" = c3
-                  )
-                )
-              }
-              
-              # apply the alt tag
-              # exclude the current c3 because we want the highest last recorded.
-              L2_index_previously_completed <- which(L2_indexes_previous_completed[L2_indexes_previous_completed != c3] == max(L2_indexes_previous_completed[L2_indexes_previous_completed != c3]))
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed] <- purrr::map(
-                .x = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][L2_index_previously_completed],
-                .f = .x$alt <- paste(revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$cluster, ",", revtrans_opstack_inprogress$fslash_tracker[nrow(revtrans_opstack_inprogress$fslash_tracker), ]$iteration, sep = "")
-              )
-              
-              # indicate existing for next steps
-              revtrans_opstack_inprogress$fslash_tracker <- revtrans_opstack_inprogress$fslash_tracker %>% 
-                tibble::add_row("cluster" = "ongoing")
-              
-              # preallocate next entity
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                list(
-                  "curernt_stable_id" = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[L2_indexes_previous_completed_with_hgnc_id]]$current_stable_id,
-                  "entity" = tibble(),
-                  "entityclass" = character(),
-                  "operations" = "junc",
-                  "operationclass" = "junction",
-                  "alt" = character(), 
-                  "secid" = global_temp_segid, 
-                  "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                  "index" = NA
-                )
-              )
-              
-            } else if (grepl(x = term_right, pattern = "^(") == TRUE) {
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks) + 1]] <- list(
-                "current_stable_id" = character(),
-                "status" = "INIT",
-                "entity" = list(),
-                "entityclass" = character(),
-                "operations" = character(),
-                "operationclass" = character(),
-                "alt" = character(), 
-                "secid" = global_temp_segid, 
-                "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                "index" = c3
-              )
-              
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- "ASSEMBLING"
-                  
-                  # end of bracket - we need to:
-                  # 1. apply overarching operations
-                  # 2. if incomplete, integrate operation stack with upper level accumulation
+                # end of bracket - we need to:
+                # 1. apply overarching operations
+                # 2. if incomplete, integrate operation stack with upper level accumulation
               } else if (grepl(x = term_right, pattern = "^)") == TRUE) {
                 
                 # check for alternative skip all
                 # if it is specified, add it to the last opstack on this level.
-              if (term_previous == "\\/") {
-                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                  list(
-                    "curernt_stable_id" = NA,
-                    "entity" = "alt_skippage",
-                    "entityclass" = "junction",
-                    "operations" = character(),
-                    "operationclass" = character(),
-                    "alt" = character(), 
-                    "secid" = global_temp_segid, 
-                    "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
-                    "index" = c3
-                  )
-                )
-              }
-              
-              # inner call for all bracketed terms
-              tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
-              
-              # get rid of nested list element
-              revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-              
-              # fetch upper level status
-              upper_level_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$status
-              
-              # fetch upper level HGNC id because maybe the nested sector is incomplete and it needs the preceding HGNC id.
-              upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
-              
-              # follow similar rules as end of line
-              if (upper_level_status %in% c("ASSEMBLING")) {
-                
-                if (tibble.list_coords_sector %>% data.class == "list") {
-                  
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                    tibble.list_coords_sector
-                    
-                  )
-                  
-                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
-                  
+                if (term_previous == "\\/") {
                   revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
                     revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
                     list(
-                      "current_stable_id" = NA,
-                      "status" = "INIT",
-                      "entity" = tibble.list_coords_sector,
-                      "entityclass" = "coord_plot_table",
-                      "operations" = "",
-                      "operationclass" = "",
+                      "curernt_stable_id" = NA,
+                      "entity" = "alt_skippage",
+                      "entityclass" = "junction",
+                      "operations" = character(),
+                      "operationclass" = character(),
                       "alt" = character(), 
                       "secid" = global_temp_segid, 
                       "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
                       "index" = c3
                     )
                   )
-                  
                 }
-              
-              # if there's a pending op, tack the nested segment onto the end of the upper level (which is still being assembled)
-              # if the nested segment is a tibble, add as previous entity
-              # if the nested segment is a list of opstacks (incomplete), then operations have to be distributed into the segment and the whole thing spliced after
-              } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING")) {
                 
-                if (tibble.list_coords_sector %>% data.class == "list") {
+                # inner call for all bracketed terms
+                tibble.list_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # get rid of nested list element
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                # fetch upper level status
+                upper_level_status <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$status
+                
+                # fetch upper level HGNC id because maybe the nested sector is incomplete and it needs the preceding HGNC id.
+                upper_level_previous_HGNC_id <- revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] %>% purrr::map(~.x$current_stable_id) %>% unlist %>% na.omit %>% .[length(.)]
+                
+                # follow similar rules as end of line
+                if (upper_level_status %in% c("ASSEMBLING")) {
                   
-                  # add in pending operations AT THE END because they are outside the brackets
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
-                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
-                    purrr::map(.x = tibble.list_coords_sector, 
-                               .f = function(d1) {
-                                 d1$operations <- c(d1$operations, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations); 
-                                 d1$operationclass <- c(d1$operationclass, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass);
-                                 if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
-                                   d1$current_stable_id <- upper_level_previous_HGNC_id
-                                 };
-                                 return(d1)})
+                  if (tibble.list_coords_sector %>% data.class == "list") {
                     
-                  )
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                      tibble.list_coords_sector
+                      
+                    )
+                    
+                  } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                    
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                      list(
+                        "current_stable_id" = NA,
+                        "status" = "INIT",
+                        "entity" = tibble.list_coords_sector,
+                        "entityclass" = "coord_plot_table",
+                        "operations" = "",
+                        "operationclass" = "",
+                        "alt" = character(), 
+                        "secid" = global_temp_segid, 
+                        "nestlevel" = length(revtrans_opstack_inprogress@list_operation_stacks),
+                        "index" = c3
+                      )
+                    )
+                    
+                  }
                   
-                } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                  # if there's a pending op, tack the nested segment onto the end of the upper level (which is still being assembled)
+                  # if the nested segment is a tibble, add as previous entity
+                  # if the nested segment is a list of opstacks (incomplete), then operations have to be distributed into the segment and the whole thing spliced after
+                } else if (upper_level_status %in% c("ASSEMBLING_OP_PENDING")) {
                   
-                  revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
+                  if (tibble.list_coords_sector %>% data.class == "list") {
+                    
+                    # add in pending operations AT THE END because they are outside the brackets
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]] <- purrr::splice(
+                      revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]],
+                      purrr::map(.x = tibble.list_coords_sector, 
+                                 .f = function(d1) {
+                                   d1$operations <- c(d1$operations, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operations); 
+                                   d1$operationclass <- c(d1$operationclass, revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$operationclass);
+                                   if (upper_level_previous_HGNC_id %>% is.na == FALSE) {
+                                     d1$current_stable_id <- upper_level_previous_HGNC_id
+                                   };
+                                   return(d1)})
+                      
+                    )
+                    
+                  } else if (tibble.list_coords_sector %>% data.class == "tibble") {
+                    
+                    revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble.list_coords_sector
+                    
+                  }
                   
                 }
+                
+                global_temp_segid <<- global_temp_segid + 1
+                
+                new_status <- "INIT"
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
                 
               }
-
-              global_temp_segid <<- global_temp_segid + 1
               
-              new_status <- "INIT"
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]]$status <- new_status
-              
-          }
-          
-          }
-            
-          #
-          # check if end of string reached.
-          # 1. wrap up current string operations.
-          # 2. check for completeness
-          ## note that "PREVIOUS_INCOMPLETE" cannot persist until the end of the string because it signifies the absence of an HGNC gene symbol.
-          if (c3 == length(b1)) {
-          
-            # check how many operation stacks are left. we should only have one left (or two if there is an unbracketed overarching operation pending)
-            if (length(revtrans_opstack_inprogress@list_operation_stacks) > 2) {
-              stop()
             }
             
-            # if previous sector is in INIT state, it probably means it is fresh from the end of a bracket or something. 
-            # in that case, we are done here. output the tibble of coords for drawing.
-            if (current_status == "INIT") {
-            
-              revtrans_opstack_inprogress@output_coords <- revtrans_opstack_inprogress@output_coords
+            #
+            # check if end of string reached.
+            # 1. wrap up current string operations.
+            # 2. check for completeness
+            ## note that "PREVIOUS_INCOMPLETE" cannot persist until the end of the string because it signifies the absence of an HGNC gene symbol.
+            if (c3 == length(b1)) {
               
-            # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
-            } else if (current_status == "ASSEMBLING") {
-              
-              tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-              
-              # can't apply operations if not enough information provided.
-              if (data.class(tibble_coords_sector == "list")) {
+              # check how many operation stacks are left. we should only have one left (or two if there is an unbracketed overarching operation pending)
+              if (length(revtrans_opstack_inprogress@list_operation_stacks) > 2) {
                 stop()
-              } else if (data.class(tibble_coords_sector == "tbl_df")) {
+              }
+              
+              # if previous sector is in INIT state, it probably means it is fresh from the end of a bracket or something. 
+              # in that case, we are done here. output the tibble of coords for drawing.
+              if (current_status == "INIT") {
                 
-                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                revtrans_opstack_inprogress@output_coords <- revtrans_opstack_inprogress@output_coords
                 
-              }
+                # if a sector is already in the process of being assembled, then this signifies the end of that sector. call inner function and refresh.
+              } else if (current_status == "ASSEMBLING") {
+                
+                tibble_coords_sector <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # can't apply operations if not enough information provided.
+                if (data.class(tibble_coords_sector == "list")) {
+                  stop()
+                } else if (data.class(tibble_coords_sector == "tbl_df")) {
+                  
+                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_sector)
+                  
+                }
+                
+                # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
+              } else if (current_status == "ASSEMBLING_OP_PENDING") {
+                
+                tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
+                
+                # can't apply operations if not enough information provided.
+                if (data.class(tibble_coords_sector_pending == "list")) {
+                  stop()
+                }
+                
+                revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
+                
+                revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble_coords_sector_pending
+                
+                ## make another call to apply the overarching operation.
+                ## this must not be incomplete because it's the end of string.
+                tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
+                
+                if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
+                  new_status <- "ASSEMBLING"
+                  revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
+                } else if (data.class(tibble_coords_overarching_operation == "list")) {
+                  stop()
+                }
+                
+              } 
               
-              # we have a pending overarching operation, so we will have to finish off the current sector by calling inner function then slotting it into the previous list element. can delete the sector pending from the operation stack list.
-            } else if (current_status == "ASSEMBLING_OP_PENDING") {
-              
-              tibble_coords_sector_pending <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[length(revtrans_opstack_inprogress@list_operation_stacks)], input_tibble_gtf_table = tibble_gtf_table)
-              
-              # can't apply operations if not enough information provided.
-              if (data.class(tibble_coords_sector_pending == "list")) {
-                stop()
-              }
-              
-              revtrans_opstack_inprogress@list_operation_stacks <- revtrans_opstack_inprogress@list_operation_stacks[-length(revtrans_opstack_inprogress@list_operation_stacks)]
-              
-              revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]][[length(revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]])]]$entity <- tibble_coords_sector_pending
-              
-              ## make another call to apply the overarching operation.
-              ## this must not be incomplete because it's the end of string.
-              tibble_coords_overarching_operation <- revtrans_opstack_to_coords(input_list_opstack = revtrans_opstack_inprogress@list_operation_stacks[[length(revtrans_opstack_inprogress@list_operation_stacks)]], input_tibble_gtf_table = tibble_gtf_table)
-              
-              if (data.class(tibble_coords_overarching_operation == "tbl_df")) {
-                new_status <- "ASSEMBLING"
-                revtrans_opstack_inprogress@output_coords <- dplyr::bind_rows(revtrans_opstack_inprogress@output_coords, tibble_coords_overarching_operation)
-              } else if (data.class(tibble_coords_overarching_operation == "list")) {
-                stop()
-              }
-              
-            } 
-            
-          }
+            }
             
             # deal with lingering checks here
             
@@ -7965,13 +8057,13 @@ server <- function(input, output, session) {
               )
               
             }
-             
-        return(revtrans_opstack_working_terms)
-       
+            
+            return(revtrans_opstack_working_terms)
+            
           }
-             
-    } )
-  
+          
+        } )
+      
     }
     
     tibble_plotting_coords_raw <- c$output_coords
@@ -8001,7 +8093,7 @@ server <- function(input, output, session) {
       .y = tibble_plotting_coords_raw$fslash_tracker$iteration,
       .f = tibble_plotting_coords_raw[is.na(tibble_plotting_coords_raw$mod) | tibble_plotting_coords_raw$mod == paste(.x, ",", .y, sep = ""), ]
     )
-      
+    
     
     
     
@@ -8258,7 +8350,7 @@ server <- function(input, output, session) {
       }
     )
     
-} )  # END REVERSE TRANSLATE ###
+  } )  # END REVERSE TRANSLATE ###
   
   outputOptions(output, "automator_reactive_UI_1", suspendWhenHidden = TRUE)
   outputOptions(output, "automator_reactive_UI_2", suspendWhenHidden = TRUE)
